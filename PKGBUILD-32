@@ -1,0 +1,146 @@
+# Created by: varmd
+
+pkgname=lib32-wine-wayland
+_pkgname=wine-wayland
+pkgver=4.21
+pkgrel=75
+_winesrcdir='wine-wine-4.21'
+_esyncsrcdir='esync'
+_where=$PWD
+
+pkgdesc=''
+
+url=''
+arch=('x86_64')
+
+options=('staticlibs' '!strip')
+
+license=('LGPL')
+
+depends=(
+    'fontconfig'            
+    'freetype2'             
+    'gcc-libs'              
+    'desktop-file-utils'
+    'gnutls'
+    'lib32-mpg123' 
+    'lib32-glibc' 
+    'lib32-gcc-libs' 
+    'lib32-openal'  
+    'lib32-vulkan-icd-loader'
+    'lib32-mesa'
+    'lib32-wayland'
+    'lib32-freetype'
+)
+
+makedepends=('git' 
+    'autoconf' 
+    'bison' 
+    'perl' 
+    'flex'
+    'gcc'
+    'gnutls'
+    'openal'    
+    'alsa-lib'             
+    'lib32-mesa'
+    'vulkan-headers'    
+    'gettext'               
+)
+
+
+source=("https://github.com/wine-mirror/wine/archive/wine-4.21.zip")
+    
+sha256sums=('SKIP')
+
+
+conflicts=('wine' 'wine-staging' 'wine-esync')
+
+# OPTIONS=(!strip docs libtool staticlibs emptydirs !zipman !purge !debug) 
+makedepends=(${makedepends[@]} ${depends[@]})
+
+
+
+prepare() {
+
+	echo ""
+	
+}
+
+
+
+
+build() {
+	cd "${srcdir}"
+  
+  export COMMON_FLAGS="-march=native -pipe -Os"
+  export LDFLAGS="-Os"
+
+
+  # create new build dirs
+	mkdir -p "${srcdir}"/"${_pkgname}"-32-build
+
+  msg2 'Building Wine-32...'
+	cd  "${srcdir}"/"${_pkgname}"-32-build
+	
+  
+  #if [0]; then
+  ../${_winesrcdir}/configure \
+		--prefix='/usr' \
+		--libdir=/usr/lib32 \
+    --with-wine64="$srcdir/$_pkgname-64-build" \
+		--without-x \
+		--without-gstreamer \
+    --without-gsm \
+    --without-opencl \
+    --without-opengl \
+    --without-sdl \
+    --without-cups \
+    --without-cms \
+    --without-vkd3d \
+    --without-xinerama \
+    --without-xrandr \
+    --without-sane \
+    --without-osmesa \
+    --without-gettext \
+    --without-fontconfig \
+    --without-cups \
+    --disable-win16 \
+    --without-gphoto \
+    --without-glu \
+    --without-xcomposite \
+    --without-xcursor \
+    --without-hal \
+    --without-xfixes \
+    --without-xshape \
+    --without-xrender \
+    --without-xinput \
+    --without-xinput2 \
+    --without-xrender \
+    --without-xxf86vm \
+    --without-xshm \
+    --with-freetype \
+    --with-vulkan \
+    --with-openal \
+    --without-faudio \
+    --without-netapi \
+		--disable-tests
+  #fi
+	
+	make -s -j 4
+  
+  
+  
+}
+
+package() {
+	
+	msg2 'Packaging Wine-32...'
+	cd "${srcdir}/${_pkgname}"-32-build
+	make -s	prefix="${pkgdir}/usr" \
+			libdir="${pkgdir}/usr/lib32" \
+			dlldir="${pkgdir}/usr/lib32/wine" install
+	
+  
+	
+
+}

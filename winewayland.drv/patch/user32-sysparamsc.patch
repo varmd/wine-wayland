@@ -1,0 +1,245 @@
+--- sysparams.c	2019-09-28 00:54:58.000000000 +0400
++++ ../src/wine-wine-4.17/dlls/user32/sysparams.c	2019-11-02 19:49:15.208635538 +0400
+@@ -4055,219 +4055,36 @@
+     return TRUE;
+ }
+ 
++static const WCHAR primary_device_name[] = {'\\','\\','.','\\','D','I','S','P','L','A','Y','1',0};
++static const WCHAR primary_device_string[] = {'X','1','1',' ','W','i','n','d','o','w','i','n','g',' ',
++                                              'S','y','s','t','e','m',0};
++static const WCHAR primary_device_deviceid[] = {'P','C','I','\\','V','E','N','_','0','0','0','0','&',
++                                                'D','E','V','_','0','0','0','0',0};
++
++
+ /***********************************************************************
+  *		EnumDisplayDevicesW (USER32.@)
+  */
+-BOOL WINAPI EnumDisplayDevicesW( LPCWSTR device, DWORD index, DISPLAY_DEVICEW *info, DWORD flags )
++BOOL WINAPI EnumDisplayDevicesW( LPCWSTR lpDevice, DWORD i, LPDISPLAY_DEVICEW lpDisplayDevice,
++                                 DWORD dwFlags )
+ {
+-    SP_DEVINFO_DATA device_data = {sizeof(device_data)};
+-    HDEVINFO set = INVALID_HANDLE_VALUE;
+-    WCHAR key_nameW[MAX_PATH];
+-    WCHAR instanceW[MAX_PATH];
+-    WCHAR bufferW[1024];
+-    LONG adapter_index;
+-    WCHAR *next_charW;
+-    HANDLE mutex;
+-    DWORD size;
+-    DWORD type;
+-    HKEY hkey;
+-    BOOL ret = FALSE;
+-
+-    TRACE("%s %d %p %#x\n", debugstr_w( device ), index, info, flags);
+-
+-    wait_graphics_driver_ready();
+-    mutex = get_display_device_init_mutex();
+-
+-    /* Find adapter */
+-    if (!device)
+-    {
+-        sprintfW( key_nameW, VIDEO_VALUE_FMT, index );
+-        size = sizeof(bufferW);
+-        if (RegGetValueW( HKEY_LOCAL_MACHINE, VIDEO_KEY, key_nameW, RRF_RT_REG_SZ, NULL, bufferW, &size ))
+-            goto done;
+-
+-        /* DeviceKey */
+-        if (info->cb >= offsetof(DISPLAY_DEVICEW, DeviceKey) + sizeof(info->DeviceKey))
+-            lstrcpyW( info->DeviceKey, bufferW );
+-
+-        /* DeviceName */
+-        sprintfW( info->DeviceName, ADAPTER_FMT, index + 1 );
+-
+-        /* Strip \Registry\Machine\ */
+-        lstrcpyW( key_nameW, bufferW + 18 );
+-
+-        /* DeviceString */
+-        size = sizeof(info->DeviceString);
+-        if (RegGetValueW( HKEY_LOCAL_MACHINE, key_nameW, DRIVER_DESC, RRF_RT_REG_SZ, NULL,
+-                          info->DeviceString, &size ))
+-            goto done;
+-
+-        /* StateFlags */
+-        size = sizeof(info->StateFlags);
+-        if (RegGetValueW( HKEY_CURRENT_CONFIG, key_nameW, STATE_FLAGS, RRF_RT_REG_DWORD, NULL,
+-                          &info->StateFlags, &size ))
+-            goto done;
+-
+-        /* DeviceID */
+-        if (info->cb >= offsetof(DISPLAY_DEVICEW, DeviceID) + sizeof(info->DeviceID))
+-        {
+-            if (flags & EDD_GET_DEVICE_INTERFACE_NAME)
+-                info->DeviceID[0] = 0;
+-            else
+-            {
+-                size = sizeof(bufferW);
+-                if (RegGetValueW( HKEY_CURRENT_CONFIG, key_nameW, GPU_ID, RRF_RT_REG_SZ | RRF_ZEROONFAILURE, NULL,
+-                                  bufferW, &size ))
+-                    goto done;
+-                set = SetupDiCreateDeviceInfoList( &GUID_DEVCLASS_DISPLAY, NULL );
+-                if (!SetupDiOpenDeviceInfoW( set, bufferW, NULL, 0, &device_data )
+-                    || !SetupDiGetDeviceRegistryPropertyW( set, &device_data, SPDRP_HARDWAREID, NULL, (BYTE *)bufferW,
+-                                                           sizeof(bufferW), NULL ))
+-                    goto done;
+-                lstrcpyW( info->DeviceID, bufferW );
+-            }
+-        }
+-    }
+-    /* Find monitor */
+-    else
+-    {
+-        /* Check adapter name */
+-        if (strncmpiW( device, ADAPTER_PREFIX, ARRAY_SIZE(ADAPTER_PREFIX) ))
+-            goto done;
+-
+-        adapter_index = strtolW( device + ARRAY_SIZE(ADAPTER_PREFIX), NULL, 10 );
+-        sprintfW( key_nameW, VIDEO_VALUE_FMT, adapter_index - 1 );
+-
+-        size = sizeof(bufferW);
+-        if (RegGetValueW( HKEY_LOCAL_MACHINE, VIDEO_KEY, key_nameW, RRF_RT_REG_SZ, NULL, bufferW, &size ))
+-            goto done;
+-
+-        /* DeviceName */
+-        sprintfW( info->DeviceName, MONITOR_FMT, adapter_index, index );
+-
+-        /* Get monitor instance */
+-        /* Strip \Registry\Machine\ first */
+-        lstrcpyW( key_nameW, bufferW + 18 );
+-        sprintfW( bufferW, MONITOR_ID_VALUE_FMT, index );
+-
+-        size = sizeof(instanceW);
+-        if (RegGetValueW( HKEY_CURRENT_CONFIG, key_nameW, bufferW, RRF_RT_REG_SZ, NULL, instanceW, &size ))
+-            goto done;
+-
+-        set = SetupDiCreateDeviceInfoList( &GUID_DEVCLASS_MONITOR, NULL );
+-        if (!SetupDiOpenDeviceInfoW( set, instanceW, NULL, 0, &device_data ))
+-            goto done;
+-
+-        /* StateFlags */
+-        if (!SetupDiGetDevicePropertyW( set, &device_data, &WINE_DEVPROPKEY_MONITOR_STATEFLAGS, &type,
+-                                        (BYTE *)&info->StateFlags, sizeof(info->StateFlags), NULL, 0 ))
+-            goto done;
+-
+-        /* DeviceString */
+-        if (!SetupDiGetDeviceRegistryPropertyW( set, &device_data, SPDRP_DEVICEDESC, NULL,
+-                                                (BYTE *)info->DeviceString,
+-                                                sizeof(info->DeviceString), NULL ))
+-            goto done;
+-
+-        /* DeviceKey */
+-        if (info->cb >= offsetof(DISPLAY_DEVICEW, DeviceKey) + sizeof(info->DeviceKey))
+-        {
+-            if (!SetupDiGetDeviceRegistryPropertyW( set, &device_data, SPDRP_DRIVER, NULL, (BYTE *)bufferW,
+-                                                    sizeof(bufferW), NULL ))
+-                goto done;
+-
+-            lstrcpyW( info->DeviceKey, NT_CLASS );
+-            lstrcatW( info->DeviceKey, bufferW );
+-        }
+-
+-        /* DeviceID */
+-        if (info->cb >= offsetof(DISPLAY_DEVICEW, DeviceID) + sizeof(info->DeviceID))
+-        {
+-            if (flags & EDD_GET_DEVICE_INTERFACE_NAME)
+-            {
+-                lstrcpyW( info->DeviceID, MONITOR_INTERFACE_PREFIX );
+-                lstrcatW( info->DeviceID, instanceW );
+-                lstrcatW( info->DeviceID, GUID_DEVINTERFACE_MONITOR );
+-                /* Replace '\\' with '#' after prefix */
+-                for (next_charW = info->DeviceID + strlenW( MONITOR_INTERFACE_PREFIX ); *next_charW;
+-                     next_charW++)
+-                {
+-                    if (*next_charW == '\\')
+-                        *next_charW = '#';
+-                }
+-            }
+-            else
+-            {
+-                if (!SetupDiGetDeviceRegistryPropertyW( set, &device_data, SPDRP_HARDWAREID, NULL, (BYTE *)bufferW,
+-                                                        sizeof(bufferW), NULL ))
+-                    goto done;
+-
+-                lstrcpyW( info->DeviceID, bufferW );
+-                lstrcatW( info->DeviceID, BACKSLASH );
+-
+-                if (!SetupDiGetDeviceRegistryPropertyW( set, &device_data, SPDRP_DRIVER, NULL, (BYTE *)bufferW,
+-                                                        sizeof(bufferW), NULL ))
+-                    goto done;
+-
+-                lstrcatW( info->DeviceID, bufferW );
+-            }
+-        }
+-    }
+-
+-    ret = TRUE;
+-done:
+-    release_display_device_init_mutex( mutex );
+-    SetupDiDestroyDeviceInfoList( set );
+-    if (ret)
+-        return ret;
++    FIXME("(%s,%d,%p,0x%08x), stub!\n",debugstr_w(lpDevice),i,lpDisplayDevice,dwFlags);
+ 
+-    /* Fallback to report at least one adapter and monitor, if user driver didn't initialize display device registry */
+-    if (index)
++    if (i)
+         return FALSE;
+ 
+-    /* If user driver did initialize the registry, then exit */
+-    if (!RegOpenKeyW( HKEY_LOCAL_MACHINE, VIDEO_KEY, &hkey ))
+-    {
+-        RegCloseKey( hkey );
+-        return FALSE;
+-    }
+-    WARN("Reporting fallback display devices\n");
+-
+-    /* Adapter */
+-    if (!device)
+-    {
+-        memcpy( info->DeviceName, DEFAULT_ADAPTER_NAME, sizeof(DEFAULT_ADAPTER_NAME) );
+-        memcpy( info->DeviceString, DEFAULT_ADAPTER_STRING, sizeof(DEFAULT_ADAPTER_STRING) );
+-        info->StateFlags =
+-            DISPLAY_DEVICE_ATTACHED_TO_DESKTOP | DISPLAY_DEVICE_PRIMARY_DEVICE | DISPLAY_DEVICE_VGA_COMPATIBLE;
+-        if (info->cb >= offsetof(DISPLAY_DEVICEW, DeviceID) + sizeof(info->DeviceID))
+-        {
+-            if (flags & EDD_GET_DEVICE_INTERFACE_NAME)
+-                info->DeviceID[0] = 0;
+-            else
+-                memcpy( info->DeviceID, DEFAULT_ADAPTER_ID, sizeof(DEFAULT_ADAPTER_ID) );
+-        }
+-    }
+-    /* Monitor */
+-    else
+-    {
+-        if (lstrcmpiW( DEFAULT_ADAPTER_NAME, device ))
+-            return FALSE;
+-
+-        memcpy( info->DeviceName, DEFAULT_MONITOR_NAME, sizeof(DEFAULT_MONITOR_NAME) );
+-        memcpy( info->DeviceString, DEFAULT_MONITOR_STRING, sizeof(DEFAULT_MONITOR_STRING) );
+-        info->StateFlags = DISPLAY_DEVICE_ACTIVE | DISPLAY_DEVICE_ATTACHED;
+-        if (info->cb >= offsetof(DISPLAY_DEVICEW, DeviceID) + sizeof(info->DeviceID))
+-        {
+-            if (flags & EDD_GET_DEVICE_INTERFACE_NAME)
+-                memcpy( info->DeviceID, DEFAULT_MONITOR_INTERFACE_ID, sizeof(DEFAULT_MONITOR_INTERFACE_ID) );
+-            else
+-                memcpy( info->DeviceID, DEFAULT_MONITOR_ID, sizeof(DEFAULT_MONITOR_ID) );
+-        }
+-    }
+-
+-    if (info->cb >= offsetof(DISPLAY_DEVICEW, DeviceKey) + sizeof(info->DeviceKey))
+-        info->DeviceKey[0] = 0;
++    memcpy(lpDisplayDevice->DeviceName, primary_device_name, sizeof(primary_device_name));
++    memcpy(lpDisplayDevice->DeviceString, primary_device_string, sizeof(primary_device_string));
++  
++    lpDisplayDevice->StateFlags =
++        DISPLAY_DEVICE_ATTACHED_TO_DESKTOP |
++        DISPLAY_DEVICE_PRIMARY_DEVICE |
++        DISPLAY_DEVICE_VGA_COMPATIBLE;
++
++    if(lpDisplayDevice->cb >= offsetof(DISPLAY_DEVICEW, DeviceID) + sizeof(lpDisplayDevice->DeviceID))
++        memcpy(lpDisplayDevice->DeviceID, primary_device_deviceid, sizeof(primary_device_deviceid));
++    if(lpDisplayDevice->cb >= offsetof(DISPLAY_DEVICEW, DeviceKey) + sizeof(lpDisplayDevice->DeviceKey))
++        lpDisplayDevice->DeviceKey[0] = 0;
+ 
+     return TRUE;
+ }

@@ -1,0 +1,22 @@
+*** a/configure.ac	Fri Aug 30 22:42:00 2019
+--- b/configure.ac	Fri Aug 30 22:42:22 2019
+***************
+*** 1005,1010 ****
+--- 1005,1011 ----
+      ;;
+  esac
+  
++ enable_winewayland_drv=${enable_winewayland_drv:-yes}
+  enable_winecoreaudio_drv=${enable_winecoreaudio_drv:-no}
+  enable_wineqtdecoder=${enable_wineqtdecoder:-no}
+  enable_wineandroid_drv=${enable_wineandroid_drv:-no}
+***************
+*** 3722,3727 ****
+--- 3723,3729 ----
+  WINE_CONFIG_MAKEFILE(dlls/windowscodecsext)
+  WINE_CONFIG_MAKEFILE(dlls/windowscodecsext/tests)
+  WINE_CONFIG_MAKEFILE(dlls/winealsa.drv)
++ WINE_CONFIG_MAKEFILE(dlls/winewayland.drv)
+  WINE_CONFIG_MAKEFILE(dlls/wineandroid.drv)
+  WINE_CONFIG_MAKEFILE(dlls/winebus.sys)
+  WINE_CONFIG_MAKEFILE(dlls/winecoreaudio.drv)
