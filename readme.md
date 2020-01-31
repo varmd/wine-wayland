@@ -32,7 +32,7 @@ download from github, cd to zip directory
 
 #### installation of 32bit (optional, for 32bit games)
 
-First compile and install regular wine-wayland, then in the zip directory
+First compile and install regular wine-wayland, then in the same zip directory
 
     makepkg -P PKGBUILD-32 --noextract
     pacman -U lib32-wine-wayland*
@@ -72,4 +72,4 @@ On first boot, click cancel on Install Gecko and Mono
 * No GDI apps support
 * Launchers are not working
 * No OpenGL support
-
+* No custom cursors
