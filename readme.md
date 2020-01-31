@@ -3,18 +3,18 @@
 
 Wine-wayland allows playing DXVK and Vulkan games using pure wayland and Wine 4.21.
 
-# why wine-wayland
+## why wine-wayland
 ----
  * You are tired of dealing with Xorg and don't care about launchers and controllers
  * You want to remove Xorg related packages from your PC
  * You want to experience potentially faster and smoother gaming on Wayland
  * You are concerned about insecure Xorg games that can spy on other apps running on Xorg.
 
-# screenshot
+## screenshot
 
 ![screenshot] (screenshot.png)
 
-# requirements
+## requirements
 
  * Archlinux or Manjaro
  * AMD GPU with Vulkan support
