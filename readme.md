@@ -1,10 +1,9 @@
-----
 ## what is wine-wayland
 
 Wine-wayland allows playing DXVK and Vulkan games using pure wayland and Wine 4.21.
 
 ## why wine-wayland
-----
+
  * You are tired of dealing with Xorg and don't care about launchers and controllers
  * You want to remove Xorg related packages from your PC
  * You want to experience potentially faster and smoother gaming on Wayland
@@ -23,7 +22,6 @@ Wine-wayland allows playing DXVK and Vulkan games using pure wayland and Wine 4.
  * SDL and Faudio
  * Esync or Fsync support
 
-----
 ## installation
 
 download from github, cd to zip directory
