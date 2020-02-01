@@ -47,11 +47,11 @@ export DXVK_LOG_LEVEL=none
 
 
 #enable/disable dxvk_hud
-#export DXVK_HUD=fps,memory
+export DXVK_HUD=1
 
 #enable disable mangohud if available
-export MANGOHUD=1
-export MANGOHUD_CONFIG=cpu_temp,gpu_temp,height=100,font_size=20
+#export MANGOHUD=1
+#export MANGOHUD_CONFIG=cpu_temp,gpu_temp,height=100,font_size=20
 
 #---Modify folder names here
 
