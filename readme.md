@@ -11,7 +11,7 @@ Wine-wayland allows playing DXVK and Vulkan games using pure wayland and Wine 4.
 
 ## screenshot
 
-![screenshot] (https://raw.githubusercontent.com/varmd/wine-wayland/master/screenshot.png "Screenshot")
+![screenshot](https://raw.githubusercontent.com/varmd/wine-wayland/master/screenshot.png "Screenshot")
 
 ## requirements
 
