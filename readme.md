@@ -1,6 +1,6 @@
 ## what is wine-wayland
 
-Wine-wayland allows playing DXVK and Vulkan games using pure wayland and Wine 4.21.
+Wine-wayland allows playing DX9/DX11 and Vulkan games using pure wayland and Wine/DXVK.
 
 ## why wine-wayland
 
