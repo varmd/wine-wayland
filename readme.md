@@ -44,9 +44,13 @@ First compile and install regular wine-wayland, then in the same zip directory
     cp -r YourGameFolder prefix/your-game/
    
 copy relevant 64bit or 32bit dxvk dlls to prefix/your-game
+
 Copy start-example.sh to your-dir and modify for your-game, change your-game and YourGameFolder at the top of the file.
+
 rename start-example.sh to start-your-game.sh
+
 Then in the terminal run sh start-your-game.sh
+
 On first boot, click cancel on Install Gecko and Mono
 
 
@@ -54,7 +58,7 @@ On first boot, click cancel on Install Gecko and Mono
 
 * F11 - Fullscreen mode
 * F10 - some games may not restrict cursor properly, manually restricts cursor to the game surface. After alt-tabbing, press two times
-* F9 - some games (such as NMS) that have their own cursor may need this to lock the cursor pointer. Also enable export WINE_VK_HIDE_CURSOR=1 in the start-game.sh
+* F9 - some games (such as NMS) that have their own cursor may need this to lock the cursor pointer. Also enable export WINE_VK_HIDE_CURSOR=1 in the start-game.sh. After alt-tabbing, press two times
 
 
 ## notes
