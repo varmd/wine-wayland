@@ -1452,9 +1452,9 @@ void wayland_pointer_motion_cb_vulkan(void *data,
 {
     
     
-    HWND hwnd;
+    //HWND hwnd;
     
-    hwnd = global_vulkan_hwnd;
+    //hwnd = global_vulkan_hwnd;
     
   
     
@@ -1485,7 +1485,7 @@ void wayland_pointer_motion_cb_vulkan(void *data,
   
   SERVER_START_REQ( send_hardware_message )
     {
-        req->win        = wine_server_user_handle( hwnd );
+        req->win        = wine_server_user_handle( global_vulkan_hwnd );
         req->flags      = 0;
         req->input.type = INPUT_MOUSE;
         
@@ -1841,7 +1841,6 @@ void wayland_pointer_button_cb(void *data,
 		if(state == WL_POINTER_BUTTON_STATE_PRESSED)
       input.u.mi.dwFlags     |= MOUSEEVENTF_RIGHTDOWN;
     else if(state == WL_POINTER_BUTTON_STATE_RELEASED)
-      //input.u.mi.dwFlags     = MOUSEEVENTF_RIGHTUP | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE;
       input.u.mi.dwFlags     |= MOUSEEVENTF_RIGHTUP;
 		break;   
     
@@ -4106,7 +4105,7 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
         
       
       if(!lstrcmpiW(class_name, menu_class)) {
-        return TRUE;
+        //return TRUE;
       }
       if(!lstrcmpiW(class_name, msg_class)) {
         return TRUE;
@@ -4652,6 +4651,7 @@ BOOL CDECL WAYLANDDRV_CreateWindow( HWND hwnd )
     if(hwnd != GetDesktopWindow() && (!parent || parent == GetDesktopWindow())
     ) {
       
+      #if 0
       if(RealGetWindowClassW(hwnd, class_name, ARRAY_SIZE(class_name))) {
         
         //if it's a menu class reparent
@@ -4671,6 +4671,7 @@ BOOL CDECL WAYLANDDRV_CreateWindow( HWND hwnd )
           return TRUE;
         }
       }
+      #endif
       //lstrcmpiW
       if(!lstrcmpiW(class_name, msg_class)) {
         return TRUE;
@@ -4996,28 +4997,35 @@ DWORD CDECL WAYLANDDRV_MsgWaitForMultipleObjectsEx( DWORD count, const HANDLE *h
       
         //wl_display_prepare_read(wayland_display);
         
-        if(wl_display_prepare_read(wayland_display) != 0) {
+        int ret1 = wl_display_prepare_read(wayland_display) != 0;
+        
+        if(ret1 != 0) {
           
           ret = count - 1;
-          while (wl_display_prepare_read(wayland_display) != 0) {
-          
-             wl_display_dispatch_pending(wayland_display);
-             
+          wl_display_dispatch_pending(wayland_display);
+          while (wl_display_prepare_read(wayland_display) != 0) {          
+             wl_display_dispatch_pending(wayland_display);             
           }
+          wl_display_flush(wayland_display);
+          wl_display_read_events(wayland_display);
+          wl_display_dispatch_pending(wayland_display);
           
-        } else if (count || timeout) {
-          ret = WaitForMultipleObjectsEx( count, handles, flags & MWMO_WAITALL,
-                                        10, flags & MWMO_ALERTABLE );
-          if (ret == count - 1) {
-              
-          }
-        } else {
-          ret = WAIT_TIMEOUT;  
+        } 
+        else {
+          
+          wl_display_flush(wayland_display);
+          wl_display_read_events(wayland_display);
+          wl_display_dispatch_pending(wayland_display);
+          
+          if (count || timeout) {
+              ret = WaitForMultipleObjectsEx( count, handles, flags & MWMO_WAITALL,
+                                        7, flags & MWMO_ALERTABLE );
+            } else {
+              ret = WAIT_TIMEOUT;  
+            }
         }
         
-        wl_display_flush(wayland_display);
-        wl_display_read_events(wayland_display);
-        wl_display_dispatch_pending(wayland_display);
+        
         
         
         
@@ -5589,5 +5597,4 @@ const struct vulkan_funcs *get_vulkan_driver(UINT version)
         return &vulkan_funcs;
 
     return NULL;
-}
-
+}  
