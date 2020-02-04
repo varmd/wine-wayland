@@ -65,55 +65,48 @@ makedepends=(${makedepends[@]} ${depends[@]})
 
 prepare() {
 
-
-  cd ..
-  rm -f "${srcdir}"/"${_winesrcdir}"/dlls/winewayland*
-  ln -s $PWD/winewayland* "${srcdir}"/"${_winesrcdir}"/dlls/
-  
-  cd "${srcdir}"/"${_winesrcdir}"
-  
-  patch -Np1 < '../../enable-wayland.patch'  
-  
-  patch dlls/user32/driver.c < ../../winewayland.drv/patch/user32-driverc.patch
-  patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/user32-sysparamsc.patch
-  patch programs/explorer/desktop.c < ../../winewayland.drv/patch/explorer-desktopc.patch
-  
-	
-	cd "${srcdir}"/"${_winesrcdir}"
-
-  rm configure
-  autoconf
-
-
-  
-  
-  msg2 "Applying esync patches"
-    cd "${srcdir}"
-    cp -r ../esync .
+  if [ -e "${srcdir}"/"${_winesrcdir}"/server/esync.c ]; then 
+    msg2 "Stale src/ folder. Delete src/ folder or run makepkg --noextract."
+    exit;    
+  else
+    cd ..
+    rm -f "${srcdir}"/"${_winesrcdir}"/dlls/winewayland*
+    cp -r $PWD/winewayland* "${srcdir}"/"${_winesrcdir}"/dlls/
+    
     cd "${srcdir}"/"${_winesrcdir}"
-    for _f in "${srcdir}"/"${_esyncsrcdir}"/*.patch; do
-      msg2 "Applying ${_f}"
-      git apply -C1 --verbose < ${_f}
-      #patch -Np1 < ${_f}
-    done
-  
-  
-  msg2 "Applying esync temp fix"
-  patch -Np1 < '../../esync-no_kernel_obj_list.patch'  
-  
-  msg2 "Applying fsync"
-  patch -Np1 < '../../fsync-mainline.patch'  
-  #git apply -C1 --verbose < '../../fsync-mainline.patch'  
-  
-  
-	
+    
+    patch -Np1 < '../../enable-wayland.patch'  
+    
+    patch dlls/user32/driver.c < ../../winewayland.drv/patch/user32-driverc.patch
+    patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/user32-sysparamsc.patch
+    patch programs/explorer/desktop.c < ../../winewayland.drv/patch/explorer-desktopc.patch
+    
+    
+    cd "${srcdir}"/"${_winesrcdir}"
 
-	
+    rm configure
+    autoconf
 
-
-	
-	# create new build dirs
-	mkdir -p "${srcdir}"/"${pkgname}"-64-build
+    msg2 "Applying esync patches"
+      cd "${srcdir}"
+      cp -r ../esync .
+      cd "${srcdir}"/"${_winesrcdir}"
+      for _f in "${srcdir}"/"${_esyncsrcdir}"/*.patch; do
+        msg2 "Applying ${_f}"
+        git apply -C1 --verbose < ${_f}
+      done
+    
+    
+    msg2 "Applying esync temp fix"
+    patch -Np1 < '../../esync-no_kernel_obj_list.patch'  
+    
+    msg2 "Applying fsync"
+    patch -Np1 < '../../fsync-mainline.patch'  
+    #git apply -C1 --verbose < '../../fsync-mainline.patch'  
+    
+    mkdir -p "${srcdir}"/"${pkgname}"-64-build
+    
+  fi
 	
 }
 
