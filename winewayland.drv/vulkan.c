@@ -43,6 +43,8 @@
 #include "wine/unicode.h"
 #include "wine/debug.h"
 
+//add xdg
+#include "xdg-shell-client-protocol.h"
 
 
 
@@ -1328,6 +1330,7 @@ fail:
 
 //TODO figure out how to support two hwnds;
 
+int global_wait_for_configure = 0;
 int global_is_vulkan = 0;
 int global_hide_cursor = 0;
 HWND global_vulkan_hwnd;
@@ -1336,7 +1339,8 @@ int global_update_hwnd_sdl = NULL;
 HWND global_update_hwnd_last = NULL;
 struct wine_vk_surface *global_wine_surface;
 
-static struct wl_shell *wayland_shell = NULL;
+//static struct wl_shell *wayland_shell = NULL;
+struct xdg_wm_base *wm_base = NULL;
 static struct wl_seat *wayland_seat = NULL;
 static struct wl_pointer *wayland_pointer = NULL;
 static struct wl_keyboard *wayland_keyboard = NULL;
@@ -1352,7 +1356,7 @@ struct wl_cursor       *wayland_default_cursor;
 struct wl_surface *wayland_cursor_surface;
 uint32_t wayland_serial_id;
 struct wl_shm *wayland_cursor_shm;
-struct wl_shm *shm;
+struct wl_shm *global_shm;
 
 DWORD desktop_tid;
 
@@ -1361,7 +1365,9 @@ DWORD desktop_tid;
 struct wayland_window {
 	EGLContext egl_context;
 	struct wl_surface *surface;
-	struct wl_shell_surface *shell_surface;
+	//struct wl_shell_surface *shell_surface;
+	struct xdg_surface *xdg_surface;
+	struct xdg_toplevel *xdg_toplevel;
 	struct wl_egl_window *egl_window;
 	EGLSurface egl_surface;
 	HWND pointer_to_hwnd;
@@ -2293,9 +2299,11 @@ SERVER_END_REQ;
     */
     
     if(!wayland_full) {
-		  wl_shell_surface_set_fullscreen(vulkan_window.shell_surface,
-			  			WL_SHELL_SURFACE_FULLSCREEN_METHOD_DEFAULT,
-              0, NULL);
+       
+      
+		  //wl_shell_surface_set_fullscreen(vulkan_window.shell_surface, 			  			WL_SHELL_SURFACE_FULLSCREEN_METHOD_DEFAULT, 0, NULL);
+      
+      xdg_toplevel_set_fullscreen(vulkan_window.xdg_toplevel, NULL);
       wayland_full = 1;
     }
     
@@ -2499,13 +2507,33 @@ struct wl_shm_listener shm_listener = {
 };
 
 
+static void xdg_wm_base_ping(void *data, struct xdg_wm_base *wm_base, uint32_t serial)
+{
+    xdg_wm_base_pong(wm_base, serial);
+}
+
+static const struct xdg_wm_base_listener xdg_wm_base_listener = {
+    xdg_wm_base_ping,
+};
+
 static void registry_add_object (void *data, struct wl_registry *registry, uint32_t name, const char *interface, uint32_t version) {
+  
+  
 	if (!strcmp(interface,"wl_compositor")) {
-		wayland_compositor = wl_registry_bind (registry, name, &wl_compositor_interface, 1);
+		wayland_compositor = wl_registry_bind (registry, name, &wl_compositor_interface, 4);
+    //Sway calls wl_shm before wl_compositor
+    if(wayland_compositor && !wayland_cursor_surface) {
+      wayland_cursor_surface = wl_compositor_create_surface(wayland_compositor);
+    } 
 	}
-	else if (!strcmp(interface,"wl_shell")) {
-		wayland_shell = wl_registry_bind (registry, name, &wl_shell_interface, 1);
-	} else if (!strcmp(interface, "wl_seat"))
+	//else if (!strcmp(interface,"wl_shell")) {
+		//wayland_shell = wl_registry_bind (registry, name, &wl_shell_interface, 1);
+	//} 
+  else if (strcmp(interface, "xdg_wm_base") == 0) {
+		wm_base = wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
+		xdg_wm_base_add_listener(wm_base, &xdg_wm_base_listener, NULL);
+	}
+  else if (!strcmp(interface, "wl_seat"))
 	{
 		wayland_seat = (struct wl_seat *) wl_registry_bind(registry, name, &wl_seat_interface, WINE_WAYLAND_SEAT_VERSION);
 
@@ -2519,13 +2547,17 @@ static void registry_add_object (void *data, struct wl_registry *registry, uint3
     } else if (strcmp(interface, "zwp_relative_pointer_manager_v1") == 0) {
 		  relative_pointer_manager = wl_registry_bind(registry, name, &zwp_relative_pointer_manager_v1_interface, 1);
     } else if (strcmp(interface, "wl_shm") == 0) {
+      
+      global_shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
+      wl_shm_add_listener(global_shm, &shm_listener, NULL);
+      
 		  wayland_cursor_shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
 		  wayland_cursor_theme = wl_cursor_theme_load(NULL, 32, wayland_cursor_shm);
-		  wayland_default_cursor = 	wl_cursor_theme_get_cursor(wayland_cursor_theme, "left_ptr");
-      wayland_cursor_surface = wl_compositor_create_surface(wayland_compositor);
       
-      shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
-      wl_shm_add_listener(shm, &shm_listener, NULL);
+		  wayland_default_cursor = 	wl_cursor_theme_get_cursor(wayland_cursor_theme, "left_ptr");
+      //Sway calls wl_shm before wl_compositor
+      if(wayland_compositor && !wayland_cursor_surface)
+        wayland_cursor_surface = wl_compositor_create_surface(wayland_compositor);
       
     }
 }
@@ -2535,6 +2567,45 @@ static void registry_remove_object (void *data, struct wl_registry *registry, ui
 }
 static struct wl_registry_listener registry_listener = {&registry_add_object, &registry_remove_object};
 
+
+
+
+static void
+handle_xdg_surface_configure(void *data, struct xdg_surface *surface,
+			 uint32_t serial)
+{
+  //TRACE( "Configured \n" );
+  global_wait_for_configure = 0;
+	xdg_surface_ack_configure(surface, serial);
+
+	
+}
+
+
+static void
+handle_xdg_toplevel_configure(void *data, struct xdg_toplevel *toplevel,
+			  int32_t width, int32_t height,
+			  struct wl_array *states)
+{
+	//do nothing
+}
+
+static void
+handle_xdg_toplevel_close(void *data, struct xdg_toplevel *xdg_toplevel)
+{
+	
+}
+
+static const struct xdg_toplevel_listener xdg_toplevel_listener = {
+	handle_xdg_toplevel_configure,
+	handle_xdg_toplevel_close,
+};
+
+static const struct xdg_surface_listener xdg_surface_listener = {
+	handle_xdg_surface_configure
+};
+
+#if 0
 static void shell_surface_ping (void *data, struct wl_shell_surface *shell_surface, uint32_t serial) {
 	wl_shell_surface_pong (shell_surface, serial);
 }
@@ -2547,11 +2618,16 @@ static void shell_surface_configure (void *data, struct wl_shell_surface *shell_
     //              SWP_NOACTIVATE | SWP_NOZORDER);      
   //}  
 }
+
+
+
+
 static void shell_surface_popup_done (void *data, struct wl_shell_surface *shell_surface) {
 	
 }
 
 static struct wl_shell_surface_listener shell_surface_listener = {&shell_surface_ping, &shell_surface_configure, &shell_surface_popup_done};
+
 
 static void create_wayland_window_mini (struct wayland_window *window) {
 	
@@ -2564,7 +2640,7 @@ static void create_wayland_window_mini (struct wayland_window *window) {
 	wl_shell_surface_set_toplevel (window->shell_surface);
 	
 }
-
+#endif
 
 static void create_wayland_window (struct wayland_window *window, int32_t width, int32_t height) {
 	eglBindAPI (EGL_OPENGL_API);
@@ -2577,27 +2653,52 @@ static void create_wayland_window (struct wayland_window *window, int32_t width,
 	EGLint num_config;
   struct wl_region *region;
   
+  global_wait_for_configure = 1;
+  
 	eglChooseConfig (egl_display, attributes, &config, 1, &num_config);
 	window->egl_context = eglCreateContext (egl_display, config, EGL_NO_CONTEXT, NULL);
 	
 	window->surface = wl_compositor_create_surface (wayland_compositor);
+  #if 0
 	window->shell_surface = wl_shell_get_shell_surface (wayland_shell, window->surface);
 	wl_shell_surface_add_listener (window->shell_surface, &shell_surface_listener, window);
+  #endif
+  
+  window->xdg_surface = xdg_wm_base_get_xdg_surface(wm_base, window->surface);
+	xdg_surface_add_listener(window->xdg_surface, &xdg_surface_listener, window);
+
+	window->xdg_toplevel = xdg_surface_get_toplevel(window->xdg_surface);
+	xdg_toplevel_add_listener(window->xdg_toplevel, &xdg_toplevel_listener, window);
   
   region = wl_compositor_create_region(wayland_compositor);
   wl_region_add(region, 0, 0, width, height);
   wl_surface_set_opaque_region(window->surface, region);
   
+  
   window->test = 222;
-	wl_shell_surface_set_toplevel (window->shell_surface);
+	//wl_shell_surface_set_toplevel (window->shell_surface);
 	window->egl_window = wl_egl_window_create (window->surface, width, height);
 	window->egl_surface = eglCreateWindowSurface (egl_display, config, window->egl_window, NULL);
+  
+  wl_surface_commit(window->surface);
+  wl_display_flush (wayland_display);
+  while(global_wait_for_configure) {
+    sleep(0.3);
+    wl_display_dispatch(wayland_display);
+  }
+  
 	eglMakeCurrent (egl_display, window->egl_surface, window->egl_surface, window->egl_context);
 }
 static void delete_wayland_window (struct wayland_window *window) {
 	eglDestroySurface (egl_display, window->egl_surface);
 	wl_egl_window_destroy (window->egl_window);
-	wl_shell_surface_destroy (window->shell_surface);
+	//wl_shell_surface_destroy (window->shell_surface);
+  
+  if (window->xdg_toplevel)
+		xdg_toplevel_destroy(window->xdg_toplevel);
+	if (window->xdg_surface)
+		xdg_surface_destroy(window->xdg_surface);
+  
 	wl_surface_destroy (window->surface);
 	eglDestroyContext (egl_display, window->egl_context);
 }
@@ -3299,7 +3400,7 @@ static void android_surface_flush( struct window_surface *window_surface )
     
     if(!global_wl_pool) {
       TRACE( "creating wl_pool \n" );
-      global_wl_pool = wl_shm_create_pool(shm, global_gdi_fd, size);
+      global_wl_pool = wl_shm_create_pool(global_shm, global_gdi_fd, size);
     }
     //if(!global_wl_buffer) {
       
@@ -4088,6 +4189,9 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
   if( !parent || parent != GetDesktopWindow()) {
     return;  
   }
+  
+  
+  
   //tooltips_class32
   WCHAR class_name[64];
   static const WCHAR desktop_class[] = {'#', '3', '2', '7', '6', '9', 0};
@@ -4186,6 +4290,7 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
       if(!wayland_display) {
         return;  
       }
+      
       struct wl_registry *registry = wl_display_get_registry (wayland_display);
     
   
@@ -4193,11 +4298,12 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
       //SetWindowPos( global_vulkan_hwnd, HWND_TOP, 0, 0, 1440, 900,
                   //SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOSIZE);
       //}  
-    
-    
+   
       wl_registry_add_listener (registry, &registry_listener, NULL);
+      
       wl_display_roundtrip (wayland_display);
-    
+      
+      
       egl_display = eglGetDisplay (wayland_display);
       eglInitialize (egl_display, NULL, NULL);
     
@@ -4206,10 +4312,10 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
 
       int count = 0;
       while (!count) {
-        sleep(1);
+        sleep(0.1);
         wl_display_dispatch_pending (wayland_display);
         draw_wayland_window (&vulkan_window);
-        sleep(1);
+        sleep(0.1);
         count = 1;
       }
   }
@@ -4468,7 +4574,7 @@ void CDECL WAYLANDDRV_WindowPosChanged( HWND hwnd, HWND insert_after, UINT swp_f
     
     //if (parent && parent != GetDesktopWindow() && parent != hwnd ) {
     if ( (hwnd != global_vulkan_hwnd) && ( !parent || parent == GetDesktopWindow() )   ) {
-      //TRACE("Calling flush on parent %p from child %p \n", parent, hwnd);
+      
       DWORD style = GetWindowLongW(hwnd,GWL_STYLE); //get the b style
       
       
@@ -4574,7 +4680,7 @@ void CDECL WAYLANDDRV_WindowPosChanged( HWND hwnd, HWND insert_after, UINT swp_f
         //if (surface) {
         //  window_surface_add_ref( surface );
         //  if (data->surface) window_surface_release( data->surface );
-        ///  data->surface = surface;
+        
         //}  
         //if( data->surface )
         //data->surface->funcs->flush( data->surface );
@@ -4794,7 +4900,7 @@ BOOL CDECL WAYLANDDRV_CreateWindow( HWND hwnd )
         //BringWindowToTop( hwnd);
         RedrawWindow(parent, 0, 0, RDW_INVALIDATE | RDW_ALLCHILDREN);
         RedrawWindow(global_update_hwnd, 0, 0, RDW_INVALIDATE | RDW_ALLCHILDREN);
-        //ShowWindow(hwnd, SW_SHOW);
+        
         //}
    
       
@@ -4991,6 +5097,9 @@ DWORD CDECL WAYLANDDRV_MsgWaitForMultipleObjectsEx( DWORD count, const HANDLE *h
           }  
           #endif
       
+        if(global_wait_for_configure) {
+          return WAIT_TIMEOUT;  
+        }
       
       //while (ret1 != -1)
 		    //ret1 = wl_display_dispatch(wayland_display);

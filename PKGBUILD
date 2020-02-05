@@ -48,6 +48,7 @@ makedepends=('git'
     'libxml2'               
     'fontconfig'            
     'faudio'            
+    'zstd'            
 )
 
 
@@ -71,7 +72,8 @@ prepare() {
   else
     cd ..
     rm -f "${srcdir}"/"${_winesrcdir}"/dlls/winewayland*
-    cp -r $PWD/winewayland* "${srcdir}"/"${_winesrcdir}"/dlls/
+    #cp -r $PWD/winewayland* "${srcdir}"/"${_winesrcdir}"/dlls/
+    ln -s $PWD/winewayland* "${srcdir}"/"${_winesrcdir}"/dlls/
     
     cd "${srcdir}"/"${_winesrcdir}"
     
@@ -93,8 +95,8 @@ prepare() {
       cd "${srcdir}"/"${_winesrcdir}"
       for _f in "${srcdir}"/"${_esyncsrcdir}"/*.patch; do
         msg2 "Applying ${_f}"
-	patch -Np1 < ${_f}
-        #git apply -C1 --verbose < ${_f}	
+        #git apply -C1 --verbose < ${_f}
+        patch -Np1 < ${_f}
       done
     
     
@@ -128,7 +130,9 @@ build() {
 	cd  "${srcdir}"/"${pkgname}"-64-build
 	
   
-  
+  if [ -e Makefile ]; then 
+    echo "Already configured"
+  else
   #if [0]; then
   
   ../${_winesrcdir}/configure \
@@ -175,14 +179,14 @@ build() {
 		--enable-win64 \
     --without-netapi \
 		--disable-tests
-  #fi
+  fi
 	
 	make -s -j 5
 
 }
 
 package() {
-	
+	export PKGEXT='.pkg.tar.zst'
 	cd "${srcdir}/${pkgname}"-64-build
 	make -s	prefix="${pkgdir}/usr" \
 			libdir="${pkgdir}/usr/lib" \
