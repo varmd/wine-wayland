@@ -93,7 +93,8 @@ prepare() {
       cd "${srcdir}"/"${_winesrcdir}"
       for _f in "${srcdir}"/"${_esyncsrcdir}"/*.patch; do
         msg2 "Applying ${_f}"
-        git apply -C1 --verbose < ${_f}
+	patch -Np1 < ${_f}
+        #git apply -C1 --verbose < ${_f}	
       done
     
     
