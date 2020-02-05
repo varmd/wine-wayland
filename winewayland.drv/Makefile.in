@@ -37,6 +37,8 @@ C_SRCS = \
 	waylanddrv_main.c \
   pointer-constraints-unstable-v1-protocol.c \
   relative-pointer-unstable-v1-protocol.c \
+  relative-pointer-unstable-v1-protocol.c \
+  xdg-shell-protocol.c \
 	xinerama.c
 
 RC_SRCS = version.rc
