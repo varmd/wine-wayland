@@ -43,7 +43,7 @@ First compile and install regular wine-wayland, then in the same zip directory
     mkdir -p prefix/your-game
     cp -r YourGameFolder prefix/your-game/
    
-copy relevant 64bit or 32bit dxvk dlls to prefix/your-game/YourGameFolder
+copy relevant 64bit or 32bit dxvk dlls to prefix/your-game
 
 Copy start-example.sh to your-dir and modify for your-game, change your-game and YourGameFolder at the top of the file.
 

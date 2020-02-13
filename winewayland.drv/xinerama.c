@@ -41,9 +41,9 @@ static MONITORINFOEXW default_monitor =
     {0, 0, 1600, 900},             /* rcMonitor */
     { 0, 0, 1600, 900 },             /* rcWork */
     MONITORINFOF_PRIMARY,       /* dwFlags */
-    { '\\','\\','.','\\','D','I','S','P','L','A','Y','1',0 }   /* szDevice */
+    {'\\','\\','.','\\', 'D','I','S','P','L','A','Y','1','\\', 'M','o','n','i','t','o','r','0','\\',0}   /* szDevice */
 };
-static const WCHAR monitor_deviceW[] = { '\\','\\','.','\\','D','I','S','P','L','A','Y','%','d',0 };
+//static const WCHAR monitor_deviceW[] = { '\\','\\','.','\\','D','I','S','P','L','A','Y','%','d',0 };
 
 static MONITORINFOEXW *monitors;
 static int nb_monitors;
@@ -145,19 +145,10 @@ void xinerama_init( unsigned int width, unsigned int height )
  */
 BOOL CDECL WAYLANDDRV_GetMonitorInfo( HMONITOR handle, LPMONITORINFO info )
 {
-    
-  
     int i = monitor_to_index( handle );
   
     i = 0;
-
-    /*
-    if (i == -1)
-    {
-        SetLastError( ERROR_INVALID_HANDLE );
-        return FALSE;
-    }
-  */
+    
     info->rcMonitor = monitors[i].rcMonitor;
     info->rcWork = monitors[i].rcWork;
     info->dwFlags = monitors[i].dwFlags;
@@ -172,7 +163,7 @@ BOOL CDECL WAYLANDDRV_GetMonitorInfo( HMONITOR handle, LPMONITORINFO info )
  */
 BOOL CDECL WAYLANDDRV_EnumDisplayMonitors( HDC hdc, LPRECT rect, MONITORENUMPROC proc, LPARAM lp )
 {
-    
+  
     proc( index_to_monitor(0), 0, &monitors[0].rcMonitor, lp );
     return TRUE;
   

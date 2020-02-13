@@ -98,59 +98,6 @@ static char input_style[20];
 #define IS_OPTION_FALSE(ch) \
     ((ch) == 'n' || (ch) == 'N' || (ch) == 'f' || (ch) == 'F' || (ch) == '0')
 
-int esync_fd = -1;
-
-extern void __wine_esync_set_queue_fd( int fd );
-
-/* store the display fd into the message queue */
-//TODO create file file
-static void set_queue_display_fd( int display )
-{
-    
-    HANDLE handle;
-    int ret;
-    
-    char sfn[15] = "";
-    FILE *sfp;
-    //strcpy(sfn, "/tmp/ed.XXXXXX" );
-    esync_fd = open("/tmp/esync-fd", O_ASYNC | O_RDWR | O_NOATIME);  
-  
-    if (esync_fd == -1) {
-        //if (esync_fd != -1) {
-          //unlink(sfn);
-          //close(esync_fd);
-        //}
-     //fprintf(stderr, "%s: %s\n", sfn, strerror(errno));
-     printf("No esync fd. Exiting \n");
-     exit(0);
-     return;
-  }
-  
-  
-  
-    __wine_esync_set_queue_fd( esync_fd );
-
-    if (wine_server_fd_to_handle( esync_fd, GENERIC_READ | SYNCHRONIZE, 0, &handle ))
-    {
-        MESSAGE( "waylanddrv: Can't allocate handle for display fd\n" );
-        ExitProcess(1);
-    }
-    SERVER_START_REQ( set_queue_fd )
-    {
-        req->handle = wine_server_obj_handle( handle );
-        ret = wine_server_call( req );
-    }
-    SERVER_END_REQ;
-    if (ret)
-    {
-        MESSAGE( "waylanddrv: Can't store handle for display fd\n" );
-        ExitProcess(1);
-    }
-    CloseHandle( handle );
-}
-
-
-
 
 
 /***********************************************************************
@@ -343,7 +290,8 @@ static BOOL process_attach(void)
     xinerama_init( screen_width , screen_height); 
     
     //esync
-    set_queue_display_fd( 0 );
+    //?? is this really needed
+    //set_queue_display_fd( 0 );
   
     
     /*

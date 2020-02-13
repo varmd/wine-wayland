@@ -2,9 +2,9 @@
 
 pkgname=lib32-wine-wayland
 _pkgname=wine-wayland
-pkgver=4.21
-pkgrel=75
-_winesrcdir='wine-wine-4.21'
+pkgver=5.1
+pkgrel=80
+_winesrcdir='wine-wine-5.1'
 _esyncsrcdir='esync'
 _where=$PWD
 
@@ -48,7 +48,7 @@ makedepends=('git'
 )
 
 
-source=("https://github.com/wine-mirror/wine/archive/wine-4.21.zip")
+source=("https://github.com/wine-mirror/wine/archive/wine-5.1.zip")
     
 sha256sums=('SKIP')
 
@@ -86,7 +86,9 @@ build() {
 	cd  "${srcdir}"/"${_pkgname}"-32-build
 	
   
-  #if [0]; then
+  if [ -e Makefile ]; then 
+    echo "Already configured"
+  else
   ../${_winesrcdir}/configure \
 		--prefix='/usr' \
 		--libdir=/usr/lib32 \
@@ -127,7 +129,7 @@ build() {
     --without-faudio \
     --without-netapi \
 		--disable-tests
-  #fi
+  fi
 	
 	make -s -j 4
   
@@ -136,7 +138,7 @@ build() {
 }
 
 package() {
-	
+  export PKGEXT='.pkg.tar.zst'	
 	msg2 'Packaging Wine-32...'
 	cd "${srcdir}/${_pkgname}"-32-build
 	make -s	prefix="${pkgdir}/usr" \

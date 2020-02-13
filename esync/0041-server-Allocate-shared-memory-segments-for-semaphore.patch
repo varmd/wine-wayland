@@ -53,7 +53,7 @@ diff --git a/server/esync.c b/server/esync.c
 index 399011ff0b..f1a46afc23 100644
 --- a/server/esync.c
 +++ b/server/esync.c
-@@ -21,16 +21,25 @@
+@@ -21,11 +21,19 @@
  #include "config.h"
  #include "wine/port.h"
  
@@ -73,12 +73,6 @@ index 399011ff0b..f1a46afc23 100644
  
  #include "ntstatus.h"
  #define WIN32_NO_STATUS
- #include "windef.h"
- #include "winternl.h"
-+#include "wine/library.h"
- 
- #include "handle.h"
- #include "request.h"
 @@ -51,11 +60,46 @@ int do_esync(void)
  #endif
  }
@@ -98,8 +92,8 @@ index 399011ff0b..f1a46afc23 100644
 +{
 +    struct stat st;
 +
-+    if (stat( wine_get_config_dir(), &st ) == -1)
-+        fatal_error( "cannot stat %s\n", wine_get_config_dir() );
++    if (fstat( config_dir_fd, &st ) == -1)
++        fatal_error( "cannot stat config dir\n" );
 +
 +    if (st.st_ino != (unsigned long)st.st_ino)
 +        sprintf( shm_name, "/wine-%lx%08lx-esync", (unsigned long)((unsigned long long)st.st_ino >> 32), (unsigned long)st.st_ino );
@@ -189,9 +183,9 @@ index 7aed338e96..20d3c48c4d 100644
  #include "thread.h"
  #include "request.h"
 +#include "esync.h"
- #include "wine/library.h"
  
  /* command-line options */
+ int debug_level = 0;
 @@ -141,6 +142,9 @@ int main( int argc, char *argv[] )
      sock_init();
      open_master_socket();

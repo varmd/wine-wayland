@@ -2878,7 +2878,6 @@ index aca8738c4c..97a66c16d4 100644
  #include "request.h"
  #include "esync.h"
 +#include "fsync.h"
- #include "wine/library.h"
  
  /* command-line options */
  int debug_level = 0;

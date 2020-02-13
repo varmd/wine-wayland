@@ -37,7 +37,7 @@
 
 //Wayland
 #include <wayland-client.h>
-struct wl_display *wayland_display;
+
 
 
 static struct wl_compositor *wayland_compositor = NULL;
@@ -256,9 +256,8 @@ extern BOOL client_side_graphics DECLSPEC_HIDDEN;
 extern BOOL client_side_with_render DECLSPEC_HIDDEN;
 extern BOOL shape_layered_windows DECLSPEC_HIDDEN;
 
-//extern const struct gdi_dc_funcs *WAYLANDDRV_XRender_Init(void) DECLSPEC_HIDDEN;
 
-extern struct opengl_funcs *get_glx_driver(UINT) DECLSPEC_HIDDEN;
+extern struct opengl_funcs *get_wgl_driver(UINT) DECLSPEC_HIDDEN;
 extern const struct vulkan_funcs *get_vulkan_driver(UINT) DECLSPEC_HIDDEN;
 
 /* IME support */

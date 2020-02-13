@@ -255,16 +255,16 @@ static struct opengl_funcs * CDECL WAYLANDDRV_wine_get_wgl_driver( PHYSDEV dev, 
 {
     struct opengl_funcs *ret = NULL;
     
-    return ret;
-  
-    /*
     if (!(ret = get_wgl_driver( version )))
     {
-        dev = GET_NEXT_PHYSDEV( dev, wine_get_wgl_driver );
-        ret = dev->funcs->wine_get_wgl_driver( dev, version );
+        exit(1);
+        //dev = GET_NEXT_PHYSDEV( dev, wine_get_wgl_driver );
+        //ret = dev->funcs->wine_get_wgl_driver( dev, version );
     }
+    
+    //ret->wgl.p_wglDescribePixelFormat( NULL, NULL, NULL, NULL );
     return ret;
-    */
+    
 }
 
 /**********************************************************************

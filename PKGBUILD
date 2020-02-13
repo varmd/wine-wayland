@@ -1,11 +1,11 @@
 # Created by: varmd
 
 pkgname=wine-wayland
-pkgver=4.21
-pkgrel=75
-_winesrcdir='wine-wine-4.21'
+pkgver=5.1
+pkgrel=80
+_winesrcdir='wine-wine-5.1'
 _esyncsrcdir='esync'
-_where=$PWD
+
 
 pkgdesc=''
 
@@ -52,7 +52,7 @@ makedepends=('git'
 )
 
 
-source=("https://github.com/wine-mirror/wine/archive/wine-4.21.zip")
+source=("https://github.com/wine-mirror/wine/archive/wine-5.1.zip")
     
 sha256sums=('SKIP')
 
@@ -80,7 +80,8 @@ prepare() {
     patch -Np1 < '../../enable-wayland.patch'  
     
     patch dlls/user32/driver.c < ../../winewayland.drv/patch/user32-driverc.patch
-    patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/user32-sysparamsc.patch
+    #patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/user32-sysparamsc.patch
+    patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/user32-sysparamsc-new.patch
     patch programs/explorer/desktop.c < ../../winewayland.drv/patch/explorer-desktopc.patch
     
     
