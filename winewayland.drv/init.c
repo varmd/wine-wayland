@@ -432,7 +432,8 @@ static const struct gdi_dc_funcs waylanddrv_funcs =
     NULL,                               /* pWidenPath */
     NULL,                                // D3D ??
     NULL,                                // D3D ??
-    WAYLANDDRV_wine_get_wgl_driver,         /* wine_get_wgl_driver */
+    NULL,         /* WGL Not Supported */
+    //WAYLANDDRV_wine_get_wgl_driver,         /* wine_get_wgl_driver */
     WAYLANDDRV_wine_get_vulkan_driver,      /* wine_get_vulkan_driver */
     GDI_PRIORITY_GRAPHICS_DRV           /* priority */
 };

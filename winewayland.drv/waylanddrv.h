@@ -169,6 +169,11 @@ static inline void add_bounds_rect( RECT *bounds, const RECT *rect )
     bounds->bottom = max( bounds->bottom, rect->bottom );
 }
 
+
+void *fail_on_null(void *p, size_t size, char *file, int32_t line);
+
+#define xstrdup(s) (fail_on_null(strdup(s), 0, __FILE__, __LINE__))
+
 /* Wine driver X11 functions */
 
 extern BOOL WAYLANDDRV_Arc( PHYSDEV dev, INT left, INT top, INT right,

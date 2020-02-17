@@ -3,7 +3,10 @@ IMPORTS   = uuid user32 gdi32 advapi32
 DELAYIMPORTS = comctl32 ole32 shell32 imm32
 EXTRAINCL = 
 #-lX11 
-EXTRALIBS = -lwayland-client -lwayland-egl -lwayland-cursor -lEGL -lGLESv2
+EXTRALIBS = -lwayland-client  -lwayland-cursor 
+#-lwayland-egl
+#-lEGL 
+#-lGLESv2
 #
 EXTRADLLFLAGS = 
 
@@ -24,7 +27,7 @@ EXTRADLLFLAGS =
 #	bitblt.c \
 #	graphics.c \ 
 # brush.c \
-
+#  opengl.c \
 # window.c \
 # event.c \
 # 
@@ -35,7 +38,6 @@ C_SRCS = \
 	settings.c \
 	vulkan.c \
 	waylanddrv_main.c \
-  opengl.c \
   pointer-constraints-unstable-v1-protocol.c \
   relative-pointer-unstable-v1-protocol.c \
   relative-pointer-unstable-v1-protocol.c \

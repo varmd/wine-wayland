@@ -325,9 +325,7 @@ static BOOL process_attach(void)
         ExitProcess( 1 );
     }
       SetThreadDesktop( desktop );
-    //} else {
-      //exit(1);  
-    //}
+    
 
     //UuidCreate( &guid );
     
@@ -387,9 +385,7 @@ static BOOL process_attach(void)
 
 
     //fcntl( ConnectionNumber(display), F_SETFD, 1 ); /* set close on exec flag */
-    //root_window = DefaultRootWindow( display );
     //gdi_display = display;
-    //old_error_handler = XSetErrorHandler( error_handler );
 
     //init_pixmap_formats( display );
     //init_visuals( display, DefaultScreen( display ));

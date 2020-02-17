@@ -21,6 +21,8 @@
 /* NOTE: If making changes here, consider whether they should be reflected in
  * the other drivers. */
 
+//#define OPENGL_TEST 0
+
 #include "config.h"
 #include "wine/port.h"
 
@@ -37,11 +39,7 @@
 #include "winreg.h"
 
 //opengl headers
-#ifdef HAVE_EGL_EGL_H
-#include <EGL/egl.h>
-#endif
 
-//#include "android.h"
 #include "winternl.h"
 
 #include "windef.h"
@@ -49,13 +47,15 @@
 #include "wingdi.h"
 #include "winuser.h"
 
+
+#ifdef OPENGL_TEST
 #define GLAPIENTRY /* nothing */
 #include "wine/wgl.h"
 #undef GLAPIENTRY
 #include "wine/wgl_driver.h"
 #include "wine/library.h"
 #include "wine/debug.h"
-
+#endif
 
 #include "wine/gdi_driver.h"
 
@@ -83,16 +83,24 @@
 
 
 //latest version is 5 
-#define WINE_WAYLAND_SEAT_VERSION 1
+#define WINE_WAYLAND_SEAT_VERSION 3
 
 #include "wine/vulkan.h"
 #include "wine/vulkan_driver.h"
 
 #include <wayland-client.h>
 #include <wayland-cursor.h>
-#include <wayland-egl.h>
-//#include <GLES2/gl2.h>
-#include <EGL/egl.h>
+
+#ifdef EGL_TEST
+  #ifdef HAVE_EGL_EGL_H
+  
+  #include <EGL/egl.h>
+  #include <wayland-egl.h>
+  EGLConfig global_egl_config;
+  #endif
+#endif
+
+
 #include <linux/input-event-codes.h>
 #include "pointer-constraints-unstable-v1-client-protocol.h"
 #include "relative-pointer-unstable-v1-client-protocol.h"
@@ -105,6 +113,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(waylanddrv);
 #endif
 
 //OpenGL vars
+#ifdef OPENGL_TEST
 #define DECL_FUNCPTR(f) typeof(f) * p_##f = NULL
 DECL_FUNCPTR( eglCreateContext );
 DECL_FUNCPTR( eglCreateWindowSurface );
@@ -159,7 +168,7 @@ static char wgl_extensions[4096];
 //struct opengl_funcs egl_funcs;
 static struct opengl_funcs egl_funcs;
 //OpenGL vars
-
+#endif
 
 //esync
 extern void __wine_esync_set_queue_fd( int fd );
@@ -1444,8 +1453,9 @@ static struct zwp_relative_pointer_manager_v1 *relative_pointer_manager = NULL;
 struct zwp_locked_pointer_v1 *locked_pointer = NULL;
 struct zwp_confined_pointer_v1 *confined_pointer = NULL;
 struct zwp_relative_pointer_v1 *relative_pointer;
+#ifdef EGL_TEST
 static EGLDisplay egl_display;
-
+#endif
 
 struct wl_display *wayland_display;
 struct wl_cursor_theme *wayland_cursor_theme;
@@ -1460,13 +1470,17 @@ DWORD desktop_tid;
 #define ZWP_RELATIVE_POINTER_MANAGER_V1_VERSION 1
 
 struct wayland_window {
+  #ifdef EGL_TEST
+  EGLSurface egl_surface;
 	EGLContext egl_context;
+  struct wl_egl_window *egl_window;
+  #endif
 	struct wl_surface *surface;
 	//struct wl_shell_surface *shell_surface;
 	struct xdg_surface *xdg_surface;
 	struct xdg_toplevel *xdg_toplevel;
-	struct wl_egl_window *egl_window;
-	EGLSurface egl_surface;
+	
+	
 	HWND pointer_to_hwnd;
 	int test;
 };
@@ -1809,6 +1823,8 @@ void wayland_pointer_button_cb_vulkan(void *data,
 
   hwnd = global_vulkan_hwnd;
 
+  
+  TRACE("Button code %p \n", button);
  
   switch (button)
 	{
@@ -1838,6 +1854,27 @@ void wayland_pointer_button_cb_vulkan(void *data,
       input.u.mi.dwFlags     |= MOUSEEVENTF_RIGHTUP;
 		break;   
     
+  case BTN_EXTRA:    
+  case BTN_FORWARD:
+    TRACE("Forward Click \n");
+		if(state == WL_POINTER_BUTTON_STATE_PRESSED)
+      input.u.mi.dwFlags     |= MOUSEEVENTF_XDOWN;
+    else if(state == WL_POINTER_BUTTON_STATE_RELEASED)
+      input.u.mi.dwFlags     |= MOUSEEVENTF_XUP;
+     
+      input.u.mi.mouseData = XBUTTON1;
+		break;
+  case BTN_BACK:
+  case BTN_SIDE:
+    TRACE("Back Click \n");
+		if(state == WL_POINTER_BUTTON_STATE_PRESSED)
+      input.u.mi.dwFlags     |= MOUSEEVENTF_XDOWN;
+    else if(state == WL_POINTER_BUTTON_STATE_RELEASED)
+      input.u.mi.dwFlags     |= MOUSEEVENTF_XUP;
+    
+      input.u.mi.mouseData = XBUTTON2;
+		break;
+    
     
 	default:
 		break;
@@ -1852,7 +1889,7 @@ void wayland_pointer_button_cb_vulkan(void *data,
         
         req->input.mouse.x     = input.u.mi.dx;
         req->input.mouse.y     = input.u.mi.dy;
-        req->input.mouse.data  = 0;
+        req->input.mouse.data  = input.u.mi.mouseData;
         req->input.mouse.flags = input.u.mi.dwFlags;
         req->input.mouse.time  = 0;
         req->input.mouse.info  = 0;
@@ -2111,19 +2148,7 @@ relative_pointer_handle_motion(void *data, struct zwp_relative_pointer_v1 *point
 	
   
   
-  
-	/*
-	uint32_t ms = (((uint64_t) utime_hi) << 32 | utime_lo) / 1000;
-
-	if (window->locked_pointer_motion_handler &&
-	    window->pointer_locked) {
-		window->locked_pointer_motion_handler(
-			window, input, ms,
-			wl_fixed_to_double(dx),
-			wl_fixed_to_double(dy),
-			window->user_data);
-	}*/
-  
+   
   
     INPUT input;
 
@@ -2472,6 +2497,12 @@ void wayland_keyboard_modifiers_cb(void *data,
 }
 
 
+static void seat_handle_name(void *data, struct wl_seat *wl_seat,
+		 const char *name)
+{
+	//struct seat_info *seat = data;
+	//seat->name = xstrdup(name);
+}
 
 
 static void seat_caps_cb(void *data, struct wl_seat *seat, enum wl_seat_capability caps)
@@ -2596,7 +2627,7 @@ static void registry_add_object (void *data, struct wl_registry *registry, uint3
 		wayland_seat = (struct wl_seat *) wl_registry_bind(registry, name, &wl_seat_interface, WINE_WAYLAND_SEAT_VERSION);
 
 		static const struct wl_seat_listener seat_listener =
-		{ seat_caps_cb, };
+		{ seat_caps_cb, seat_handle_name };
 		wl_seat_add_listener(wayland_seat, &seat_listener, data);
 	} else if (strcmp(interface, "zwp_pointer_constraints_v1") == 0) {
       pointer_constraints = wl_registry_bind(registry, name,
@@ -2668,7 +2699,6 @@ static void shell_surface_ping (void *data, struct wl_shell_surface *shell_surfa
 }
 static void shell_surface_configure (void *data, struct wl_shell_surface *shell_surface, uint32_t edges, int32_t width, int32_t height) {
 	//struct wayland_window *window = data;
-	//wl_egl_window_resize (window->egl_window, width, height, 0, 0);
   //if(global_vulkan_hwnd) {
     //TRACE("Changing sizes width height %d %d \n", width, height);
     //SetWindowPos( global_vulkan_hwnd, HWND_TOP, 0, 0, width, height,
@@ -2699,7 +2729,7 @@ static void create_wayland_window_mini (struct wayland_window *window) {
 }
 #endif
 
-EGLConfig global_egl_config;
+
 
 /* store the display fd into the message queue */
 //TODO create file file
@@ -2750,6 +2780,9 @@ static void set_queue_display_fd( int esync_fd )
     CloseHandle( handle );
 }
 
+
+
+#ifdef EGL_TEST
 static void create_wayland_display () {
   desktop_tid = GetCurrentThreadId();
   int fd = NULL;
@@ -2791,9 +2824,9 @@ static void create_wayland_window (struct wayland_window *window, int32_t width,
   
   global_wait_for_configure = 1;
   
-	eglChooseConfig (egl_display, attributes, &global_egl_config, 1, &num_config);
+	//eglChooseConfig (egl_display, attributes, &global_egl_config, 1, &num_config);
   config = global_egl_config;
-	window->egl_context = eglCreateContext (egl_display, config, EGL_NO_CONTEXT, NULL);
+	//window->egl_context = eglCreateContext (egl_display, config, EGL_NO_CONTEXT, NULL);
 	
 	window->surface = wl_compositor_create_surface (wayland_compositor);
   #if 0
@@ -2814,8 +2847,8 @@ static void create_wayland_window (struct wayland_window *window, int32_t width,
   
   window->test = 222;
 	//wl_shell_surface_set_toplevel (window->shell_surface);
-	window->egl_window = wl_egl_window_create (window->surface, width, height);
-	window->egl_surface = eglCreateWindowSurface (egl_display, config, window->egl_window, NULL);
+	//window->egl_window = wl_egl_window_create (window->surface, width, height);
+	//window->egl_surface = eglCreateWindowSurface (egl_display, config, window->egl_window, NULL);
   
   wl_surface_commit(window->surface);
   wl_display_flush (wayland_display);
@@ -2824,8 +2857,9 @@ static void create_wayland_window (struct wayland_window *window, int32_t width,
     wl_display_dispatch(wayland_display);
   }
   
-	eglMakeCurrent (egl_display, window->egl_surface, window->egl_surface, window->egl_context);
+	//eglMakeCurrent (egl_display, window->egl_surface, window->egl_surface, window->egl_context);
 }
+
 
 static void delete_wayland_window (struct wayland_window *window) {
 	eglDestroySurface (egl_display, window->egl_surface);
@@ -2840,11 +2874,91 @@ static void delete_wayland_window (struct wayland_window *window) {
 	wl_surface_destroy (window->surface);
 	eglDestroyContext (egl_display, window->egl_context);
 }
+
+
 static void draw_wayland_window (struct wayland_window *window) {
 	//glClearColor (0.0, 1.0, 0.0, 1.0);
 	//glClear (GL_COLOR_BUFFER_BIT);
 	eglSwapBuffers (egl_display, window->egl_surface);
 }
+#else 
+
+static void create_wayland_display () {
+  desktop_tid = GetCurrentThreadId();
+  int fd = NULL;
+  wayland_display = wl_display_connect (NULL);
+  if(!wayland_display) {
+    printf("wayland display is not working \n");
+    exit(1);
+    return;
+  }
+  struct wl_registry *registry = wl_display_get_registry (wayland_display);
+  wl_registry_add_listener (registry, &registry_listener, NULL);
+  wl_display_roundtrip (wayland_display);
+  fd = wl_display_get_fd(wayland_display);
+  if(fd) {
+    set_queue_display_fd(fd);
+  }
+  TRACE("Created wayland display %p \n");
+}
+
+static void create_wayland_window (struct wayland_window *window, int32_t width, int32_t height) {
+	
+	
+  struct wl_region *region;
+  
+  global_wait_for_configure = 1;
+  
+	
+	window->surface = wl_compositor_create_surface (wayland_compositor);
+  
+  
+  window->xdg_surface = xdg_wm_base_get_xdg_surface(wm_base, window->surface);
+	xdg_surface_add_listener(window->xdg_surface, &xdg_surface_listener, window);
+
+	window->xdg_toplevel = xdg_surface_get_toplevel(window->xdg_surface);
+	xdg_toplevel_add_listener(window->xdg_toplevel, &xdg_toplevel_listener, window);
+  
+  region = wl_compositor_create_region(wayland_compositor);
+  wl_region_add(region, 0, 0, width, height);
+  wl_surface_set_opaque_region(window->surface, region);
+  
+  
+  window->test = 222;
+	//wl_shell_surface_set_toplevel (window->shell_surface);
+	//window->egl_window = wl_egl_window_create (window->surface, width, height);
+	//window->egl_surface = eglCreateWindowSurface (egl_display, config, window->egl_window, NULL);
+  
+  wl_surface_commit(window->surface);
+  wl_display_flush (wayland_display);
+  while(global_wait_for_configure) {
+    sleep(0.3);
+    wl_display_dispatch(wayland_display);
+  }
+  
+}
+
+
+static void delete_wayland_window (struct wayland_window *window) {
+	//eglDestroySurface (egl_display, window->egl_surface);
+	//wl_egl_window_destroy (window->egl_window);
+	//wl_shell_surface_destroy (window->shell_surface);
+  
+  if (window->xdg_toplevel)
+		xdg_toplevel_destroy(window->xdg_toplevel);
+	if (window->xdg_surface)
+		xdg_surface_destroy(window->xdg_surface);
+  
+	wl_surface_destroy (window->surface);
+	//eglDestroyContext (egl_display, window->egl_context);
+}
+
+
+static void draw_wayland_window (struct wayland_window *window) {
+	//do nothing
+}
+
+#endif
 
 /***********************************************************************
  *		ClipCursor (WAYLANDDRV.@)
@@ -3608,7 +3722,6 @@ static void android_surface_flush( struct window_surface *window_surface )
     
     
     
-    //width = 400;
     
     
     
@@ -5149,6 +5262,7 @@ DWORD CDECL WAYLANDDRV_MsgWaitForMultipleObjectsEx( DWORD count, const HANDLE *h
 
 //Windows functions
 
+#ifdef OPENGL_TEST
 //OpenGL funcs
 //OpenGL is not working
 
@@ -6394,7 +6508,7 @@ struct opengl_funcs *get_wgl_driver( UINT version )
 
 //End OpenGL funcs - not working
 //OpenGL
-
+#endif
 
 /* Helper function for converting between win32 and X11 compatible VkInstanceCreateInfo.
  * Caller is responsible for allocation and cleanup of 'dst'.

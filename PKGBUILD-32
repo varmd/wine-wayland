@@ -3,7 +3,7 @@
 pkgname=lib32-wine-wayland
 _pkgname=wine-wayland
 pkgver=5.1
-pkgrel=80
+pkgrel=81
 _winesrcdir='wine-wine-5.1'
 _esyncsrcdir='esync'
 _where=$PWD
@@ -104,6 +104,7 @@ build() {
     --without-vkd3d \
     --without-xinerama \
     --without-xrandr \
+    --without-dbus \
     --without-sane \
     --without-osmesa \
     --without-gettext \
@@ -126,6 +127,7 @@ build() {
     --with-freetype \
     --with-vulkan \
     --with-openal \
+    --without-curses \
     --without-faudio \
     --without-netapi \
 		--disable-tests

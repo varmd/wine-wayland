@@ -17,7 +17,7 @@ Wine-wayland allows playing DX9/DX11 and Vulkan games using pure wayland and Win
 
  * Archlinux or Manjaro
  * AMD GPU with Vulkan support
- * Mesa 19.3 or later with Wayland, Vulkan and EGL support
+ * Mesa 19.3 or later with Wayland and Vulkan support
  * weston based compositor (tested on wayward), wlroots based compositor (tested on sway)
  * SDL and Faudio
  * Esync or Fsync support
@@ -43,7 +43,7 @@ First compile and install regular wine-wayland, then in the same zip directory
     mkdir -p prefix/your-game
     cp -r YourGameFolder prefix/your-game/
    
-copy relevant 64bit or 32bit dxvk dlls to prefix/your-game
+Copy relevant 64bit or 32bit dxvk dlls to prefix/your-game or use winetricks.
 
 Copy start-example.sh to your-dir and modify for your-game, change your-game and YourGameFolder at the top of the file.
 

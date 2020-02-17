@@ -2,7 +2,7 @@
 
 pkgname=wine-wayland
 pkgver=5.1
-pkgrel=80
+pkgrel=81
 _winesrcdir='wine-wine-5.1'
 _esyncsrcdir='esync'
 
@@ -140,6 +140,7 @@ build() {
 		--prefix='/usr' \
 		--libdir='/usr/lib' \
 		--without-x \
+		--without-capi \
 		--without-dbus \
 		--without-gphoto \
 		--without-gstreamer \
@@ -175,10 +176,11 @@ build() {
     --without-xrender \
     --without-xxf86vm \
     --without-xshm \
+    -without-v4l2 \
     --with-vulkan \
     --with-faudio \
+    --disable-win16 \
 		--enable-win64 \
-    --without-netapi \
 		--disable-tests
   fi
 	

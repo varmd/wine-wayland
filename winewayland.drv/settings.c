@@ -353,7 +353,7 @@ BOOL CDECL WAYLANDDRV_EnumDisplaySettingsEx( LPCWSTR name, DWORD n, LPDEVMODEW d
         
     
     
-    TRACE("mode %d %p \n", n, handler_name);    
+    //TRACE("mode %d %p \n", n, handler_name);    
     
         
 
