@@ -30,11 +30,6 @@
 #include <limits.h>
 #include <stdarg.h>
 
-
-
-
-//#include <X11/Xatom.h>
-
 //Wayland
 #include <wayland-client.h>
 
@@ -89,18 +84,7 @@ typedef int Colormap;
 
 
   /* X physical pen */
-typedef struct
-{
-    int          style;
-    int          endcap;
-    int          linejoin;
-    int          pixel;
-    int          width;
-    char         dashes[MAX_DASHLEN];
-    int          dash_len;
-    int          type;          /* GEOMETRIC || COSMETIC */
-    int          ext;           /* extended pen - 1, otherwise - 0 */
-} X_PHYSPEN;
+
 
   /* X physical brush */
 typedef struct

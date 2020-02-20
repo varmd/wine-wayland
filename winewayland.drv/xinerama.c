@@ -38,8 +38,8 @@ static RECT virtual_screen_rect;
 static MONITORINFOEXW default_monitor =
 {
     sizeof(default_monitor),    /* cbSize */
-    {0, 0, 1600, 900},             /* rcMonitor */
-    { 0, 0, 1600, 900 },             /* rcWork */
+    {0, 0, 1440, 900},             /* rcMonitor */
+    { 0, 0, 1440, 900 },             /* rcWork */
     MONITORINFOF_PRIMARY,       /* dwFlags */
     {'\\','\\','.','\\', 'D','I','S','P','L','A','Y','1','\\', 'M','o','n','i','t','o','r','0','\\',0}   /* szDevice */
 };

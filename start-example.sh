@@ -13,8 +13,6 @@ export WINEFSYNC=1
 #enable/disable winedebug
 export WINEDEBUG=-all
 
-rm -rf /tmp/esync-fd
-mkfifo /tmp/esync-fd
 
 #enable/disable winedebug for waylanddrv
 #export WINEDEBUG=+waylanddrv 
@@ -29,7 +27,7 @@ if [ ! -d $WINEPREFIX ]; then
   wineboot -u
 fi
 
-#enables vulkan only windows, only disable to see any GDI error popups
+#enables vulkan only windows, disable to see any GDI error popups
 export WINE_VK_VULKAN_ONLY=1
 
 #set width/height of vulkan window. must be common resolution

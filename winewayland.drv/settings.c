@@ -95,7 +95,7 @@ static void make_modes(void)
         
             if ( (screen_sizes[i].width != screen_width) || (screen_sizes[i].height != screen_height)  )
             {
-              TRACE("Adding  mode: %d %d \n", screen_sizes[i].width, screen_sizes[i].height);
+                //TRACE("Adding  mode: %d %d \n", screen_sizes[i].width, screen_sizes[i].height);
                 /* only add them if they are smaller than the root window and unique */
                 //24bit
                 WAYLANDDRV_Settings_AddOneMode(screen_sizes[i].width, screen_sizes[i].height, 24, 60);
@@ -169,8 +169,7 @@ void WAYLANDDRV_Settings_AddOneMode(unsigned int width, unsigned int height, uns
     info->refresh_rate  = freq;
     info->bpp           = bpp;
     
-    TRACE("Resolution initialized mode %d: %dx%dx%d @%d Hz (%s)\n", 
-          dd_mode_count, width, height, bpp, freq, handler_name);
+    //TRACE("Resolution initialized mode %d: %dx%dx%d @%d Hz (%s)\n",          dd_mode_count, width, height, bpp, freq, handler_name);
     dd_mode_count++;
 }
 

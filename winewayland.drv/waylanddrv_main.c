@@ -271,7 +271,7 @@ static BOOL process_attach(void)
     char *env_width = getenv( "WINE_VK_WAYLAND_WIDTH" );
     char *env_height = getenv( "WINE_VK_WAYLAND_HEIGHT" );
     
-    int screen_width = 1600;
+    int screen_width = 1440;
     int screen_height = 900;
     
     if(env_width) {
