@@ -95,7 +95,7 @@ build() {
     --without-gsm \
     --without-openal \
     --without-opengl \
-    --without-opengl \
+    --without-pcap \
     --without-sdl \
     --without-cups \
     --without-cms \

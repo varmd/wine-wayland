@@ -24,6 +24,8 @@
 # Cursor
 @ cdecl GetCursorPos(ptr) WAYLANDDRV_GetCursorPos
 
+@ cdecl ShowWindow(long long ptr long) WAYLANDDRV_ShowWindow
+
 # @ cdecl DestroyCursorIcon(long) WAYLANDDRV_DestroyCursorIcon
 # @ cdecl SetCursor(long) WAYLANDDRV_SetCursor
 
@@ -52,14 +54,14 @@
 
 # @ cdecl SetFocus(long) WAYLANDDRV_SetFocus
 # @ cdecl SetLayeredWindowAttributes(long long long long) WAYLANDDRV_SetLayeredWindowAttributes
-@ cdecl SetParent(long long long) WAYLANDDRV_SetParent
+#@ cdecl SetParent(long long long) WAYLANDDRV_SetParent
 
 # @ cdecl SetWindowIcon(long long long) WAYLANDDRV_SetWindowIcon
 # @ cdecl SetWindowRgn(long long long) WAYLANDDRV_SetWindowRgn
 # @ cdecl SetWindowStyle(ptr long ptr) WAYLANDDRV_SetWindowStyle
 # @ cdecl SetWindowText(long wstr) WAYLANDDRV_SetWindowText
 
-@ cdecl ShowWindow(long long ptr long) WAYLANDDRV_ShowWindow
+
 
 #@ cdecl SysCommand(long long long) WAYLANDDRV_SysCommand
 

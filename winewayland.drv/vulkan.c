@@ -77,8 +77,6 @@
 #define WINE_VK_HOST
 
 
-
-
 //latest version is 5 
 #define WINE_WAYLAND_SEAT_VERSION 3
 
@@ -1660,16 +1658,6 @@ void wayland_pointer_motion_cb(void *data,
     
     
     
-  
-  
-    //TRACE("Motion Pomt x y %d %d \n", global_sx, global_sy);
-    /*
-    if (!hwnd && is_old_motion_event( event->serial ))
-    {
-        //TRACE( "pos %d,%d old serial %lu, ignoring\n", input.u.mi.dx, input.u.mi.dy, event->serial );
-        return FALSE;
-    }
-    */
     
     //HWND hwnd = GetAncestor( global_vulkan_hwnd, GA_ROOT );
     
@@ -3333,6 +3321,7 @@ struct android_win_data
     void                  *shm_data;
     struct wl_shm_pool    *wl_pool;
     int                   gdi_fd;
+    int                   surface_changed;
 };
 
 
@@ -3629,7 +3618,7 @@ static void android_surface_flush( struct window_surface *window_surface )
     
 
     
-    //TRACE("Client Rect rect %s %d %d \n", wine_dbgstr_rect( &client_rect ), WIDTH, HEIGHT);
+    
     
     
     
@@ -3655,7 +3644,7 @@ static void android_surface_flush( struct window_surface *window_surface )
     needs_flush = IntersectRect( &rect, &rect, &surface->bounds );
     reset_bounds( &surface->bounds );
     //window_surface->funcs->unlock( window_surface );
-    if (!needs_flush) {
+    if (!needs_flush && !hwnd_data->surface_changed) {
       return;
     }
     
@@ -3729,7 +3718,7 @@ static void android_surface_flush( struct window_surface *window_surface )
     }
     
       
-     
+    TRACE("Client Rect rect %s %d %d \n", wine_dbgstr_rect( &client_rect ), WIDTH, HEIGHT);
     
     
     if(!hwnd_data->wl_pool) {
@@ -3760,7 +3749,11 @@ static void android_surface_flush( struct window_surface *window_surface )
       wl_surface_attach(hwnd_data->wayland_surface, buffer, 0, 0);
     } else {
       wl_subsurface_set_position(hwnd_data->wayland_subsurface, client_rect.left, client_rect.top);
+      //wl_subsurface_set_position(hwnd_data->wayland_subsurface, 200, 200);
       wl_surface_attach(hwnd_data->wayland_surface, buffer, 0, 0);
+      if(hwnd_data->surface_changed) {
+        wl_surface_commit(vulkan_window.surface);
+      }  
     }
     
     
@@ -3823,16 +3816,10 @@ static void android_surface_flush( struct window_surface *window_surface )
                           (((BYTE)src_pixels[x] * surface->alpha / 255)));
       */
         
-        ///????
-        //if (surface->color_key != CLR_INVALID)
-        //for (x = 0; x < width; x++) if ((src_pixels[x] & 0xffffff) == //surface->color_key) dest_pixels[x] = 0;
-
-
-
         src_pixels += surface->info.bmiHeader.biWidth;
         dest_pixels += WIDTH;
     }
-    
+    hwnd_data->surface_changed = 0;
     
     //wl_surface_damage(surface->wayland_surface, 0, 0, WIDTH, min( HEIGHT, rect.bottom - 1));
     wl_surface_damage(hwnd_data->wayland_surface, 0, 0, WIDTH, HEIGHT);
@@ -3853,9 +3840,14 @@ static void android_surface_flush( struct window_surface *window_surface )
 static void android_surface_destroy( struct window_surface *window_surface )
 {
     struct android_window_surface *surface = get_android_surface( window_surface );
-
+    struct android_win_data *win_data;
  
-    
+    win_data = get_win_data( surface->hwnd );
+  
+    if (win_data) {
+      win_data->surface_changed = 1;
+    }
+  
     TRACE( "freeing %p bits %p %p \n", surface, surface->bits, surface->hwnd );
     
     
@@ -4081,8 +4073,6 @@ static int do_create_win_data( HWND hwnd, const RECT *window_rect, const RECT *c
   
     return 1;
 
-    //display = thread_init_display();
-    //init_clip_window();  /* make sure the clip window is initialized in this thread */
 
 
 }
@@ -4556,7 +4546,6 @@ void CDECL WAYLANDDRV_WindowPosChanged( HWND hwnd, HWND insert_after, UINT swp_f
       }
       
       if(data->surface) {
-        //TRACE("Calling flush on parent22 and creating surface \n");  
         data->surface->funcs->flush( data->surface );
         
         
@@ -4624,20 +4613,6 @@ void CDECL WAYLANDDRV_WindowPosChanged( HWND hwnd, HWND insert_after, UINT swp_f
 }
 #endif
 
-
-/*****************************************************************
- *		SetParent   (WAYLANDDRV.@)
- */
-void CDECL WAYLANDDRV_SetParent( HWND hwnd, HWND parent, HWND old_parent )
-{
-    TRACE("Set Parent for Window %p new parent %p \n", hwnd, parent);
-  
-    return;
-  
-  
-}
-
-
 /**********************************************************************
  *		CreateWindow   (WAYLANDDRV.@)
  */
@@ -4666,25 +4641,7 @@ BOOL CDECL WAYLANDDRV_CreateWindow( HWND hwnd )
     
     return TRUE;
     
-    /*
-    static const WCHAR sdl_class[] = {'S','D','L','H','e','l','p','e','r',
-      'W','i','n','d','o','w','I','n','p','u','t','C','a','t','c','h','e','r', 0};
-    
-  
-    
-  
-    
-    
-    
-    if(RealGetWindowClassW(hwnd, class_name, ARRAY_SIZE(class_name))) {
-      TRACE("%s \n", debugstr_w(class_name));
-       if(!lstrcmpiW(class_name, sdl_class)) {
-         global_update_hwnd_sdl = 1;
-       }
-    }
-    
-    */
-  
+      
     if(hwnd != GetDesktopWindow() && (!parent || parent == GetDesktopWindow())
     ) {
       
@@ -4791,8 +4748,7 @@ BOOL CDECL WAYLANDDRV_CreateWindow( HWND hwnd )
         }        
         if(style & WS_DISABLED) {
           style &= ~WS_DISABLED;
-          //SetActiveWindow(hwnd);
-          //SetForegroundWindow(hwnd);
+          
         }
         
         if(style & WS_DLGFRAME) {
@@ -4813,7 +4769,7 @@ BOOL CDECL WAYLANDDRV_CreateWindow( HWND hwnd )
         
         SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOSIZE); 
         
-        //SetParent(hwnd, global_vulkan_hwnd);
+        
         //GetWindowLong(GetWindow(Hwnd, GW_OWNER), GWL_STYLE) & WS_DISABLED & WS_POPUP  
       
       
@@ -4824,7 +4780,7 @@ BOOL CDECL WAYLANDDRV_CreateWindow( HWND hwnd )
         //style |= WS_CLIPCHILDREN;
         //SetWindowLongW(global_vulkan_hwnd,GWL_STYLE,style); //set the new style of b
         
-        //UpdateWindow(hwnd);
+
         
         UpdateWindow(global_update_hwnd);
         UpdateWindow(parent);
@@ -4839,14 +4795,6 @@ BOOL CDECL WAYLANDDRV_CreateWindow( HWND hwnd )
       
     //}
     }
-  
-  
-  
-    //if (parent && parent != GetDesktopWindow()) {
-      //SetForegroundWindow( hwnd );
-      //SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE |   SWP_NOMOVE);
-      //BringWindowToTop( hwnd);
-    //}
   
     return TRUE;
   
@@ -5036,8 +4984,7 @@ DWORD CDECL WAYLANDDRV_MsgWaitForMultipleObjectsEx( DWORD count, const HANDLE *h
     
     DWORD ret;
   
-    if (GetCurrentThreadId() == desktop_tid)
-    {
+    if (GetCurrentThreadId() == desktop_tid) {
         if(wayland_display || global_is_vulkan) {
 
           
@@ -5045,22 +4992,9 @@ DWORD CDECL WAYLANDDRV_MsgWaitForMultipleObjectsEx( DWORD count, const HANDLE *h
           //if(vulkan_is_running && !global_has_events) {
           //  return WAIT_TIMEOUT;
           //}
-          
-          
-          //Doesn't work
-          #if 0
-          if(!vulkan_is_running) {
-            if (!count && !timeout && !global_has_events ) {
-              //return WAIT_TIMEOUT;
-            }  
-          }  
-          #endif
-      
         if(global_wait_for_configure) {
           return WAIT_TIMEOUT;  
         }
-      
-      
         
         int ret1 = wl_display_prepare_read(wayland_display) != 0;
         
@@ -5069,7 +5003,7 @@ DWORD CDECL WAYLANDDRV_MsgWaitForMultipleObjectsEx( DWORD count, const HANDLE *h
           ret = count - 1;
           wl_display_dispatch_pending(wayland_display);
           while (wl_display_prepare_read(wayland_display) != 0) {          
-             wl_display_dispatch_pending(wayland_display);             
+            wl_display_dispatch_pending(wayland_display);             
           }
           wl_display_flush(wayland_display);
           wl_display_read_events(wayland_display);
@@ -5083,20 +5017,15 @@ DWORD CDECL WAYLANDDRV_MsgWaitForMultipleObjectsEx( DWORD count, const HANDLE *h
           wl_display_dispatch_pending(wayland_display);
           
           if (count || timeout) {
-              ret = WaitForMultipleObjectsEx( count, handles, flags & MWMO_WAITALL,
+            ret = WaitForMultipleObjectsEx( count, handles, flags & MWMO_WAITALL,
                                         7, flags & MWMO_ALERTABLE );
-            } else {
-              ret = WAIT_TIMEOUT;  
-            }
+          } else {
+            ret = WAIT_TIMEOUT;  
+          }
         }
         
         
         return ret;
-          
-        
-        
-          
-          
           
       }
       
