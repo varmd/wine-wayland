@@ -79,10 +79,14 @@ prepare() {
     
     patch -Np1 < '../../enable-wayland.patch'  
     
+    
     patch dlls/user32/driver.c < ../../winewayland.drv/patch/user32-driverc.patch
     #patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/user32-sysparamsc.patch
     patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/user32-sysparamsc-new.patch
     patch programs/explorer/desktop.c < ../../winewayland.drv/patch/explorer-desktopc.patch
+    
+    
+    patch -Np1 < '../../winevulkan-improve-alloc.patch'  
     
     
     cd "${srcdir}"/"${_winesrcdir}"
@@ -150,7 +154,7 @@ build() {
 		--without-hal \
     --without-gsm \
     --without-opencl \
-    --with-opengl \
+    --without-opengl \
     --without-sdl \
     --without-cups \
     --without-cms \
@@ -176,7 +180,7 @@ build() {
     --without-xrender \
     --without-xxf86vm \
     --without-xshm \
-    -without-v4l2 \
+    --without-v4l2 \
     --with-vulkan \
     --with-faudio \
     --disable-win16 \
