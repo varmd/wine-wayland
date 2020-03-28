@@ -1,9 +1,9 @@
 # Created by: varmd
 
 pkgname=wine-wayland
-pkgver=5.1
+pkgver=5.5
 pkgrel=81
-_winesrcdir='wine-wine-5.1'
+_winesrcdir='wine-wine-5.5'
 _esyncsrcdir='esync'
 
 
@@ -52,7 +52,7 @@ makedepends=('git'
 )
 
 
-source=("https://github.com/wine-mirror/wine/archive/wine-5.1.zip")
+source=("https://github.com/wine-mirror/wine/archive/wine-$pkgver.zip")
     
 sha256sums=('SKIP')
 
@@ -84,9 +84,6 @@ prepare() {
     #patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/user32-sysparamsc.patch
     patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/user32-sysparamsc-new.patch
     patch programs/explorer/desktop.c < ../../winewayland.drv/patch/explorer-desktopc.patch
-    
-    
-    patch -Np1 < '../../winevulkan-improve-alloc.patch'  
     
     
     cd "${srcdir}"/"${_winesrcdir}"

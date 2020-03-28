@@ -394,7 +394,7 @@ static const char * _CDS_flags(DWORD fields)
     char *p = buf;
     _X_FIELD(CDS,UPDATEREGISTRY);_X_FIELD(CDS,TEST);_X_FIELD(CDS,FULLSCREEN);
     _X_FIELD(CDS,GLOBAL);_X_FIELD(CDS,SET_PRIMARY);_X_FIELD(CDS,RESET);
-    _X_FIELD(CDS,SETRECT);_X_FIELD(CDS,NORESET);
+    _X_FIELD(CDS,NORESET);
     *p = 0;
     return wine_dbg_sprintf("%s", buf);
 }

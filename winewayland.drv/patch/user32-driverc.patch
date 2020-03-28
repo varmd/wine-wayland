@@ -1,66 +1,29 @@
---- driver.c	2019-09-28 00:54:58.000000000 +0400
-+++ ../src/wine-wine-4.17/dlls/user32/driver.c	2019-11-02 19:48:13.528636651 +0400
-@@ -43,48 +43,23 @@
- 
- static HMODULE load_desktop_driver( HWND hwnd )
- {
--    static const WCHAR display_device_guid_propW[] = {
--        '_','_','w','i','n','e','_','d','i','s','p','l','a','y','_',
--        'd','e','v','i','c','e','_','g','u','i','d',0 };
--    static const WCHAR key_pathW[] = {
--        'S','y','s','t','e','m','\\',
--        'C','u','r','r','e','n','t','C','o','n','t','r','o','l','S','e','t','\\',
--        'C','o','n','t','r','o','l','\\',
--        'V','i','d','e','o','\\','{',0};
--    static const WCHAR displayW[] = {'}','\\','0','0','0','0',0};
--    static const WCHAR driverW[] = {'G','r','a','p','h','i','c','s','D','r','i','v','e','r',0};
+--- a/dlls/user32/driver.c	2020-03-28 21:10:34.000000000 +0400
++++ b/dlls/user32/driver.c	2020-03-28 21:10:29.000000000 +0400
+@@ -60,6 +60,26 @@
+     WCHAR path[MAX_PATH];
+     WCHAR key[ARRAY_SIZE(key_pathW) + ARRAY_SIZE(displayW) + 40];
+     UINT guid_atom = HandleToULong( GetPropW( hwnd, display_device_guid_propW ));
 +    
-     HMODULE ret = 0;
--    HKEY hkey;
--    DWORD size;
--    WCHAR path[MAX_PATH];
--    WCHAR key[ARRAY_SIZE(key_pathW) + ARRAY_SIZE(displayW) + 40];
--    UINT guid_atom = HandleToULong( GetPropW( hwnd, display_device_guid_propW ));
--
--    USER_CheckNotLock();
--
--    strcpy( driver_load_error, "The explorer process failed to start." );  /* default error */
--
--    if (!guid_atom)
--    {
--        SendMessageW( hwnd, WM_NULL, 0, 0 );  /* wait for the desktop process to be ready */
--        guid_atom = HandleToULong( GetPropW( hwnd, display_device_guid_propW ));
--    }
--    memcpy( key, key_pathW, sizeof(key_pathW) );
--    if (!GlobalGetAtomNameW( guid_atom, key + strlenW(key), 40 )) return 0;
--    strcatW( key, displayW );
--    if (RegOpenKeyW( HKEY_LOCAL_MACHINE, key, &hkey )) return 0;
--    size = sizeof(path);
--    if (!RegQueryValueExW( hkey, driverW, NULL, NULL, (BYTE *)path, &size ))
--    {
--        if (!(ret = LoadLibraryW( path ))) ERR( "failed to load %s\n", debugstr_w(path) );
--        TRACE( "%s %p\n", debugstr_w(path), ret );
--    }
--    else
--    {
--        size = sizeof(driver_load_error);
--        RegQueryValueExA( hkey, "DriverError", NULL, NULL, (BYTE *)driver_load_error, &size );
-+    //TODO add defines
-+    ret = LoadLibraryA( "C:\\windows\\system32\\winewayland.drv" );
++     //TODO add defines
++    ret = (*module = LoadLibraryA( "C:\\windows\\system32\\winewayland.drv" )) != NULL;
 +    if (!ret) {
-+      TRACE( "failed to load 22 %d \n" );
-+      ret = LoadLibraryA( "winewayland.drv" );
++      TRACE( "failed to load 1 %d \n" );
++      ret = (*module = LoadLibraryA( "winewayland.drv" )) != NULL;
 +      if (!ret) {
-+        ret = LoadLibraryA( "C:\windows\system32\winewayland.drv" );
-+        ERR( "failed to load 33 %d \n", GetLastError() );
++        ret = (*module = LoadLibraryA( "C:\windows\system32\winewayland.drv" )) != NULL;
++        ERR( "failed to load 2 %d \n", GetLastError() );
 +        if (!ret) {
-+          ERR( "failed to load 44 %d \n", GetLastError() );
++          ERR( "failed to load 3 %d \n", GetLastError() );
 +        }
 +      }
-+    } else {
++    }
++    if( ret ) {
++      return ret;
++    }
 +      
-     }
--    RegCloseKey( hkey );
-     return ret;
- }
++    
++    
+ 
+     USER_CheckNotLock();
  
