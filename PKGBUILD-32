@@ -2,9 +2,9 @@
 
 pkgname=lib32-wine-wayland
 _pkgname=wine-wayland
-pkgver=5.1
+pkgver=5.5
 pkgrel=81
-_winesrcdir='wine-wine-5.1'
+_winesrcdir='wine-wine-5.5'
 _esyncsrcdir='esync'
 _where=$PWD
 
@@ -45,7 +45,7 @@ makedepends=(
 )
 
 
-source=("https://github.com/wine-mirror/wine/archive/wine-5.1.zip")
+source=("https://github.com/wine-mirror/wine/archive/wine-$pkgver.zip")
     
 sha256sums=('SKIP')
 
