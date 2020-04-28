@@ -1307,8 +1307,6 @@ BOOL CDECL WAYLANDDRV_SetCursorPos(LPPOINT pos)
 
 
 
-
-
 static CRITICAL_SECTION context_section;
 static CRITICAL_SECTION_DEBUG critsect_debug =
 {
@@ -1350,7 +1348,14 @@ static VkResult (*pvkGetDeviceGroupSurfacePresentModesKHR)(VkDevice, VkSurfaceKH
 static void * (*pvkGetDeviceProcAddr)(VkDevice, const char *);
 static void * (*pvkGetInstanceProcAddr)(VkInstance, const char *);
 static VkResult (*pvkGetPhysicalDevicePresentRectanglesKHR)(VkPhysicalDevice, VkSurfaceKHR, uint32_t *, VkRect2D *);
+
+static VkResult (*pvkGetPhysicalDeviceSurfaceCapabilities2KHR)(VkPhysicalDevice, const VkPhysicalDeviceSurfaceInfo2KHR *, VkSurfaceCapabilities2KHR *);
+
 static VkResult (*pvkGetPhysicalDeviceSurfaceCapabilitiesKHR)(VkPhysicalDevice, VkSurfaceKHR, VkSurfaceCapabilitiesKHR *);
+
+static VkResult (*pvkGetPhysicalDeviceSurfaceFormats2KHR)(VkPhysicalDevice, const VkPhysicalDeviceSurfaceInfo2KHR *, uint32_t *, VkSurfaceFormat2KHR *);
+
+
 static VkResult (*pvkGetPhysicalDeviceSurfaceFormatsKHR)(VkPhysicalDevice, VkSurfaceKHR, uint32_t *, VkSurfaceFormatKHR *);
 static VkResult (*pvkGetPhysicalDeviceSurfacePresentModesKHR)(VkPhysicalDevice, VkSurfaceKHR, uint32_t *, VkPresentModeKHR *);
 static VkResult (*pvkGetPhysicalDeviceSurfaceSupportKHR)(VkPhysicalDevice, uint32_t, VkSurfaceKHR, VkBool32 *);
@@ -1371,13 +1376,8 @@ static void *vulkan_handle;
 
 static BOOL WINAPI wine_vk_init(INIT_ONCE *once, void *param, void **context)
 {
-    const char *libvulkan_candidates[] = {SONAME_LIBVULKAN,
-                                          "libvulkan.so.1",
-                                          "libvulkan.so",
-                                          NULL};
-    int i;
-    for (i=0; libvulkan_candidates[i] && !vulkan_handle; i++)
-        vulkan_handle = wine_dlopen(libvulkan_candidates[i], RTLD_NOW, NULL, 0);
+    
+    vulkan_handle = dlopen(SONAME_LIBVULKAN, RTLD_NOW);
 
     if (!vulkan_handle)
     {
@@ -1385,8 +1385,8 @@ static BOOL WINAPI wine_vk_init(INIT_ONCE *once, void *param, void **context)
         return TRUE;
     }
 
-#define LOAD_FUNCPTR(f) if (!(p##f = wine_dlsym(vulkan_handle, #f, NULL, 0))) goto fail;
-#define LOAD_OPTIONAL_FUNCPTR(f) p##f = wine_dlsym(vulkan_handle, #f, NULL, 0);
+#define LOAD_FUNCPTR(f) if (!(p##f = dlsym(vulkan_handle, #f))) goto fail;
+#define LOAD_OPTIONAL_FUNCPTR(f) p##f = dlsym(vulkan_handle, #f);
     LOAD_FUNCPTR(vkCreateInstance)
     LOAD_FUNCPTR(vkCreateSwapchainKHR)
     LOAD_FUNCPTR(vkCreateWaylandSurfaceKHR)
@@ -1396,11 +1396,14 @@ static BOOL WINAPI wine_vk_init(INIT_ONCE *once, void *param, void **context)
     LOAD_FUNCPTR(vkEnumerateInstanceExtensionProperties)
     LOAD_FUNCPTR(vkGetDeviceProcAddr)
     LOAD_FUNCPTR(vkGetInstanceProcAddr)
+    
+    LOAD_OPTIONAL_FUNCPTR(vkGetPhysicalDeviceSurfaceCapabilities2KHR)
     LOAD_FUNCPTR(vkGetPhysicalDeviceSurfaceCapabilitiesKHR)
+    
+    LOAD_OPTIONAL_FUNCPTR(vkGetPhysicalDeviceSurfaceFormats2KHR)
     LOAD_FUNCPTR(vkGetPhysicalDeviceSurfaceFormatsKHR)
     LOAD_FUNCPTR(vkGetPhysicalDeviceSurfacePresentModesKHR)
     LOAD_FUNCPTR(vkGetPhysicalDeviceSurfaceSupportKHR)
-    //LOAD_FUNCPTR(vkGetPhysicalDeviceXlibPresentationSupportKHR)
     LOAD_FUNCPTR(vkGetPhysicalDeviceWaylandPresentationSupportKHR)
     LOAD_FUNCPTR(vkGetSwapchainImagesKHR)
     LOAD_FUNCPTR(vkQueuePresentKHR)
@@ -1412,7 +1415,7 @@ static BOOL WINAPI wine_vk_init(INIT_ONCE *once, void *param, void **context)
     return TRUE;
 
 fail:
-    wine_dlclose(vulkan_handle, NULL, 0);
+    dlclose(vulkan_handle);
     vulkan_handle = NULL;
     return TRUE;
 }
@@ -1429,6 +1432,9 @@ int global_wait_for_configure = 0;
 int global_is_vulkan = 0;
 int global_is_opengl = 0;
 int global_hide_cursor = 0;
+
+int global_last_cursor_change = 0;
+
 HWND global_vulkan_hwnd;
 HWND global_update_hwnd = NULL;
 int global_update_hwnd_sdl = NULL;
@@ -1512,8 +1518,9 @@ void wayland_pointer_enter_cb(void *data,
   temp = wl_surface_get_user_data(surface);
   if(temp) {
     TRACE("Current hwnd is %p \n", temp);
-    global_update_hwnd = temp;    
+    global_update_hwnd = temp;
   }
+  global_last_cursor_change = 0;
   
 }
 
@@ -1554,31 +1561,6 @@ DWORD EVENT_wayland_time_to_win32_time(uint32_t time)
 }
 
 
-
-unsigned long last_cursor_change;
-unsigned int mouse_has_moved = 0;
-
- /* Cursor */
-
-
-
-
-#if 0
-void sync_wine_window_cursor(  )
-{
-    
-    HCURSOR cursor;
-
-    SERVER_START_REQ( set_cursor )
-    {
-        req->flags = 0;
-        wine_server_call( req );
-        cursor = reply->prev_count >= 0 ? wine_server_ptr_handle( reply->prev_handle ) : 0;
-    }
-    SERVER_END_REQ;
-
-}
-#endif
 
 INPUT global_input;
 
@@ -1932,14 +1914,7 @@ void wayland_pointer_button_cb(void *data,
   }
   
 
-  
-    
-  
-  
-    
-  
-  
-	switch (button)
+  switch (button)
 	{
 	case BTN_LEFT:
     if(state == WL_POINTER_BUTTON_STATE_PRESSED) {
@@ -1986,13 +1961,6 @@ void wayland_pointer_button_cb(void *data,
   
   TRACE("Click x y %d %d %s \n", input.u.mi.dx, input.u.mi.dy, wine_dbgstr_rect( &rect ));
   
-  //TRACE("Mouse state %d \n", mouse_state);  
-  
-  
-  
-  //if(input.u.mi.time - last_cursor_change > 100) {    
-    //last_cursor_change = input.u.mi.time;
-  //}
   
   
   //SetCursorPos(input.u.mi.dx, input.u.mi.dy);
@@ -2204,7 +2172,7 @@ void wayland_keyboard_leave_cb(void *data,
 }
 
 int wayland_full = 0;
-int global_mod_pressed = 0;
+
 
 
 
@@ -2427,7 +2395,6 @@ SERVER_END_REQ;
 	    zwp_relative_pointer_v1_destroy(relative_pointer);
 	    locked_pointer = NULL;
 	    relative_pointer = NULL;
-      
       wayland_confine = 0;
     }
     
@@ -2593,11 +2560,23 @@ static void registry_add_object (void *data, struct wl_registry *registry, uint3
 		  relative_pointer_manager = wl_registry_bind(registry, name, &zwp_relative_pointer_manager_v1_interface, 1);
     } else if (strcmp(interface, "wl_shm") == 0) {
       
+      const char *cursor_theme;
+      const char *cursor_size_str;
+      int cursor_size = 32;
+      cursor_theme = getenv("XCURSOR_THEME");
+      cursor_size_str = getenv("XCURSOR_SIZE");
+      if (cursor_size_str) {
+        cursor_size = atoi(cursor_size_str);
+      }
+      if (!cursor_theme) {
+        cursor_theme = NULL;
+      }
+      
       global_shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
       wl_shm_add_listener(global_shm, &shm_listener, NULL);
       
 		  wayland_cursor_shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
-		  wayland_cursor_theme = wl_cursor_theme_load(NULL, 46, wayland_cursor_shm);
+		  wayland_cursor_theme = wl_cursor_theme_load(cursor_theme, cursor_size, wayland_cursor_shm);
       
 		  wayland_default_cursor = 	wl_cursor_theme_get_cursor(wayland_cursor_theme, "left_ptr");
       //Sway calls wl_shm before wl_compositor
@@ -3048,7 +3027,7 @@ static void draw_wayland_window (struct wayland_window *window) {
 BOOL CDECL WAYLANDDRV_ClipCursor( LPCRECT clip )
 {
     
-    const char *is_vulkan = getenv( "WINE_VK_VULKAN_ONLY" );
+    //const char *is_vulkan = getenv( "WINE_VK_VULKAN_ONLY" );
     if(!global_is_vulkan) { 
       return TRUE;  
     }
@@ -3198,6 +3177,43 @@ BOOL CDECL WAYLANDDRV_ClipCursor( LPCRECT clip )
     
 }
 
+
+
+void CDECL WAYLANDDRV_SetCursor( HCURSOR handle )
+{
+    
+    
+    if(!global_is_vulkan) { 
+      return TRUE;  
+    }
+    
+    TRACE("SetCursor called \n");
+    
+    if(handle) {
+      
+      
+      
+      struct wl_cursor_image *image;
+      struct wl_buffer *buffer;
+      
+      //show mouse
+      if(!global_hide_cursor && !wayland_confine && wayland_default_cursor && !global_last_cursor_change) {
+        global_last_cursor_change = 1;
+        image = wayland_default_cursor->images[0];
+        buffer = wl_cursor_image_get_buffer(image);
+        wl_pointer_set_cursor(wayland_pointer, wayland_serial_id,
+          wayland_cursor_surface,
+          image->hotspot_x,
+          image->hotspot_y);
+          wl_surface_attach(wayland_cursor_surface, buffer, 0, 0);
+          wl_surface_damage(wayland_cursor_surface, 0, 0,
+          image->width, image->height);
+         
+         wl_surface_commit(wayland_cursor_surface);
+      }
+    }
+    
+}    
 
 /***********************************************************************
  *		SetCapture  (X11DRV.@)
@@ -6150,12 +6166,12 @@ static BOOL egl_init(void)
     if (retval != -1) return retval;
     retval = 0;
 
-    if (!(egl_handle = wine_dlopen( "libEGL.so", RTLD_NOW|RTLD_GLOBAL, buffer, sizeof(buffer) )))
+    if (!(egl_handle = dlopen( "libEGL.so", RTLD_NOW|RTLD_GLOBAL)
     {
         ERR( "failed to load %s: %s\n", "libEGL.so", buffer );
         return FALSE;
     }
-    if (!(opengl_handle = wine_dlopen( "libGLESv2.so", RTLD_NOW|RTLD_GLOBAL, buffer, sizeof(buffer) )))
+    if (!(opengl_handle = dlopen( "libGLESv2.so", RTLD_NOW|RTLD_GLOBAL)
     {
         ERR( "failed to load %s: %s\n", "libGLESv2.so", buffer );
         return FALSE;
@@ -6527,7 +6543,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
     if (GetAncestor(create_info->hwnd, GA_PARENT) != GetDesktopWindow())
     {
         TRACE("Application requires child window rendering, which is not implemented yet!\n");
-        return VK_ERROR_INCOMPATIBLE_DRIVER;
+        //return VK_ERROR_INCOMPATIBLE_DRIVER;
     }
 
     x11_surface = heap_alloc_zero(sizeof(*x11_surface));
@@ -6735,6 +6751,26 @@ static VkResult WAYLANDDRV_vkGetPhysicalDevicePresentRectanglesKHR(VkPhysicalDev
     return pvkGetPhysicalDevicePresentRectanglesKHR(phys_dev, x11_surface->surface, count, rects);
 }
 
+
+static VkResult WAYLANDDRV_vkGetPhysicalDeviceSurfaceCapabilities2KHR(VkPhysicalDevice phys_dev,
+        const VkPhysicalDeviceSurfaceInfo2KHR *surface_info, VkSurfaceCapabilities2KHR *capabilities)
+{
+    VkPhysicalDeviceSurfaceInfo2KHR surface_info_host;
+    TRACE("%p, %p, %p\n", phys_dev, surface_info, capabilities);
+
+    surface_info_host = *surface_info;
+    surface_info_host.surface = surface_from_handle(surface_info->surface)->surface;
+
+    if (pvkGetPhysicalDeviceSurfaceCapabilities2KHR)
+        return pvkGetPhysicalDeviceSurfaceCapabilities2KHR(phys_dev, &surface_info_host, capabilities);
+
+    /* Until the loader version exporting this function is common, emulate it using the older non-2 version. */
+    if (surface_info->pNext || capabilities->pNext)
+        FIXME("Emulating vkGetPhysicalDeviceSurfaceCapabilities2KHR with vkGetPhysicalDeviceSurfaceCapabilitiesKHR, pNext is ignored.\n");
+
+    return pvkGetPhysicalDeviceSurfaceCapabilitiesKHR(phys_dev, surface_info_host.surface, &capabilities->surfaceCapabilities);
+}
+
 static VkResult WAYLANDDRV_vkGetPhysicalDeviceSurfaceCapabilitiesKHR(VkPhysicalDevice phys_dev,
         VkSurfaceKHR surface, VkSurfaceCapabilitiesKHR *capabilities)
 {
@@ -6743,6 +6779,41 @@ static VkResult WAYLANDDRV_vkGetPhysicalDeviceSurfaceCapabilitiesKHR(VkPhysicalD
     //TRACE("%p, 0x%s, %p\n", phys_dev, wine_dbgstr_longlong(surface), capabilities);
 
     return pvkGetPhysicalDeviceSurfaceCapabilitiesKHR(phys_dev, x11_surface->surface, capabilities);
+}
+
+static VkResult WAYLANDDRV_vkGetPhysicalDeviceSurfaceFormats2KHR(VkPhysicalDevice phys_dev,
+        const VkPhysicalDeviceSurfaceInfo2KHR *surface_info, uint32_t *count, VkSurfaceFormat2KHR *formats)
+{
+    VkPhysicalDeviceSurfaceInfo2KHR surface_info_host = *surface_info;
+    VkSurfaceFormatKHR *formats_host;
+    uint32_t i;
+    VkResult result;
+    TRACE("%p, %p, %p, %p\n", phys_dev, surface_info, count, formats);
+
+    surface_info_host = *surface_info;
+    surface_info_host.surface = surface_from_handle(surface_info->surface)->surface;
+
+    if (pvkGetPhysicalDeviceSurfaceFormats2KHR)
+        return pvkGetPhysicalDeviceSurfaceFormats2KHR(phys_dev, &surface_info_host, count, formats);
+
+    /* Until the loader version exporting this function is common, emulate it using the older non-2 version. */
+    if (surface_info->pNext)
+        FIXME("Emulating vkGetPhysicalDeviceSurfaceFormats2KHR with vkGetPhysicalDeviceSurfaceFormatsKHR, pNext is ignored.\n");
+
+    if (!formats)
+        return pvkGetPhysicalDeviceSurfaceFormatsKHR(phys_dev, surface_info_host.surface, count, NULL);
+
+    formats_host = heap_calloc(*count, sizeof(*formats_host));
+    if (!formats_host) return VK_ERROR_OUT_OF_HOST_MEMORY;
+    result = pvkGetPhysicalDeviceSurfaceFormatsKHR(phys_dev, surface_info_host.surface, count, formats_host);
+    if (result == VK_SUCCESS || result == VK_INCOMPLETE)
+    {
+        for (i = 0; i < *count; i++)
+            formats[i].surfaceFormat = formats_host[i];
+    }
+
+    heap_free(formats_host);
+    return result;
 }
 
 static VkResult WAYLANDDRV_vkGetPhysicalDeviceSurfaceFormatsKHR(VkPhysicalDevice phys_dev,
@@ -6809,7 +6880,9 @@ static const struct vulkan_funcs vulkan_funcs =
     WAYLANDDRV_vkGetDeviceProcAddr,
     WAYLANDDRV_vkGetInstanceProcAddr,
     WAYLANDDRV_vkGetPhysicalDevicePresentRectanglesKHR,
+    WAYLANDDRV_vkGetPhysicalDeviceSurfaceCapabilities2KHR,
     WAYLANDDRV_vkGetPhysicalDeviceSurfaceCapabilitiesKHR,
+    WAYLANDDRV_vkGetPhysicalDeviceSurfaceFormats2KHR,
     WAYLANDDRV_vkGetPhysicalDeviceSurfaceFormatsKHR,
     WAYLANDDRV_vkGetPhysicalDeviceSurfacePresentModesKHR,
     WAYLANDDRV_vkGetPhysicalDeviceSurfaceSupportKHR,

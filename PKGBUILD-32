@@ -2,11 +2,11 @@
 
 pkgname=lib32-wine-wayland
 _pkgname=wine-wayland
-pkgver=5.1
-pkgrel=81
-_winesrcdir='wine-wine-5.1'
+pkgver=5.7
+pkgrel=1
+_winesrcdir="wine-wine-$pkgver"
 _esyncsrcdir='esync'
-_where=$PWD
+
 
 pkgdesc=''
 
@@ -43,12 +43,6 @@ makedepends=(
     'vulkan-headers'    
     'gettext'               
 )
-
-
-source=("https://github.com/wine-mirror/wine/archive/wine-5.1.zip")
-    
-sha256sums=('SKIP')
-
 
 conflicts=('wine' 'wine-staging' 'wine-esync')
 
@@ -122,11 +116,14 @@ build() {
     --without-xrender \
     --without-xxf86vm \
     --without-xshm \
+    --without-usb \
     --with-freetype \
     --with-vulkan \
+    --without-xml2 \
     --without-curses \
     --without-faudio \
     --without-netapi \
+    --without-ldap \
 		--disable-tests
   fi
 	

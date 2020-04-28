@@ -252,51 +252,6 @@ static BOOL get_display_device_reg_key(char *key, unsigned len)
     return TRUE;
 }
 
-#if 0
-static BOOL read_registry_settings(DEVMODEW *dm)
-{
-    char wine_x11_reg_key[128];
-    HKEY hkey;
-    DWORD type, size;
-    BOOL ret = TRUE;
-
-    dm->dmFields = 0;
-
-    if (!get_display_device_reg_key(wine_x11_reg_key, sizeof(wine_x11_reg_key)))
-        return FALSE;
-
-    if (RegOpenKeyExA(HKEY_CURRENT_CONFIG, wine_x11_reg_key, 0, KEY_READ, &hkey))
-        return FALSE;
-
-#define query_value(name, data) \
-    size = sizeof(DWORD); \
-    if (RegQueryValueExA(hkey, name, 0, &type, (LPBYTE)(data), &size) || \
-        type != REG_DWORD || size != sizeof(DWORD)) \
-        ret = FALSE
-
-    query_value("DefaultSettings.BitsPerPel", &dm->dmBitsPerPel);
-    dm->dmFields |= DM_BITSPERPEL;
-    query_value("DefaultSettings.XResolution", &dm->dmPelsWidth);
-    dm->dmFields |= DM_PELSWIDTH;
-    query_value("DefaultSettings.YResolution", &dm->dmPelsHeight);
-    dm->dmFields |= DM_PELSHEIGHT;
-    query_value("DefaultSettings.VRefresh", &dm->dmDisplayFrequency);
-    dm->dmFields |= DM_DISPLAYFREQUENCY;
-    query_value("DefaultSettings.Flags", &dm->u2.dmDisplayFlags);
-    dm->dmFields |= DM_DISPLAYFLAGS;
-    query_value("DefaultSettings.XPanning", &dm->u1.s2.dmPosition.x);
-    query_value("DefaultSettings.YPanning", &dm->u1.s2.dmPosition.y);
-    query_value("DefaultSettings.Orientation", &dm->u1.s2.dmDisplayOrientation);
-    query_value("DefaultSettings.FixedOutput", &dm->u1.s2.dmDisplayFixedOutput);
-
-#undef query_value
-
-    RegCloseKey(hkey);
-    return ret;
-}
-
-#endif
-
 static BOOL write_registry_settings(const DEVMODEW *dm)
 {
     char wine_x11_reg_key[128];
@@ -381,7 +336,7 @@ BOOL CDECL WAYLANDDRV_EnumDisplaySettingsEx( LPCWSTR name, DWORD n, LPDEVMODEW d
 
         return TRUE;
     }
-    TRACE("mode %d -- not present (%s)\n", n, handler_name);
+    //TRACE("mode %d -- not present (%s)\n", n, handler_name);
     SetLastError(ERROR_NO_MORE_FILES);
     return FALSE;
 }
@@ -517,8 +472,8 @@ LONG CDECL WAYLANDDRV_ChangeDisplaySettingsEx( LPCWSTR devname, LPDEVMODEW devmo
     /* we have a valid mode */
     TRACE("Requested display settings match mode %d (%s)\n", mode, handler_name);
 
-    if (flags & CDS_UPDATEREGISTRY)
-        write_registry_settings(devmode);
+    //if (flags & CDS_UPDATEREGISTRY)
+    //    write_registry_settings(devmode);
 
     if (!(flags & (CDS_TEST | CDS_NORESET)))
         return pSetCurrentMode(mode);

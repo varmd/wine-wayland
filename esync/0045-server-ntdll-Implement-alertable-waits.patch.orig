@@ -70,16 +70,17 @@ index 360a980db2..395c8d3366 100644
      NtQuerySystemTime( &now );
      if (timeout)
      {
-@@ -728,6 +752,8 @@ NTSTATUS esync_wait_objects( DWORD count, const HANDLE *handles, BOOLEAN wait_an
- 
+@@ -748,6 +772,9 @@ NTSTATUS esync_wait_objects( DWORD count, const HANDLE *handles, BOOLEAN wait_an
          if (msgwait)
-             DPRINTF(" or driver events (fd %d)", ntdll_get_thread_data()->esync_queue_fd);
-+        if (alertable)
-+            DPRINTF(", alertable");
+             TRACE(" or driver events (fd %d)", ntdll_get_thread_data()->esync_queue_fd);
  
++        if (alertable)
++            TRACE(", alertable");
++
          if (!timeout)
-             DPRINTF(", timeout = INFINITE.\n");
-@@ -766,10 +792,17 @@ NTSTATUS esync_wait_objects( DWORD count, const HANDLE *handles, BOOLEAN wait_an
+             TRACE(", timeout = INFINITE.\n");
+         else
+@@ -785,10 +812,17 @@ NTSTATUS esync_wait_objects( DWORD count, const HANDLE *handles, BOOLEAN wait_an
          }
          if (msgwait)
          {

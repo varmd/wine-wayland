@@ -27,12 +27,13 @@
 @ cdecl ShowWindow(long long ptr long) WAYLANDDRV_ShowWindow
 
 # @ cdecl DestroyCursorIcon(long) WAYLANDDRV_DestroyCursorIcon
-# @ cdecl SetCursor(long) WAYLANDDRV_SetCursor
+@ cdecl SetCursor(long) WAYLANDDRV_SetCursor
 
 # @ cdecl SetCursorPos(long long) WAYLANDDRV_SetCursorPos
 @ cdecl ClipCursor(ptr) WAYLANDDRV_ClipCursor
 
 @ cdecl ChangeDisplaySettingsEx(ptr ptr long long long) WAYLANDDRV_ChangeDisplaySettingsEx
+
 @ cdecl EnumDisplayMonitors(long ptr ptr long) WAYLANDDRV_EnumDisplayMonitors
 @ cdecl EnumDisplaySettingsEx(ptr long ptr long) WAYLANDDRV_EnumDisplaySettingsEx
 @ cdecl GetMonitorInfo(long ptr) WAYLANDDRV_GetMonitorInfo

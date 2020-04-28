@@ -17,7 +17,7 @@ Wine-wayland allows playing DX9/DX11 and Vulkan games using pure wayland and Win
 
  * Archlinux or Manjaro
  * AMD GPU with Vulkan support
- * Mesa 19.3 or later with Wayland and Vulkan support
+ * Mesa 20 or later with Wayland and Vulkan support
  * weston based compositor (tested on wayward), wlroots based compositor (tested on sway)
  * SDL and Faudio
  * Esync or Fsync support
@@ -58,17 +58,20 @@ On first boot, click cancel on Install Gecko and Mono
 
 * F11 - Fullscreen mode
 * F10 - some games may not restrict cursor properly, manually restricts cursor to the game surface. After alt-tabbing, press two times
-* F9 - some games (such as NMS) that have their own cursor may need this to lock the cursor pointer. Also enable export WINE_VK_HIDE_CURSOR=1 in the start-game.sh. After alt-tabbing, press two times
+* F9 - some games (such as NMS) that have their own cursor may need this to lock the cursor pointer. Also enable export WINE_VK_HIDE_CURSOR=1 in the start-game.sh. After alt-tabbing, press two times to reset cursor state
 
 
 ## notes
 * For Unity games make sure game folder is executable
+
 * Some games may take a while to start
 * Some games may crash if fullscreen is enabled/disabled. After crashing, look in the game settings folder and see if you can enable/disable fullscreen manually.
 * If a game is not starting try to disable WINE\_VK\_VULKAN_ONLY variable and start the game to see if there are any error popups 
-* While launchers are not working many games from launchers do not require launchers to be running. You can download these games in a container with normal wine, and copy game folders to the host os.
+* While launchers are not working many games from launchers do not require launchers to be running. 
+* Use https://github.com/derrod/legendary to download and run games from Epic Games Store
 * For GOG games, these can be extracted with innounp
 * If a game is not starting, try wineserver -k, and start again
+* Use export XCURSOR_SIZE="xx" and export XCURSOR_THEME=themename to set cursor theme and increase cursor size 
 
 ## caveats and issues
 

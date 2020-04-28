@@ -1,9 +1,9 @@
 # Created by: varmd
 
 pkgname=wine-wayland
-pkgver=5.5
-pkgrel=81
-_winesrcdir='wine-wine-5.5'
+pkgver=5.7
+pkgrel=1
+_winesrcdir="wine-wine-$pkgver"
 _esyncsrcdir='esync'
 
 
@@ -72,7 +72,7 @@ prepare() {
   else
     cd ..
     rm -f "${srcdir}"/"${_winesrcdir}"/dlls/winewayland*
-    #cp -r $PWD/winewayland* "${srcdir}"/"${_winesrcdir}"/dlls/
+
     ln -s $PWD/winewayland* "${srcdir}"/"${_winesrcdir}"/dlls/
     
     cd "${srcdir}"/"${_winesrcdir}"
@@ -81,7 +81,6 @@ prepare() {
     
     
     patch dlls/user32/driver.c < ../../winewayland.drv/patch/user32-driverc.patch
-    #patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/user32-sysparamsc.patch
     patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/user32-sysparamsc-new.patch
     patch programs/explorer/desktop.c < ../../winewayland.drv/patch/explorer-desktopc.patch
     
@@ -178,6 +177,7 @@ build() {
     --without-xxf86vm \
     --without-xshm \
     --without-v4l2 \
+    --without-usb \
     --with-vulkan \
     --with-faudio \
     --disable-win16 \
