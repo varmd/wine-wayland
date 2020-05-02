@@ -3,7 +3,7 @@
 pkgname=lib32-wine-wayland
 _pkgname=wine-wayland
 pkgver=5.7
-pkgrel=1
+pkgrel=2
 _winesrcdir="wine-wine-$pkgver"
 _esyncsrcdir='esync'
 
@@ -117,6 +117,7 @@ build() {
     --without-xxf86vm \
     --without-xshm \
     --without-usb \
+    --without-png \
     --with-freetype \
     --with-vulkan \
     --without-xml2 \

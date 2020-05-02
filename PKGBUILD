@@ -2,7 +2,7 @@
 
 pkgname=wine-wayland
 pkgver=5.7
-pkgrel=1
+pkgrel=2
 _winesrcdir="wine-wine-$pkgver"
 _esyncsrcdir='esync'
 
@@ -34,18 +34,14 @@ makedepends=('git'
     'gcc'
     'libpng'                
     'gnutls'                
-            
     'mpg123'                
     'openal'    
-    'alsa-lib'             
-        
+    'alsa-lib'
     'mesa'
     'vulkan-icd-loader'    
     'vulkan-headers'    
-                 
     'freetype2'             
     'gettext'               
-    'libxml2'               
     'fontconfig'            
     'faudio'            
     'zstd'            
@@ -106,7 +102,9 @@ prepare() {
     
     msg2 "Applying fsync"
     patch -Np1 < '../../fsync-mainline.patch'  
-    #git apply -C1 --verbose < '../../fsync-mainline.patch'  
+    
+    msg2 "Applying performance patches"
+    patch -Np1 < '../../performance*.patch'  
     
     mkdir -p "${srcdir}"/"${pkgname}"-64-build
     
