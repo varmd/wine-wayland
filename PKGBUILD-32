@@ -2,10 +2,9 @@
 
 pkgname=lib32-wine-wayland
 _pkgname=wine-wayland
-pkgver=5.7
+pkgver=5.9
 pkgrel=2
 _winesrcdir="wine-wine-$pkgver"
-_esyncsrcdir='esync'
 
 
 pkgdesc=''
