@@ -57,8 +57,8 @@ On first boot, click cancel on Install Gecko and Mono
 ## keyboard shortcuts
 
 * F11 - Fullscreen mode
-* F10 - some games may not restrict cursor properly, manually restricts cursor to the game surface. After alt-tabbing, press two times
-* F9 - some games (such as NMS) that have their own cursor may need this to lock the cursor pointer. Also enable export WINE_VK_HIDE_CURSOR=1 in the start-game.sh. After alt-tabbing, press two times to reset cursor state
+* F10 - some games may not restrict cursor properly, manually restricts cursor to the game surface. After alt-tabbing, press F10 again two times
+* F9 - some games (such as NMS) that draw their own cursor may need this to lock the cursor pointer. Also enable export WINE_VK_HIDE_CURSOR=1 in the start-game.sh. After alt-tabbing, press F9 two times to reset cursor state
 
 
 ## notes
@@ -69,9 +69,10 @@ On first boot, click cancel on Install Gecko and Mono
 * If a game is not starting try to disable WINE\_VK\_VULKAN_ONLY variable and start the game to see if there are any error popups 
 * While launchers are not working many games from launchers do not require launchers to be running. 
 * Use https://github.com/derrod/legendary to download and run games from Epic Games Store
-* For GOG games, these can be extracted with innounp
+* GOG games can be extracted with innounp
 * If a game is not starting, try wineserver -k, and start again
 * Use export XCURSOR_SIZE="xx" and export XCURSOR_THEME=themename to set cursor theme and increase cursor size 
+* Use export WINE_VK_NO_CLIP_CURSOR=1 to disable cursor locking for games that erroneously try to lock mouse cursor.
 
 ## caveats and issues
 

@@ -1364,7 +1364,7 @@ int global_wait_for_configure = 0;
 int global_is_vulkan = 0;
 int global_is_opengl = 0;
 int global_hide_cursor = 0;
-
+int global_disable_clip_cursor = 0;
 int global_last_cursor_change = 0;
 
 HWND global_vulkan_hwnd;
@@ -2361,8 +2361,15 @@ static void seat_caps_cb(void *data, struct wl_seat *seat, enum wl_seat_capabili
     //Some games want to use their cursor
     char *env_hide_cursor = getenv( "WINE_VK_HIDE_CURSOR" );
     
+    //Some games need ClipCursor disabled
+    char *env_no_clip_cursor = getenv( "WINE_VK_NO_CLIP_CURSOR" );
+    
     if(env_hide_cursor) {
       global_hide_cursor = 1;  
+    }
+    
+    if(env_no_clip_cursor) {
+      global_disable_clip_cursor = 1;  
     }
     
     
@@ -2951,48 +2958,49 @@ static void draw_wayland_window (struct wayland_window *window) {
 BOOL CDECL WAYLANDDRV_ClipCursor( LPCRECT clip )
 {
     
-    //const char *is_vulkan = getenv( "WINE_VK_VULKAN_ONLY" );
-    if(!global_is_vulkan) { 
-      return TRUE;  
+    if(!global_is_vulkan || global_disable_clip_cursor) { 
+      return TRUE;
     }
+    
+    
   
     
-    if (!clip || IsRectEmpty (clip) ) {
+    if (!clip ) {
       TRACE( "Release Mouse Capture Called \n" );
           
-          if(global_wayland_confine) {
-      
-            
-            struct wl_cursor_image *image;
-            struct wl_buffer *buffer;
-            
-            zwp_locked_pointer_v1_destroy(locked_pointer);
-            zwp_relative_pointer_v1_destroy(relative_pointer);
-            locked_pointer = NULL;
-            relative_pointer = NULL;
-            
-            global_wayland_confine = 0;
-            
-            //show mouse if it's not hidden by env variable
-            if(!global_hide_cursor) {
-              image = wayland_default_cursor->images[0];
-              buffer = wl_cursor_image_get_buffer(image);
-              wl_pointer_set_cursor(wayland_pointer, wayland_serial_id,
-                wayland_cursor_surface,
-                image->hotspot_x,
-                image->hotspot_y);
-                wl_surface_attach(wayland_cursor_surface, buffer, 0, 0);
-                wl_surface_damage(wayland_cursor_surface, 0, 0,
-                image->width, image->height);
-              wl_surface_commit(wayland_cursor_surface);
-            }
-            
-          }
+      if(global_wayland_confine) {
+  
+        
+        struct wl_cursor_image *image;
+        struct wl_buffer *buffer;
+        
+        zwp_locked_pointer_v1_destroy(locked_pointer);
+        zwp_relative_pointer_v1_destroy(relative_pointer);
+        locked_pointer = NULL;
+        relative_pointer = NULL;
+        
+        global_wayland_confine = 0;
+        
+        //show mouse if it's not hidden by env variable
+        if(!global_hide_cursor) {
+          image = wayland_default_cursor->images[0];
+          buffer = wl_cursor_image_get_buffer(image);
+          wl_pointer_set_cursor(wayland_pointer, wayland_serial_id,
+            wayland_cursor_surface,
+            image->hotspot_x,
+            image->hotspot_y);
+            wl_surface_attach(wayland_cursor_surface, buffer, 0, 0);
+            wl_surface_damage(wayland_cursor_surface, 0, 0,
+            image->width, image->height);
+          wl_surface_commit(wayland_cursor_surface);
+        }
+        
+      }
           
           
-          return TRUE;
+      return TRUE;
           
-    } 
+    }
 
      
      
@@ -3001,6 +3009,8 @@ BOOL CDECL WAYLANDDRV_ClipCursor( LPCRECT clip )
      
     RECT virtual_rect = get_virtual_screen_rect();
     HWND foreground = GetForegroundWindow();
+    
+
     
     TRACE( "virtual rect %s clip rect %s\n", 
               wine_dbgstr_rect(&virtual_rect),
@@ -3052,27 +3062,22 @@ BOOL CDECL WAYLANDDRV_ClipCursor( LPCRECT clip )
           
           global_wayland_confine = 0;
           
-          //show mouse
-          if(!global_hide_cursor) {
-            image = wayland_default_cursor->images[0];
-            buffer = wl_cursor_image_get_buffer(image);
-            wl_pointer_set_cursor(wayland_pointer, wayland_serial_id,
-              wayland_cursor_surface,
-              image->hotspot_x,
-              image->hotspot_y);
-              wl_surface_attach(wayland_cursor_surface, buffer, 0, 0);
-              wl_surface_damage(wayland_cursor_surface, 0, 0,
-              image->width, image->height);
-             
-             wl_surface_commit(wayland_cursor_surface);
-          }
+          //show mouse          
+          image = wayland_default_cursor->images[0];
+          buffer = wl_cursor_image_get_buffer(image);
+          wl_pointer_set_cursor(wayland_pointer, wayland_serial_id,
+            wayland_cursor_surface,
+            image->hotspot_x,
+            image->hotspot_y);
+            wl_surface_attach(wayland_cursor_surface, buffer, 0, 0);
+            wl_surface_damage(wayland_cursor_surface, 0, 0,
+            image->width, image->height);
+           
+           wl_surface_commit(wayland_cursor_surface);
+          
           
         }
-        
-        
-
       }
-      
     }
     
     
