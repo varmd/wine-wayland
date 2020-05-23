@@ -70,7 +70,7 @@ index 54a792c838..90531279eb 100644
 +                        if ((size = read( obj->fd, &value, sizeof(value) )) == sizeof(value))
 +                        {
 +                            TRACE("Woken up by handle %p [%d].\n", handles[i], i);
-+                            interlocked_xchg_add( &semaphore->count, -1 );
++                            InterlockedDecrement( &semaphore->count );
 +                            return i;
 +                        }
 +                    }

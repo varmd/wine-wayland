@@ -77,6 +77,8 @@ build() {
 	cd  "${srcdir}"/"${_pkgname}"-32-build
 	
   
+  #		--without-gstreamer \
+  
   if [ -e Makefile ]; then 
     echo "Already configured"
   else
@@ -85,7 +87,6 @@ build() {
 		--libdir=/usr/lib32 \
     --with-wine64="$srcdir/$_pkgname-64-build" \
 		--without-x \
-		--without-gstreamer \
     --without-gsm \
     --without-openal \
     --without-opengl \
@@ -136,13 +137,10 @@ build() {
 
 package() {
   export PKGEXT='.pkg.tar.zst'	
-	msg2 'Packaging Wine-32...'
-	cd "${srcdir}/${_pkgname}"-32-build
+
+  cd "${srcdir}/${_pkgname}"-32-build
 	make -s	prefix="${pkgdir}/usr" \
-			libdir="${pkgdir}/usr/lib32" \
-			dlldir="${pkgdir}/usr/lib32/wine" install
-	
-  
-	
+    libdir="${pkgdir}/usr/lib32" \
+	  dlldir="${pkgdir}/usr/lib32/wine" install
 
 }

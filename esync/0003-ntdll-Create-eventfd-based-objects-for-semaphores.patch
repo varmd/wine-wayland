@@ -231,9 +231,9 @@ index ec034455aa..3d24baa096 100644
 --- a/dlls/ntdll/server.c
 +++ b/dlls/ntdll/server.c
 @@ -81,6 +81,7 @@
- #include "wine/server.h"
  #include "wine/debug.h"
  #include "ntdll_misc.h"
+ #include "ddk/wdm.h"
 +#include "esync.h"
  
  WINE_DEFAULT_DEBUG_CHANNEL(server);

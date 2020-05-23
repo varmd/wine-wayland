@@ -1,13 +1,11 @@
 # Created by: varmd
 
 pkgname=wine-wayland
-pkgver=5.7
+pkgver=5.9
 pkgrel=2
 _winesrcdir="wine-wine-$pkgver"
-_esyncsrcdir='esync'
 
-
-pkgdesc=''
+pkgdesc='Wine wayland'
 
 url=''
 arch=('x86_64')
@@ -90,7 +88,7 @@ prepare() {
       cd "${srcdir}"
       cp -r ../esync .
       cd "${srcdir}"/"${_winesrcdir}"
-      for _f in "${srcdir}"/"${_esyncsrcdir}"/*.patch; do
+      for _f in "${srcdir}"/esync/*.patch; do
         msg2 "Applying ${_f}"
         #git apply -C1 --verbose < ${_f}
         patch -Np1 < ${_f}
@@ -103,8 +101,9 @@ prepare() {
     msg2 "Applying fsync"
     patch -Np1 < '../../fsync-mainline.patch'  
     
-    msg2 "Applying performance patches"
-    patch -Np1 < '../../performance*.patch'  
+    #msg2 "Applying performance patches"
+    patch -Np1 < '../../performance-disable-raw-clock.patch'  
+    patch -Np1 < '../../performance-proton-improve-vulkan-alloc.patch'  
     
     mkdir -p "${srcdir}"/"${pkgname}"-64-build
     
@@ -141,7 +140,6 @@ build() {
 		--without-capi \
 		--without-dbus \
 		--without-gphoto \
-		--without-gstreamer \
 		--without-gssapi \
 		--without-udev \
 		--without-netapi \

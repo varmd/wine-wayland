@@ -42,8 +42,8 @@ index 32cb68ad9b..4d3e29490d 100644
 +        return;
 +    }
 +
-     if (stat( wine_get_config_dir(), &st ) == -1)
-         ERR("Cannot stat %s\n", wine_get_config_dir());
+     if (stat( config_dir, &st ) == -1)
+         ERR("Cannot stat %s\n", config_dir);
  
 @@ -127,7 +146,14 @@ void esync_init(void)
          sprintf( shm_name, "/wine-%lx-esync", (unsigned long)st.st_ino );

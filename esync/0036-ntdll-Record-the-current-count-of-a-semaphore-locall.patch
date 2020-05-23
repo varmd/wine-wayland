@@ -64,7 +64,7 @@ index 01aed5c83a..d69baecec6 100644
 +
 +        if (count + current > semaphore->max)
 +            return STATUS_SEMAPHORE_LIMIT_EXCEEDED;
-+    } while (interlocked_cmpxchg( &semaphore->count, count + current, current ) != current);
++    } while (InterlockedCompareExchange( &semaphore->count, count + current, current ) != current);
 +
 +    if (prev) *prev = current;
 +
@@ -85,7 +85,7 @@ index 01aed5c83a..d69baecec6 100644
 +                                     * the fact that we were able to grab it at all means the count
 +                                     * is nonzero, and if someone else grabbed it then the count
 +                                     * must have been >= 2, etc. */
-+                                    interlocked_xchg_add( &semaphore->count, -1 );
++                                    InterlockedDecrement( &semaphore->count );
 +                                }
                                  return i;
                              }
@@ -107,7 +107,7 @@ index 01aed5c83a..d69baecec6 100644
 +                    else if (objs[i]->type == ESYNC_SEMAPHORE)
 +                    {
 +                        struct semaphore *semaphore = (struct semaphore *)objs[i];
-+                        interlocked_xchg_add( &semaphore->count, -1 );
++                        InterlockedDecrement( &semaphore->count );
 +                    }
                  }
                  TRACE("Wait successful.\n");

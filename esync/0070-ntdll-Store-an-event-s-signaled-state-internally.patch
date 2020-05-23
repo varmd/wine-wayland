@@ -157,11 +157,11 @@ index 90531279eb..8883b46bc9 100644
 -    if (write( obj->fd, &value, sizeof(value) ) == -1)
 -        return FILE_GetNtStatus();
 +    /* Acquire the spinlock. */
-+    while (interlocked_cmpxchg( &event->locked, 1, 0 ))
++    while (InterlockedCompareExchange( &event->locked, 1, 0 ))
 +        small_pause();
 +
 +    /* Only bother signaling the fd if we weren't already signaled. */
-+    if (!interlocked_xchg( &event->signaled, 1 ))
++    if (!InterlockedExchange( &event->signaled, 1 ))
 +    {
 +        if (write( obj->fd, &value, sizeof(value) ) == -1)
 +            return FILE_GetNtStatus();
@@ -187,11 +187,11 @@ index 90531279eb..8883b46bc9 100644
 -    /* we don't care about the return value */
 -    read( obj->fd, &value, sizeof(value) );
 +    /* Acquire the spinlock. */
-+    while (interlocked_cmpxchg( &event->locked, 1, 0 ))
++    while (InterlockedCompareExchange( &event->locked, 1, 0 ))
 +        small_pause();
 +
 +    /* Only bother signaling the fd if we weren't already signaled. */
-+    if (interlocked_xchg( &event->signaled, 0 ))
++    if (InterlockedExchange( &event->signaled, 0 ))
 +    {
 +        /* we don't care about the return value */
 +        read( obj->fd, &value, sizeof(value) );
@@ -224,7 +224,7 @@ index 90531279eb..8883b46bc9 100644
 +         * fact that we were able to grab it at all means the count is nonzero,
 +         * and if someone else grabbed it then the count must have been >= 2,
 +         * etc. */
-+        interlocked_xchg_add( &semaphore->count, -1 );
++        InterlockedDecrement( &semaphore->count );
 +    }
 +    else if (obj->type == ESYNC_AUTO_EVENT)
 +    {
@@ -291,7 +291,7 @@ index 90531279eb..8883b46bc9 100644
 -                                     * the fact that we were able to grab it at all means the count
 -                                     * is nonzero, and if someone else grabbed it then the count
 -                                     * must have been >= 2, etc. */
--                                    interlocked_xchg_add( &semaphore->count, -1 );
+-                                    InterlockedDecrement( &semaphore->count );
 -                                }
 +                                update_grabbed_object( obj );
                                  return i;
@@ -311,7 +311,7 @@ index 90531279eb..8883b46bc9 100644
 -                    else if (objs[i]->type == ESYNC_SEMAPHORE)
 -                    {
 -                        struct semaphore *semaphore = objs[i]->shm;
--                        interlocked_xchg_add( &semaphore->count, -1 );
+-                        InterlockedDecrement( &semaphore->count );
 -                    }
 -                }
 +                    update_grabbed_object( objs[i] );

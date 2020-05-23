@@ -27,7 +27,7 @@ index e3149353eb..03a627a157 100644
 +
 +    if (entry < ESYNC_LIST_ENTRIES && esync_list[entry])
 +    {
-+        if ((obj = interlocked_xchg_ptr( (void **)&esync_list[entry][idx], 0 )))
++        if ((obj = InterlockedExchangePointer( (void **)&esync_list[entry][idx], 0 )))
 +        {
 +            close( obj->fd );
 +            RtlFreeHeap( GetProcessHeap(), 0, obj );

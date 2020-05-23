@@ -45,10 +45,10 @@ index e10f0ea4bf..b856de231e 100644
          }
      }
  
--    obj = interlocked_xchg_ptr((void **)&esync_list[entry][idx], obj);
+-    obj = InterlockedExchangePointer((void **)&esync_list[entry][idx], obj);
 -    assert(!obj);
 -    return TRUE;
-+    if (!interlocked_cmpxchg((int *)&esync_list[entry][idx].type, type, 0))
++    if (!InterlockedCompareExchange((int *)&esync_list[entry][idx].type, type, 0))
 +    {
 +        esync_list[entry][idx].fd = fd;
 +        esync_list[entry][idx].shm = shm;
@@ -131,8 +131,8 @@ index e10f0ea4bf..b856de231e 100644
  
      if (entry < ESYNC_LIST_ENTRIES && esync_list[entry])
      {
--        if ((obj = interlocked_xchg_ptr( (void **)&esync_list[entry][idx], 0 )))
-+        if (interlocked_xchg((int *)&esync_list[entry][idx].type, 0))
+-        if ((obj = InterlockedExchangePointer( (void **)&esync_list[entry][idx], 0 )))
++        if (InterlockedExchange((int *)&esync_list[entry][idx].type, 0))
          {
 -            close( obj->fd );
 -            RtlFreeHeap( GetProcessHeap(), 0, obj );
