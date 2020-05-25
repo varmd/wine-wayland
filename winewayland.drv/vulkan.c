@@ -1369,7 +1369,6 @@ int global_last_cursor_change = 0;
 
 HWND global_vulkan_hwnd;
 HWND global_update_hwnd = NULL;
-int global_update_hwnd_sdl = NULL;
 HWND global_update_hwnd_last = NULL;
 struct wine_vk_surface *global_wine_surface;
 
@@ -1425,10 +1424,83 @@ struct wayland_window {
 	int test;
 };
 
-struct wayland_window vulkan_window;
+struct wayland_window vulkan_window = {
+  .surface = NULL,  
+  .xdg_surface = NULL,  
+  .xdg_toplevel = NULL,  
+};
 struct wayland_window second_window;
 
+
+
+#if 0
+struct wl_surface_win_data
+{
+    HWND           hwnd;           /* hwnd that this private data belongs to */
+  
+    struct wl_subsurface  *wayland_subsurface;
+    struct wl_surface     *wayland_surface;
+
+};
+
+
+
+static CRITICAL_SECTION win_data_section;
+
+static struct wl_surface_win_data *wl_surface_data_context[32768];
+
+static inline int context_wl_idx( struct wl_surface *wl_surface  )
+{
+    return LOWORD( wl_surface ) >> 1;
+}
+
+static struct wl_surface_win_data *alloc_wl_win_data( struct wl_surface *surface, HWND hwnd )
+{
+    struct wl_surface_win_data *data;
+
+    if ((data = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*data))))
+    {
+        TRACE("Surface %d \n", context_wl_idx( surface ));
+        TRACE("Surface %d \n", context_wl_idx( &surface ));
+      
+        data->hwnd = hwnd;
+        data->wayland_subsurface = surface;
+        wl_surface_data_context[context_wl_idx(surface)] = data;
+        
+    }
+    return data;
+}
+
+
+/***********************************************************************
+ *           free_win_data
+ */
+static void free_wl_win_data( struct wl_surface_win_data *data )
+{
+    wl_surface_data_context[context_wl_idx( data->wayland_subsurface )] = NULL;
+    //LeaveCriticalSection( &win_data_section );
+    HeapFree( GetProcessHeap(), 0, data );
+}
+
+
+/***********************************************************************
+ *           get_win_data
+ *
+ * Lock and return the data structure associated with a window.
+ */
+static struct wl_surface_win_data *get_wl_win_data( struct wl_surface *surface )
+{
+    struct wl_surface_win_data *data;
+
+    if (!surface) return NULL;
+    if ((data = wl_surface_data_context[context_wl_idx(surface)])) {
+      return data;
+    }  
+    return NULL;
+}
+#endif
 // listeners
+
 
 
 static void buffer_release(void *data, struct wl_buffer *buffer) {
@@ -1440,16 +1512,34 @@ static const struct wl_buffer_listener buffer_listener = {
 	buffer_release
 };
 
+int global_sx_last = 0;
+int global_sy_last = 0;
+
 void wayland_pointer_enter_cb(void *data,
 		struct wl_pointer *pointer, uint32_t serial, struct wl_surface *surface,
 		wl_fixed_t sx, wl_fixed_t sy)
 {
   
+  global_sx_last = 0;
+  global_sy_last = 0;
+  
+  #if 0
+  struct wl_surface_win_data *hwnd_data;
+  
+  TRACE("Surface %p \n", surface );
+  TRACE("Surface %d \n", context_wl_idx( surface ));
+  
+  if ( hwnd_data = get_wl_win_data( surface )) {
+    TRACE("Data found \n");
+    TRACE("Current hwnd is %p and surface %p %p \n", hwnd_data->hwnd, hwnd_data->wayland_subsurface, surface);
+  }
+  #endif
+  
   wayland_serial_id = serial;
   HWND temp;
   temp = wl_surface_get_user_data(surface);
   if(temp) {
-    TRACE("Current hwnd is %p \n", temp);
+    TRACE("Current hwnd is %p and surface %p \n", temp, surface);
     global_update_hwnd = temp;
   }
   global_last_cursor_change = 0;
@@ -1496,6 +1586,11 @@ DWORD EVENT_wayland_time_to_win32_time(uint32_t time)
 
 INPUT global_input;
 
+
+
+
+
+
     
 void wayland_pointer_motion_cb_vulkan(void *data,
 		struct wl_pointer *pointer, uint32_t time, wl_fixed_t sx, wl_fixed_t sy)
@@ -1539,6 +1634,8 @@ void wayland_pointer_motion_cb_vulkan(void *data,
 }    
 
 
+
+
 void wayland_pointer_motion_cb(void *data,
 		struct wl_pointer *pointer, uint32_t time, wl_fixed_t sx, wl_fixed_t sy)
 {
@@ -1555,91 +1652,33 @@ void wayland_pointer_motion_cb(void *data,
    
     global_input.u.mi.dwFlags     = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE ;
     
-    //input.u.mi.time        = EVENT_wayland_time_to_win32_time( time );
-    
   
+    global_input.u.mi.dx = wl_fixed_to_int(sx);
+    global_input.u.mi.dy = wl_fixed_to_int(sy);  
+  
+    global_sx = global_input.u.mi.dx;
+    global_sy = global_input.u.mi.dy;
+  
+    #if 0
+    global_input.u.mi.dwFlags     = MOUSEEVENTF_MOVE;
+    int x,y = 0;
+  
+    if(!global_sx_last) {
+      global_sx_last = global_input.u.mi.dx; 
+      global_sy_last = global_input.u.mi.dy; 
+      x = global_sx_last;
+      y = global_sy_last;
+    } else {
+      x = global_input.u.mi.dx - global_sx_last;
+      y = global_input.u.mi.dy - global_sy_last;
+      global_sx_last = global_input.u.mi.dx;
+      global_sy_last = global_input.u.mi.dy;
+    }
+    #endif
   
     
-
-      global_input.u.mi.dx          = wl_fixed_to_int(sx);
-      global_input.u.mi.dy          = wl_fixed_to_int(sy);  
-      global_sx = global_input.u.mi.dx;
-      global_sy = global_input.u.mi.dy;
     
-    
-    
-    
-    //HWND hwnd = GetAncestor( global_vulkan_hwnd, GA_ROOT );
-    
-    
-    
-    
-    
-    
-    
-    
-    /*
-    struct waylanddrv_win_data *wdata;
-    
-    if ((wdata = get_win_data( global_vulkan_hwnd ))) {
-
-      if (wdata->whole_window)
-      {
-          pt.x += wdata->whole_rect.left - wdata->client_rect.left;
-          pt.y += wdata->whole_rect.top - wdata->client_rect.top;
-      }
-    }
-    */
-    
-    
-    
-    //RECT virtual_rect = get_virtual_screen_rect();
-    
-    
-    //global_sx = (input.u.mi.dx * 65536 / virtual_rect.right) + 1;
-    //global_sy = (input.u.mi.dy * 65536 / virtual_rect.bottom) + 1;
-    
-    
-  
-    //SetCursor(NULL);
-    
-    //mouse_event(MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE, global_sx, global_sy, 0, 0);
-    //send_hardware_message( 0, &input, SEND_HWMSG_INJECTED );
-    //SendInput(0, global_sx, global_sy, 0, 0);
-    
-    //SendInput(1, inputs, sizeof(INPUT));
-    
-    /*
-    HWND child = GetTopWindow(global_vulkan_hwnd);
-    
-    if(child) {
-      SERVER_START_REQ( send_hardware_message )
-    {
-        req->win        = wine_server_user_handle( child );
-        req->flags      = 0;
-        //req->input.type = global_input.type;
-        req->input.type = INPUT_MOUSE;
-        
-            req->input.mouse.x     = global_input.u.mi.dx;
-            req->input.mouse.y     = global_input.u.mi.dy;
-            //req->input.mouse.data  = global_input.u.mi.mouseData;
-            req->input.mouse.data  = 0;
-            req->input.mouse.flags = global_input.u.mi.dwFlags;
-            //req->input.mouse.time  = input.u.mi.time;
-            req->input.mouse.time  = 0;
-            req->input.mouse.info  = 0;
-            
-        wine_server_call( req );
-      
-        
-        
-    }
-  SERVER_END_REQ;
-    return;
-    }
-    */
-
-    
+    //TRACE("Motion x y %d %d \n", global_sx, global_sy);
     
     HWND hwnd;
     
@@ -1655,16 +1694,7 @@ void wayland_pointer_motion_cb(void *data,
 
     
 
-    SERVER_START_REQ( update_window_zorder )
-    {
-        req->window      = wine_server_user_handle( hwnd );
-        req->rect.left   = rect.left;
-        req->rect.top    = rect.top;
-        req->rect.right  = rect.right;
-        req->rect.bottom = rect.bottom;
-        wine_server_call( req );
-    }
-    SERVER_END_REQ;
+    
     
     */
     
@@ -1673,13 +1703,9 @@ void wayland_pointer_motion_cb(void *data,
   
   //TRACE("Click x y %d %d %s \n", global_input.u.mi.dx, global_input.u.mi.dy, wine_dbgstr_rect( &rect ));
   
+  
   global_input.u.mi.dx = global_input.u.mi.dx + rect.left;
   global_input.u.mi.dy = global_input.u.mi.dy + rect.top;
-  
-  //TRACE("Click x y %d %d %s \n", global_input.u.mi.dx, global_input.u.mi.dy, wine_dbgstr_rect( &rect ));
-    
-    
-    
   
   SERVER_START_REQ( send_hardware_message )
     {
@@ -1700,6 +1726,8 @@ void wayland_pointer_motion_cb(void *data,
         
     }
   SERVER_END_REQ;
+    
+
     
     
   
@@ -1741,11 +1769,8 @@ void wayland_pointer_button_cb_vulkan(void *data,
 	case BTN_LEFT:
     if(state == WL_POINTER_BUTTON_STATE_PRESSED) {
       input.u.mi.dwFlags  |= MOUSEEVENTF_LEFTDOWN;
-      
     } else if(state == WL_POINTER_BUTTON_STATE_RELEASED) {
       input.u.mi.dwFlags |= MOUSEEVENTF_LEFTUP;       
-      
-      
     }
 		break;
     
@@ -1772,7 +1797,7 @@ void wayland_pointer_button_cb_vulkan(void *data,
     else if(state == WL_POINTER_BUTTON_STATE_RELEASED)
       input.u.mi.dwFlags     |= MOUSEEVENTF_XUP;
      
-      input.u.mi.mouseData = XBUTTON1;
+    input.u.mi.mouseData = XBUTTON1;
 		break;
   case BTN_BACK:
   case BTN_SIDE:
@@ -1781,8 +1806,8 @@ void wayland_pointer_button_cb_vulkan(void *data,
       input.u.mi.dwFlags     |= MOUSEEVENTF_XDOWN;
     else if(state == WL_POINTER_BUTTON_STATE_RELEASED)
       input.u.mi.dwFlags     |= MOUSEEVENTF_XUP;
-    
-      input.u.mi.mouseData = XBUTTON2;
+      
+    input.u.mi.mouseData = XBUTTON2;
 		break;
     
     
@@ -1875,8 +1900,8 @@ void wayland_pointer_button_cb(void *data,
 
   
   hwnd = global_hwnd_clicked;
-    
-    RECT rect;
+  hwnd = global_update_hwnd;
+  RECT rect;
     
     //MapWindowPoints( global_update_hwnd, 0, (POINT *)&rect, 2 );
   GetWindowRect(global_hwnd_clicked, &rect);
@@ -1889,35 +1914,7 @@ void wayland_pointer_button_cb(void *data,
   TRACE("Click x y %d %d %s \n", input.u.mi.dx, input.u.mi.dy, wine_dbgstr_rect( &rect ));
   
   
-  
-  //SetCursorPos(input.u.mi.dx, input.u.mi.dy);
-  
-  //NTSTATUS ret;
-
-  
-  
-    //hwnd = GetForegroundWindow();
-    //TRACE("Top hwnd %p \n", hwnd);  
     
-    
-    
-    /*
-    RECT rect;
-    SetRect( &rect, global_input.u.mi.dx, global_input.u.mi.dy,
-             global_input.u.mi.dx + 1, global_input.u.mi.dy + 1 );
-    MapWindowPoints( 0, global_update_hwnd, (POINT *)&rect, 2 );
-
-    SERVER_START_REQ( update_window_zorder )
-    {
-        req->window      = wine_server_user_handle( hwnd );
-        req->rect.left   = rect.left;
-        req->rect.top    = rect.top;
-        req->rect.right  = rect.right;
-        req->rect.bottom = rect.bottom;
-        wine_server_call( req );
-    }
-    SERVER_END_REQ;
-  */
   
   
   SERVER_START_REQ( send_hardware_message )
@@ -1941,14 +1938,8 @@ void wayland_pointer_button_cb(void *data,
     }
   SERVER_END_REQ;
     
-    
-    //if(state == WL_POINTER_BUTTON_STATE_RELEASED) {
-    //  GetCursorPos(&pt_old); 
-    //  TRACE("Motion Click After x y %d %d \n", pt_old.x, pt_old.y);
-    //}
   
-  //inputs[0] = input;
-  //SendInput(1, inputs, sizeof(INPUT));
+    
   
   
   
@@ -2233,22 +2224,27 @@ SERVER_END_REQ;
     case KEY_F10:
       
     
-      //SetCursor(NULL);
-
     
     if(!global_wayland_confine) {
       
       global_wayland_confine = 1;
       
       
-      locked_pointer = zwp_pointer_constraints_v1_confine_pointer( pointer_constraints,  vulkan_window.surface, wayland_pointer, NULL, ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_PERSISTENT);
-      
-      
-      relative_pointer = zwp_relative_pointer_manager_v1_get_relative_pointer(relative_pointer_manager, wayland_pointer);
-      zwp_relative_pointer_v1_add_listener(relative_pointer, &relative_pointer_listener, NULL);
-      
-      
-      wl_surface_commit(vulkan_window.surface);
+      if(vulkan_window.surface) {
+        locked_pointer = zwp_pointer_constraints_v1_confine_pointer( pointer_constraints,  vulkan_window.surface, wayland_pointer, NULL, ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_PERSISTENT);
+        
+        
+        relative_pointer = zwp_relative_pointer_manager_v1_get_relative_pointer(relative_pointer_manager, wayland_pointer);
+        zwp_relative_pointer_v1_add_listener(relative_pointer, &relative_pointer_listener, NULL);
+        wl_surface_commit(vulkan_window.surface);
+      } else {
+        locked_pointer = zwp_pointer_constraints_v1_confine_pointer( pointer_constraints,  second_window.surface, wayland_pointer, NULL, ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_PERSISTENT);
+        
+        
+        relative_pointer = zwp_relative_pointer_manager_v1_get_relative_pointer(relative_pointer_manager, wayland_pointer);
+        zwp_relative_pointer_v1_add_listener(relative_pointer, &relative_pointer_listener, NULL);
+        wl_surface_commit(second_window.surface);
+      }
       
       struct wl_cursor_image *image;
       struct wl_buffer *buffer;
@@ -3098,8 +3094,7 @@ void CDECL WAYLANDDRV_SetCursor( HCURSOR handle )
     
     
     
-    if(handle) {
-      
+    if(handle) {      
       
       
       struct wl_cursor_image *image;
@@ -3120,6 +3115,12 @@ void CDECL WAYLANDDRV_SetCursor( HCURSOR handle )
          
          wl_surface_commit(wayland_cursor_surface);
       }
+    } else { //Remove cursor
+      
+      wl_pointer_set_cursor(wayland_pointer, wayland_serial_id,
+        NULL, 0, 0);
+      wl_surface_commit(wayland_cursor_surface); 
+      
     }
     
 }    
@@ -3213,6 +3214,8 @@ static inline int get_dib_image_size( const BITMAPINFO *info )
 
 
 /* Window surface support */
+
+
 
 static inline int context_idx( HWND hwnd  )
 {
@@ -3663,7 +3666,7 @@ static void android_surface_flush( struct window_surface *window_surface )
     }
     
       
-    TRACE("Client Rect rect %s %d %d %p \n", wine_dbgstr_rect( &client_rect ), WIDTH, HEIGHT, surface->hwnd);
+    //TRACE("Client Rect rect %s %d %d %p \n", wine_dbgstr_rect( &client_rect ), WIDTH, HEIGHT, surface->hwnd);
     
     
     if(!hwnd_data->wl_pool) {
@@ -3679,19 +3682,26 @@ static void android_surface_flush( struct window_surface *window_surface )
     if(!hwnd_data->wayland_subsurface) {
       hwnd_data->window_width = WIDTH;
       hwnd_data->window_height = HEIGHT;
-      TRACE( "creating wl_subsurface for hwnd %p \n", surface->hwnd );
+      
       hwnd_data->wayland_surface = wl_compositor_create_surface(wayland_compositor);
       hwnd_data->wayland_subsurface = wl_subcompositor_get_subsurface(wayland_subcompositor, hwnd_data->wayland_surface, second_window.surface);
+      
+      TRACE( "creating wl_subsurface %p %p for hwnd %p \n", hwnd_data->wayland_subsurface, hwnd_data->wayland_surface, surface->hwnd );
+      
       wl_subsurface_set_position(hwnd_data->wayland_subsurface, client_rect.left, client_rect.top);
       wl_subsurface_set_desync(hwnd_data->wayland_subsurface);
       
-      wl_surface_set_user_data(hwnd_data->wayland_surface, surface->hwnd);
+      
       //if window is owned
       if(owner) {
         TRACE( "wl_subsurface is owned by %p for hwnd %p \n", owner, surface->hwnd );
         wl_subsurface_place_above(hwnd_data->wayland_subsurface, second_window.surface);
       }
 
+      
+      //alloc_wl_win_data(hwnd_data->wayland_subsurface, surface->hwnd);
+      
+      wl_subsurface_set_user_data(hwnd_data->wayland_surface, surface->hwnd);
       
       wl_surface_attach(hwnd_data->wayland_surface, buffer, 0, 0);
     } else {
@@ -3711,12 +3721,11 @@ static void android_surface_flush( struct window_surface *window_surface )
     
     dest_pixels = (unsigned int *)hwnd_data->shm_data;
     
-    LONG l,t,r,b;
+    LONG l,t;
     
     l = rect.left;
     t = rect.top;
-    r = rect.right;
-    b = rect.bottom;
+
     
     if(l != 0 || t != 0 ) {
       //dest_pixels = (unsigned int *)surface->shm_data + (client_rect.top + rect.top) * WIDTH + (client_rect.left + rect.left);
@@ -3772,8 +3781,6 @@ static void android_surface_flush( struct window_surface *window_surface )
     wl_surface_damage(hwnd_data->wayland_surface, 0, 0, WIDTH, HEIGHT);
     wl_surface_commit(hwnd_data->wayland_surface);
     
-    //wl_surface_damage(vulkan_window.surface, 0, 0, WIDTH, HEIGHT);
-    //wl_surface_commit(vulkan_window.surface);
     
     
     
@@ -3928,7 +3935,7 @@ static struct window_surface *create_surface( HWND hwnd, const RECT *rect,
     surface->wl_pool       = NULL;
     surface->gdi_fd       = 0;
     surface->alpha        = alpha;
-    set_color_key( surface, color_key );
+    //set_color_key( surface, color_key );
     set_surface_region( &surface->header, (HRGN)1 );
     reset_bounds( &surface->bounds );
 
@@ -4111,11 +4118,6 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
     return;  
   }
   
-  
-  
-  
-  
-  
   struct android_win_data *data;
   COLORREF key;
   
@@ -4131,26 +4133,31 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
     return;  
   }
   
+  
+  WCHAR title_name[1024] = { L'\0' };
   //tooltips_class32
   WCHAR class_name[64];
+  
   static const WCHAR desktop_class[] = {'#', '3', '2', '7', '6', '9', 0};
-  static const WCHAR menu_class[] = {'#', '3', '2', '7', '6', '8', 0};
+  //static const WCHAR menu_class[] = {'#', '3', '2', '7', '6', '8', 0};
   static const WCHAR ole_class[] = {'O','l','e','M','a','i','n','T','h','r','e','a','d','W','n','d','C','l','a','s','s', 0};
   static const WCHAR msg_class[] = {'M','e','s','s','a','g','e', 0};
   static const WCHAR ime_class[] = {'I','M','E', 0};
-  static const WCHAR chrome_class[] = {'C','h','r','o','m','e','_','W','i','d','g','e','t','W','i','n','_','0', 0};
+  
   static const WCHAR tooltip_class[] = {'t','o','o','l','t','i','p','s','_',
   'c','l','a','s','s','3','2', 0};
+  static const WCHAR sdl_class[] = {'S','D','L','_','a','p','p', 0};
     
     
       
     if(RealGetWindowClassW(hwnd, class_name, ARRAY_SIZE(class_name))) {
+      
       TRACE("changing %s \n", debugstr_w(class_name));    
         
       
-      if(!lstrcmpiW(class_name, menu_class)) {
+      //if(!lstrcmpiW(class_name, menu_class)) {
         //return TRUE;
-      }
+      //}
       if(!lstrcmpiW(class_name, msg_class)) {
         return TRUE;
       }
@@ -4166,12 +4173,15 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
       if(!lstrcmpiW(class_name, tooltip_class)) {
         return TRUE;
       }
+      if(!lstrcmpiW(class_name, sdl_class)) {
+        return TRUE;
+      }
       
-      //SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE); 
     }
   
-  
-  
+    GetWindowTextW(hwnd, title_name, 1024);
+    TRACE( "Window title %d / %s\n", strlenW( title_name ), debugstr_wn(title_name, strlenW( title_name )));
+    
   
   
   int do_create_surface = NULL;
@@ -4196,9 +4206,6 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
   }
   
   
-  
-  //TRACE("changing 111 %s \n", debugstr_w(class_name));    
-  
   if(!wayland_display) {
       
       
@@ -4219,10 +4226,6 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
     //TRACE("changing 333 %s \n", debugstr_w(class_name));    
     draw_wayland_window (&second_window);
   }
-  
-  
-  
-  //TRACE("changing 222 %s \n", debugstr_w(class_name));    
   
     data = get_win_data( hwnd );
     if(!data) {
@@ -4388,9 +4391,6 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
 
     
 
-done:
-    return;
-    //release_win_data( data );
     #endif
 }
 
@@ -4467,8 +4467,6 @@ void CDECL WAYLANDDRV_WindowPosChanged( HWND hwnd, HWND insert_after, UINT swp_f
       
       //TRACE("child window parent %p from child %p global hwnd %p desktop %p \n", parent, hwnd, global_vulkan_hwnd, GetDesktopWindow() );
         
-      //if(global_hwnd_clicked) {
-        //global_hwnd_clicked = 0;
         
         
       
@@ -5116,7 +5114,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
     
     //if vulkan_window already exists destroy it
     if(vulkan_window.surface) { 
-      TRACE("Deleting already existing vulkan wl surface %p\n", vulkan_window );
+      TRACE("Deleting already existing vulkan wl surface \n" );
       
       delete_wayland_window(&vulkan_window);
     }
@@ -5140,8 +5138,8 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
       }
       SERVER_END_REQ;
       SetCapture(global_vulkan_hwnd);
-      UpdateWindow(global_update_hwnd);
-      RedrawWindow(global_update_hwnd, 0, 0, RDW_INVALIDATE | RDW_ALLCHILDREN);
+      UpdateWindow(global_vulkan_hwnd);
+      //RedrawWindow(global_vulkan_hwnd, 0, 0, RDW_INVALIDATE | RDW_ALLCHILDREN);
       TRACE("Global vulkan hwnd is %p \n", create_info->hwnd);
       
       SetWindowPos( global_vulkan_hwnd, HWND_TOP, 0, 0, 1600, 900,

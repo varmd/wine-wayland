@@ -117,10 +117,12 @@ prepare() {
 build() {
 	cd "${srcdir}"
   
-  export COMMON_FLAGS="-w -march=native -pipe -Os"
-  export LDFLAGS="-Os"
+  #export COMMON_FLAGS="-w -march=native -pipe -Os"
+  export COMMON_FLAGS="-w -march=native -pipe -Ofast"
+  #export LDFLAGS="-Ofast"
 	
-	export CFLAGS="${CFLAGS} -w"
+	export CFLAGS="${CFLAGS} -w -march=native -pipe -Ofast"
+  export LDFLAGS="${CFLAGS}"
 	
 
 

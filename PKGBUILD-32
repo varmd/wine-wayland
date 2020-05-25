@@ -62,12 +62,12 @@ prepare() {
 build() {
   cd "${srcdir}"
   
-  export COMMON_FLAGS="-march=native -pipe -Os"
-  export LDFLAGS="-Os"
+  #export COMMON_FLAGS="-march=native -pipe -Os"
+  #export LDFLAGS="-Os"
 
   #32 bit build fails without these
   export CFLAGS="${CFLAGS/-fno-plt/}"
-  export LDFLAGS="${LDFLAGS/,-z,now/}"
+  #export LDFLAGS="${LDFLAGS/,-z,now/}"
 
   # create new build dirs
 	mkdir -p "${srcdir}"/"${_pkgname}"-32-build
