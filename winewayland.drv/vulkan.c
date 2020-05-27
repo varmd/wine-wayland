@@ -1365,7 +1365,9 @@ int global_is_vulkan = 0;
 int global_is_opengl = 0;
 int global_hide_cursor = 0;
 int global_disable_clip_cursor = 0;
+int global_fullscreen_grab_cursor = 0;
 int global_last_cursor_change = 0;
+int global_is_cursor_visible = 1;
 
 HWND global_vulkan_hwnd;
 HWND global_update_hwnd = NULL;
@@ -1499,6 +1501,11 @@ static struct wl_surface_win_data *get_wl_win_data( struct wl_surface *surface )
     return NULL;
 }
 #endif
+
+
+
+
+
 // listeners
 
 
@@ -1512,16 +1519,10 @@ static const struct wl_buffer_listener buffer_listener = {
 	buffer_release
 };
 
-int global_sx_last = 0;
-int global_sy_last = 0;
-
 void wayland_pointer_enter_cb(void *data,
 		struct wl_pointer *pointer, uint32_t serial, struct wl_surface *surface,
 		wl_fixed_t sx, wl_fixed_t sy)
 {
-  
-  global_sx_last = 0;
-  global_sy_last = 0;
   
   #if 0
   struct wl_surface_win_data *hwnd_data;
@@ -1543,6 +1544,11 @@ void wayland_pointer_enter_cb(void *data,
     global_update_hwnd = temp;
   }
   global_last_cursor_change = 0;
+  
+  //Remove cursor if it's hidden on alt-tab
+  if(!global_is_cursor_visible) {
+    wl_pointer_set_cursor(wayland_pointer, wayland_serial_id, NULL, 0, 0);
+  }
   
 }
 
@@ -1762,7 +1768,7 @@ void wayland_pointer_button_cb_vulkan(void *data,
   hwnd = global_vulkan_hwnd;
 
   
-  TRACE("Button code %p \n", button);
+  //TRACE("Button code %p \n", button);
  
   switch (button)
 	{
@@ -2018,6 +2024,8 @@ void wayland_pointer_axis_cb(void *data,
 
 
 
+
+
 //relative pointer for locked surface
 static void
 relative_pointer_handle_motion(void *data, struct zwp_relative_pointer_v1 *pointer,
@@ -2068,6 +2076,50 @@ static const struct zwp_relative_pointer_v1_listener relative_pointer_listener =
 //relative pointer for locked surface
 
 
+
+static void grab_wayland_screen() {
+  if(!global_wayland_confine) {
+          
+    global_wayland_confine = 1;
+    locked_pointer = zwp_pointer_constraints_v1_lock_pointer( pointer_constraints,  vulkan_window.surface, wayland_pointer,               NULL,ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_PERSISTENT);
+    
+    relative_pointer = zwp_relative_pointer_manager_v1_get_relative_pointer(relative_pointer_manager, wayland_pointer);
+    zwp_relative_pointer_v1_add_listener(relative_pointer, &relative_pointer_listener, NULL);      
+    wl_surface_commit(vulkan_window.surface);
+    
+    //hide mouse
+    wl_pointer_set_cursor(wayland_pointer, wayland_serial_id, NULL, 0, 0);
+  }
+}
+
+static void ungrab_wayland_screen() {
+  if(global_wayland_confine) {
+    struct wl_cursor_image *image;
+    struct wl_buffer *buffer;
+    
+    zwp_locked_pointer_v1_destroy(locked_pointer);
+    zwp_relative_pointer_v1_destroy(relative_pointer);
+    locked_pointer = NULL;
+    relative_pointer = NULL;
+    
+    global_wayland_confine = 0;
+    
+    //show mouse          
+    image = wayland_default_cursor->images[0];
+    buffer = wl_cursor_image_get_buffer(image);
+    wl_pointer_set_cursor(wayland_pointer, wayland_serial_id,
+      wayland_cursor_surface,
+      image->hotspot_x,
+      image->hotspot_y);
+      wl_surface_attach(wayland_cursor_surface, buffer, 0, 0);
+      wl_surface_damage(wayland_cursor_surface, 0, 0,
+      image->width, image->height);
+     
+     wl_surface_commit(wayland_cursor_surface);
+    
+    
+  }  
+}
 
 
 void wayland_keyboard_keymap_cb(void *data,
@@ -2231,12 +2283,7 @@ SERVER_END_REQ;
       
       
       if(vulkan_window.surface) {
-        locked_pointer = zwp_pointer_constraints_v1_confine_pointer( pointer_constraints,  vulkan_window.surface, wayland_pointer, NULL, ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_PERSISTENT);
-        
-        
-        relative_pointer = zwp_relative_pointer_manager_v1_get_relative_pointer(relative_pointer_manager, wayland_pointer);
-        zwp_relative_pointer_v1_add_listener(relative_pointer, &relative_pointer_listener, NULL);
-        wl_surface_commit(vulkan_window.surface);
+        grab_wayland_screen();
       } else {
         locked_pointer = zwp_pointer_constraints_v1_confine_pointer( pointer_constraints,  second_window.surface, wayland_pointer, NULL, ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_PERSISTENT);
         
@@ -2270,8 +2317,7 @@ SERVER_END_REQ;
       
       
       
-    } else {
-      
+    } else {      
       zwp_locked_pointer_v1_destroy(locked_pointer);
 	    zwp_relative_pointer_v1_destroy(relative_pointer);
 	    locked_pointer = NULL;
@@ -2357,6 +2403,9 @@ static void seat_caps_cb(void *data, struct wl_seat *seat, enum wl_seat_capabili
     //Some games want to use their cursor
     char *env_hide_cursor = getenv( "WINE_VK_HIDE_CURSOR" );
     
+    //Some games want to grab cursor when ClipCursor is passed fullscreen rect
+    char *env_fullscreen_grab_cursor = getenv( "WINE_VK_FULLSCREEN_GRAB_CURSOR" );
+    
     //Some games need ClipCursor disabled
     char *env_no_clip_cursor = getenv( "WINE_VK_NO_CLIP_CURSOR" );
     
@@ -2366,6 +2415,10 @@ static void seat_caps_cb(void *data, struct wl_seat *seat, enum wl_seat_capabili
     
     if(env_no_clip_cursor) {
       global_disable_clip_cursor = 1;  
+    }
+    
+    if(env_fullscreen_grab_cursor) {
+      global_fullscreen_grab_cursor = 1;  
     }
     
     
@@ -2948,6 +3001,9 @@ static void draw_wayland_window (struct wayland_window *window) {
 
 #endif
 
+
+
+
 /***********************************************************************
  *		ClipCursor (WAYLANDDRV.@)
  */
@@ -3007,72 +3063,40 @@ BOOL CDECL WAYLANDDRV_ClipCursor( LPCRECT clip )
     HWND foreground = GetForegroundWindow();
     
 
-    
+    #if 0
     TRACE( "virtual rect %s clip rect %s\n", 
               wine_dbgstr_rect(&virtual_rect),
               wine_dbgstr_rect(clip)
     );
-
+    #endif
 
     // we are clipping if the clip rectangle is smaller than the screen
     if (clip->left > virtual_rect.left || clip->right < virtual_rect.right ||
         clip->top > virtual_rect.top || clip->bottom < virtual_rect.bottom)
     {
         //TRACE( "Set Mouse Capture \n" );
-      
-        if(!global_wayland_confine) {
-          
-          global_wayland_confine = 1;
-          locked_pointer = zwp_pointer_constraints_v1_lock_pointer( pointer_constraints,  vulkan_window.surface, wayland_pointer,               NULL,ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_PERSISTENT);
-          
-          relative_pointer = zwp_relative_pointer_manager_v1_get_relative_pointer(relative_pointer_manager, wayland_pointer);
-          zwp_relative_pointer_v1_add_listener(relative_pointer, &relative_pointer_listener, NULL);      
-          wl_surface_commit(vulkan_window.surface);
-          
-          //hide mouse
-          wl_pointer_set_cursor(wayland_pointer, wayland_serial_id, NULL, 0, 0);
-        }
+        grab_wayland_screen();
+        
+        
       
     } else // if currently clipping, check if we should switch to fullscreen clipping
     {
       
-       
+      if ( global_fullscreen_grab_cursor && !global_is_cursor_visible ) { //grab cursor if clip equals to desktop
+        TRACE( "Set Mouse Capture - fullscreen grab \n" );
+        grab_wayland_screen();
+        return TRUE;
+      } else if ( global_fullscreen_grab_cursor && global_is_cursor_visible ) {
+        TRACE( "Remove Mouse Capture - fullscreen grab \n" );
+        ungrab_wayland_screen();
+      }
       
-      //TODO
-      //Re-enable with environment variable
-      
+      //Release grab instead
       if(!global_hide_cursor) {
       
         TRACE( "Release Mouse Capture #2 \n" );
+        ungrab_wayland_screen();
         
-        if(global_wayland_confine) {
-    
-          
-          struct wl_cursor_image *image;
-          struct wl_buffer *buffer;
-          
-          zwp_locked_pointer_v1_destroy(locked_pointer);
-          zwp_relative_pointer_v1_destroy(relative_pointer);
-          locked_pointer = NULL;
-          relative_pointer = NULL;
-          
-          global_wayland_confine = 0;
-          
-          //show mouse          
-          image = wayland_default_cursor->images[0];
-          buffer = wl_cursor_image_get_buffer(image);
-          wl_pointer_set_cursor(wayland_pointer, wayland_serial_id,
-            wayland_cursor_surface,
-            image->hotspot_x,
-            image->hotspot_y);
-            wl_surface_attach(wayland_cursor_surface, buffer, 0, 0);
-            wl_surface_damage(wayland_cursor_surface, 0, 0,
-            image->width, image->height);
-           
-           wl_surface_commit(wayland_cursor_surface);
-          
-          
-        }
       }
     }
     
@@ -3084,11 +3108,17 @@ BOOL CDECL WAYLANDDRV_ClipCursor( LPCRECT clip )
 
 
 
+void CDECL WAYLANDDRV_ShowCursor( HCURSOR handle ) 
+{
+  
+  TRACE("Show cursor \n");
+  
+}
 void CDECL WAYLANDDRV_SetCursor( HCURSOR handle )
 {
     
     
-    if(!global_is_vulkan) { 
+    if(!global_is_vulkan || global_hide_cursor) { 
       return TRUE;  
     }
     
@@ -3101,8 +3131,13 @@ void CDECL WAYLANDDRV_SetCursor( HCURSOR handle )
       struct wl_buffer *buffer;
       
       //show mouse
-      if(!global_hide_cursor && !global_wayland_confine && wayland_default_cursor && !global_last_cursor_change) {
+      if(wayland_default_cursor && (!global_is_cursor_visible || !global_last_cursor_change ) ) {
+        
+        TRACE("Showing cursor \n");
+        
         global_last_cursor_change = 1;
+        global_is_cursor_visible = 1;
+        
         image = wayland_default_cursor->images[0];
         buffer = wl_cursor_image_get_buffer(image);
         wl_pointer_set_cursor(wayland_pointer, wayland_serial_id,
@@ -3113,13 +3148,22 @@ void CDECL WAYLANDDRV_SetCursor( HCURSOR handle )
           wl_surface_damage(wayland_cursor_surface, 0, 0,
           image->width, image->height);
          
-         wl_surface_commit(wayland_cursor_surface);
+        wl_surface_commit(wayland_cursor_surface);
+        
+        //ungrab screen if necessary
+        ungrab_wayland_screen();
       }
-    } else { //Remove cursor
       
+    } else if(!handle && (global_is_cursor_visible || !global_last_cursor_change) ) { //Remove cursor
+      TRACE("Removing cursor \n");
+      global_is_cursor_visible = 0;
+      global_last_cursor_change = 1;
       wl_pointer_set_cursor(wayland_pointer, wayland_serial_id,
         NULL, 0, 0);
       wl_surface_commit(wayland_cursor_surface); 
+      if( global_fullscreen_grab_cursor ){
+        grab_wayland_screen();
+      }
       
     }
     
@@ -3974,20 +4018,7 @@ static void set_surface_layered( struct window_surface *window_surface, BYTE alp
 }
 */
 
-/*
-static WNDPROC desktop_orig_wndproc;
 
-static LRESULT CALLBACK desktop_wndproc_wrapper( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
-{
-    //switch (msg)
-    //{
-    //case WM_PARENTNOTIFY:
-        //if (LOWORD(wp) == WM_DESTROY) destroy_ioctl_window( (HWND)lp, FALSE );
-        //break;
-    //}
-    return desktop_orig_wndproc( hwnd, msg, wp, lp );
-}
-*/
 //Window surface stuff??
 
 
@@ -4147,6 +4178,7 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
   static const WCHAR tooltip_class[] = {'t','o','o','l','t','i','p','s','_',
   'c','l','a','s','s','3','2', 0};
   static const WCHAR sdl_class[] = {'S','D','L','_','a','p','p', 0};
+  static const WCHAR unreal_class[] = {'U','n','r','e','a','l','W','i','n','d','o','w', 0};
     
     
       
@@ -4174,6 +4206,9 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
         return TRUE;
       }
       if(!lstrcmpiW(class_name, sdl_class)) {
+        return TRUE;
+      }
+      if(!lstrcmpiW(class_name, unreal_class)) {
         return TRUE;
       }
       
@@ -4643,114 +4678,6 @@ BOOL CDECL WAYLANDDRV_CreateWindow( HWND hwnd )
     }
     
     return TRUE;
-    
-    
-    DWORD style = GetWindowLongW(hwnd,GWL_STYLE); //get the b style
-        if(style & WS_CAPTION) {
-          style &= ~WS_CAPTION;
-        }
-        
-        if(style & WS_BORDER) {
-          style &= ~WS_BORDER;
-        }
-        
-        //style |= WS_CHILD; //set the "child" bit
-        //style |= WS_CLIPSIBLINGS; //set the "child" bit
-        SetWindowLongW(hwnd,GWL_STYLE,style); //set the new style of b
-    
-    
-      
-    if(hwnd != GetDesktopWindow() && (!parent || parent == GetDesktopWindow())
-    ) {
-      //check if top-level and assign to global_vulkan_hwnd  
-      
-      
-    //parent = global_vulkan_hwnd;
-      
-      //TRACE("parent %p child %p global hwnd %p desktop %p \n", parent, hwnd, global_vulkan_hwnd, GetDesktopWindow() );
-      
-    //if (parent && parent != GetDesktopWindow() && parent != hwnd ) {
-      //if ( !parent || parent == GetDesktopWindow() ) {
-      
-      
-      TRACE("Creating parent %p from child %p global hwnd %p desktop %p owner %p \n", parent, hwnd, global_vulkan_hwnd, GetDesktopWindow(), owner );
-      
-        
-        
-        
-        //if(owner) {
-        
-      //if(global_hwnd_clicked) {
-        //global_hwnd_clicked = 0;
-        DWORD style = GetWindowLongW(hwnd,GWL_STYLE); //get the b style
-        //style &= ~(WS_POPUP|WS_CAPTION); //reset the "caption" and "popup" bits
-        //style &= ~(WS_POPUP); //reset the "caption" and "popup" bits
-        //style = ~WS_CAPTION;
-        //if(style & WS_POPUP)
-        //  style = ~WS_POPUP;
-        if(style & WS_OVERLAPPED) {
-          style &= ~WS_OVERLAPPED;
-        }
-        //if(style & WS_POPUPWINDOW) {
-        //  style = (style | WS_CHILD) & (~WS_POPUPWINDOW);
-        //}
-        if(style & WS_POPUP) {
-          //style = (style | WS_CHILD) & (~WS_POPUP);
-          style &= ~WS_POPUP;
-          //SetActiveWindow(hwnd);
-          //SetForegroundWindow(hwnd);
-        } else {
-          //style |= WS_CHILD;
-        }  
-        /*
-        if(style & WS_BORDER) {
-          style &= ~WS_BORDER;
-        }        
-        if(style & WS_DISABLED) {
-          style &= ~WS_DISABLED;
-          
-        }
-        
-        if(style & WS_DLGFRAME) {
-          style &= ~WS_DLGFRAME;
-        }
-        if(style & WS_CAPTION) {
-          style &= ~WS_CAPTION;
-        }
-        */
-        style |= WS_CHILD; //set the "child" bit
-        style |= WS_CLIPSIBLINGS; //set the "child" bit
-        SetWindowLongW(hwnd,GWL_STYLE, style); //set the new style of b
-        if(owner) {
-          SetParent(hwnd, owner);
-        } else {
-          SetParent(hwnd, global_vulkan_hwnd);
-        }
-        
-        SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOSIZE); 
-        
-        
-        //GetWindowLong(GetWindow(Hwnd, GW_OWNER), GWL_STYLE) & WS_DISABLED & WS_POPUP  
-      
-        
-        
-
-        
-        UpdateWindow(global_update_hwnd);
-        UpdateWindow(parent);
-        //BringWindowToTop( hwnd);
-        RedrawWindow(parent, 0, 0, RDW_INVALIDATE | RDW_ALLCHILDREN);
-        RedrawWindow(global_update_hwnd, 0, 0, RDW_INVALIDATE | RDW_ALLCHILDREN);
-        
-        //}
-   
-      
-    
-      
-    //}
-    }
-  
-    return TRUE;
   
     
 }
@@ -5139,7 +5066,6 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
       SERVER_END_REQ;
       SetCapture(global_vulkan_hwnd);
       UpdateWindow(global_vulkan_hwnd);
-      //RedrawWindow(global_vulkan_hwnd, 0, 0, RDW_INVALIDATE | RDW_ALLCHILDREN);
       TRACE("Global vulkan hwnd is %p \n", create_info->hwnd);
       
       SetWindowPos( global_vulkan_hwnd, HWND_TOP, 0, 0, 1600, 900,
@@ -5252,7 +5178,7 @@ static void WAYLANDDRV_vkDestroySurfaceKHR(VkInstance instance, VkSurfaceKHR sur
 {
     struct wine_vk_surface *x11_surface = surface_from_handle(surface);
 
-    TRACE("%p 0x%s %p\n", instance, wine_dbgstr_longlong(surface), allocator);
+    //TRACE("%p 0x%s %p\n", instance, wine_dbgstr_longlong(surface), allocator);
 
     if (allocator)
         FIXME("Support for allocation callbacks not implemented yet\n");

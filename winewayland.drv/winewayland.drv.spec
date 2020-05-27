@@ -28,6 +28,7 @@
 
 # @ cdecl DestroyCursorIcon(long) WAYLANDDRV_DestroyCursorIcon
 @ cdecl SetCursor(long) WAYLANDDRV_SetCursor
+@ cdecl ShowCursor(long) WAYLANDDRV_ShowCursor
 
 # @ cdecl SetCursorPos(long long) WAYLANDDRV_SetCursorPos
 @ cdecl ClipCursor(ptr) WAYLANDDRV_ClipCursor
