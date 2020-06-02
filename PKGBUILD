@@ -2,7 +2,7 @@
 
 pkgname=wine-wayland
 pkgver=5.9
-pkgrel=2
+pkgrel=3
 _winesrcdir="wine-wine-$pkgver"
 
 pkgdesc='Wine wayland'
@@ -10,7 +10,7 @@ pkgdesc='Wine wayland'
 url=''
 arch=('x86_64')
 
-options=('staticlibs' '!strip')
+options=('!staticlibs' '!strip' '!docs')
 
 license=('LGPL')
 
@@ -117,11 +117,7 @@ prepare() {
 build() {
 	cd "${srcdir}"
   
-  #export COMMON_FLAGS="-w -march=native -pipe -Os"
-  export COMMON_FLAGS="-w -march=native -pipe -Ofast"
-  #export LDFLAGS="-Ofast"
-	
-	export CFLAGS="${CFLAGS} -w -march=native -pipe -Ofast"
+  export CFLAGS="${CFLAGS} -w -march=native -pipe -Ofast"
   export LDFLAGS="${CFLAGS}"
 	
 
@@ -133,8 +129,6 @@ build() {
   if [ -e Makefile ]; then 
     echo "Already configured"
   else
-  #if [0]; then
-  
   ../${_winesrcdir}/configure \
 		--prefix='/usr' \
 		--libdir='/usr/lib' \

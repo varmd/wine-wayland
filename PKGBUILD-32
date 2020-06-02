@@ -3,7 +3,7 @@
 pkgname=lib32-wine-wayland
 _pkgname=wine-wayland
 pkgver=5.9
-pkgrel=2
+pkgrel=3
 _winesrcdir="wine-wine-$pkgver"
 
 
@@ -29,6 +29,9 @@ depends=(
     'lib32-mesa'
     'lib32-wayland'
     'lib32-freetype2'
+    'lib32-jpeg-turbo'
+    'lib32-png'
+    'lib32-libxml2'
 )
 
 makedepends=(
@@ -62,12 +65,11 @@ prepare() {
 build() {
   cd "${srcdir}"
   
-  #export COMMON_FLAGS="-march=native -pipe -Os"
-  #export LDFLAGS="-Os"
+  
 
   #32 bit build fails without these
   export CFLAGS="${CFLAGS/-fno-plt/}"
-  #export LDFLAGS="${LDFLAGS/,-z,now/}"
+  
 
   # create new build dirs
 	mkdir -p "${srcdir}"/"${_pkgname}"-32-build
@@ -75,8 +77,6 @@ build() {
   msg2 'Building Wine-32...'
 	cd  "${srcdir}"/"${_pkgname}"-32-build
 	
-  
-  #		--without-gstreamer \
   
   if [ -e Makefile ]; then 
     echo "Already configured"

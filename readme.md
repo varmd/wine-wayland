@@ -16,7 +16,7 @@ Wine-wayland allows playing DX9/DX11 and Vulkan games using pure wayland and Win
 ## requirements
 
  * Archlinux or Manjaro
- * AMD GPU with Vulkan support
+ * GPU with Vulkan and Wayland support
  * Mesa 20 or later with Wayland and Vulkan support
  * weston based compositor (tested on wayward), wlroots based compositor (tested on sway)
  * SDL and Faudio
@@ -73,7 +73,7 @@ On first boot, click cancel on Install Gecko and Mono
 * If a game is not starting, try wineserver -k, and start again
 * Use export XCURSOR_SIZE="xx" and export XCURSOR_THEME=themename to set cursor theme and increase cursor size 
 * Use export WINE_VK_NO_CLIP_CURSOR=1 to disable cursor locking for games that erroneously try to lock mouse cursor.
-* Use export WINE_VK_FULLSCREEN_GRAB_CURSOR=1 to automaticallt enable cursor locking in fullscreen.
+* Use export WINE_VK_FULLSCREEN_GRAB_CURSOR=1 to automatically enable cursor locking in fullscreen.
 
 ## caveats and issues
 
@@ -82,3 +82,14 @@ On first boot, click cancel on Install Gecko and Mono
 * Launchers are not working
 * No OpenGL support
 * No custom cursors
+
+
+## games confirmed working
+
+* Subnautica
+* Rebel Galaxy
+* Endless
+* Age of Wonders 3
+* Stellaris
+* EU4
+* Path of Exile

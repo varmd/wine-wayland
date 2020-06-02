@@ -37,11 +37,10 @@
 
 static struct wl_compositor *wayland_compositor = NULL;
 typedef unsigned long Time;
-int vulkan_is_running;
-unsigned long global_sx;
-unsigned long global_sy;
 
-int global_axis_dir;
+
+
+
 //End Wayland
 
 #define BOOL X_BOOL
