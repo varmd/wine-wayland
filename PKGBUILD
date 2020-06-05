@@ -2,7 +2,7 @@
 
 pkgname=wine-wayland
 pkgver=5.9
-pkgrel=3
+pkgrel=4
 _winesrcdir="wine-wine-$pkgver"
 
 pkgdesc='Wine wayland'
@@ -103,7 +103,9 @@ prepare() {
     
     #msg2 "Applying performance patches"
     patch -Np1 < '../../performance-disable-raw-clock.patch'  
-    patch -Np1 < '../../performance-proton-improve-vulkan-alloc.patch'  
+    
+    #Potentially buggy
+    #patch -Np1 < '../../performance-proton-improve-vulkan-alloc.patch'  
     
     mkdir -p "${srcdir}"/"${pkgname}"-64-build
     
@@ -117,8 +119,9 @@ prepare() {
 build() {
 	cd "${srcdir}"
   
-  export CFLAGS="${CFLAGS} -w -march=native -pipe -Ofast"
-  export LDFLAGS="${CFLAGS}"
+  #Remove these - potentially buggy
+  #export CFLAGS="${CFLAGS} -w -march=native -pipe -Ofast"
+  #export LDFLAGS="${CFLAGS}"
 	
 
 

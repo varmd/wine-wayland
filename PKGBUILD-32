@@ -29,8 +29,8 @@ depends=(
     'lib32-mesa'
     'lib32-wayland'
     'lib32-freetype2'
-    'lib32-jpeg-turbo'
-    'lib32-png'
+    'lib32-libjpeg-turbo'
+    'lib32-libpng'
     'lib32-libxml2'
 )
 
@@ -47,10 +47,6 @@ makedepends=(
 )
 
 conflicts=('wine' 'wine-staging' 'wine-esync')
-
-# OPTIONS=(!strip docs libtool staticlibs emptydirs !zipman !purge !debug) 
-makedepends=(${makedepends[@]} ${depends[@]})
-
 
 
 prepare() {
@@ -69,7 +65,8 @@ build() {
 
   #32 bit build fails without these
   export CFLAGS="${CFLAGS/-fno-plt/}"
-  
+  #export CFLAGS="${CFLAGS} -Wno-declaration-after-statement"
+  export LDFLAGS="${LDFLAGS/,-z,now/}"
 
   # create new build dirs
 	mkdir -p "${srcdir}"/"${_pkgname}"-32-build

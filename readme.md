@@ -88,8 +88,10 @@ On first boot, click cancel on Install Gecko and Mono
 
 * Subnautica
 * Rebel Galaxy
-* Endless
+* Endless Space
 * Age of Wonders 3
 * Stellaris
 * EU4
 * Path of Exile
+* Pathfinder Kingmaker
+* Crusader Kings 2

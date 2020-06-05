@@ -517,7 +517,7 @@ extern Window create_client_window( HWND hwnd, const XVisualInfo *visual ) DECLS
 
 extern void change_systray_owner( Display *display, Window systray_window ) DECLSPEC_HIDDEN;
 extern void update_systray_balloon_position(void) DECLSPEC_HIDDEN;
-extern HWND create_foreign_window(  ) DECLSPEC_HIDDEN; //Display *display, Window window
+
 extern BOOL update_clipboard( HWND hwnd ) DECLSPEC_HIDDEN;
 
 static inline void mirror_rect( const RECT *window_rect, RECT *rect )

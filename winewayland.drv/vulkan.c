@@ -1778,7 +1778,6 @@ void wayland_pointer_button_cb_vulkan(void *data,
 		break;
     
 	case BTN_RIGHT:
-    TRACE("Right Click \n");
 		if(state == WL_POINTER_BUTTON_STATE_PRESSED)
       input.u.mi.dwFlags     |= MOUSEEVENTF_RIGHTDOWN;
     else if(state == WL_POINTER_BUTTON_STATE_RELEASED)
@@ -1926,7 +1925,6 @@ void wayland_pointer_button_cb(void *data,
             req->input.mouse.time  = 0;
             req->input.mouse.info  = 0;
             
-        //ret = 
         wine_server_call( req );
       
         
@@ -2044,11 +2042,9 @@ relative_pointer_handle_motion(void *data, struct zwp_relative_pointer_v1 *point
   
     
     
-      input.u.mi.dwFlags     = MOUSEEVENTF_MOVE;
-      //input.u.mi.dx = abs(global_sx - wl_fixed_to_int(sx));
-      input.u.mi.dx = wl_fixed_to_double(dx);
-      //input.u.mi.dy = abs(global_sy - wl_fixed_to_int(sx));
-      input.u.mi.dy = wl_fixed_to_double(dy);
+    input.u.mi.dwFlags     = MOUSEEVENTF_MOVE;
+    input.u.mi.dx = wl_fixed_to_double(dx);
+    input.u.mi.dy = wl_fixed_to_double(dy);
       
     
     __wine_send_input( global_vulkan_hwnd, &input );
@@ -2068,10 +2064,11 @@ static void grab_wayland_screen() {
   if(!global_wayland_confine) {
           
     global_wayland_confine = 1;
-    locked_pointer = zwp_pointer_constraints_v1_lock_pointer( pointer_constraints,  vulkan_window->surface, wayland_pointer,               NULL,ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_PERSISTENT);
+    locked_pointer = zwp_pointer_constraints_v1_lock_pointer( pointer_constraints,  vulkan_window->surface, wayland_pointer, NULL,ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_PERSISTENT);
     
     relative_pointer = zwp_relative_pointer_manager_v1_get_relative_pointer(relative_pointer_manager, wayland_pointer);
-    zwp_relative_pointer_v1_add_listener(relative_pointer, &relative_pointer_listener, NULL);      
+    zwp_relative_pointer_v1_add_listener(relative_pointer, &relative_pointer_listener, NULL);
+    
     wl_surface_commit(vulkan_window->surface);
     
     //hide mouse
@@ -2081,31 +2078,38 @@ static void grab_wayland_screen() {
 
 static void ungrab_wayland_screen() {
   if(global_wayland_confine) {
-    struct wl_cursor_image *image;
-    struct wl_buffer *buffer;
     
-    zwp_locked_pointer_v1_destroy(locked_pointer);
-    zwp_relative_pointer_v1_destroy(relative_pointer);
+    if(locked_pointer)
+      zwp_locked_pointer_v1_destroy(locked_pointer);
+    if(relative_pointer)
+      zwp_relative_pointer_v1_destroy(relative_pointer);
+    
     locked_pointer = NULL;
     relative_pointer = NULL;
     
     global_wayland_confine = 0;
     
     //show mouse          
-    image = wayland_default_cursor->images[0];
-    buffer = wl_cursor_image_get_buffer(image);
-    wl_pointer_set_cursor(wayland_pointer, wayland_serial_id,
-      wayland_cursor_surface,
-      image->hotspot_x,
-      image->hotspot_y);
-      wl_surface_attach(wayland_cursor_surface, buffer, 0, 0);
-      wl_surface_damage(wayland_cursor_surface, 0, 0,
-      image->width, image->height);
-     
-     wl_surface_commit(wayland_cursor_surface);
+    #if 0
+    if(!global_is_cursor_visible) {
+      struct wl_cursor_image *image;
+      struct wl_buffer *buffer;
+      
+      image = wayland_default_cursor->images[0];
+      buffer = wl_cursor_image_get_buffer(image);
+      wl_pointer_set_cursor(wayland_pointer, wayland_serial_id,
+        wayland_cursor_surface,
+        image->hotspot_x,
+        image->hotspot_y);
+        wl_surface_attach(wayland_cursor_surface, buffer, 0, 0);
+        wl_surface_damage(wayland_cursor_surface, 0, 0,
+        image->width, image->height);
+       
+       wl_surface_commit(wayland_cursor_surface);
+    }
+    #endif
     
-    
-  }  
+  }
 }
 
 
@@ -2200,8 +2204,6 @@ void wayland_keyboard_key_cb (void *data, struct wl_keyboard *keyboard,
   
   
   //TRACE("keyboard_event: hwnd %p \n", hwnd);
-  
-  
   if (state == WL_KEYBOARD_KEY_STATE_RELEASED) {
     input.u.ki.dwFlags |= KEYEVENTF_KEYUP;
   }
@@ -2270,7 +2272,10 @@ SERVER_END_REQ;
       
       
       if(vulkan_window) {
+        TRACE("Enabling grab \n");
         grab_wayland_screen();
+        TRACE("Enabling grab done \n");
+        
       } else if(second_window) {
         locked_pointer = zwp_pointer_constraints_v1_confine_pointer( pointer_constraints,  second_window->surface, wayland_pointer, NULL, ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_PERSISTENT);
         
@@ -2278,8 +2283,10 @@ SERVER_END_REQ;
         relative_pointer = zwp_relative_pointer_manager_v1_get_relative_pointer(relative_pointer_manager, wayland_pointer);
         zwp_relative_pointer_v1_add_listener(relative_pointer, &relative_pointer_listener, NULL);
         wl_surface_commit(second_window->surface);
+        
       }
       
+      #if 0
       struct wl_cursor_image *image;
       struct wl_buffer *buffer;
             
@@ -2287,6 +2294,7 @@ SERVER_END_REQ;
       //show/hide mouse
       image = wayland_default_cursor->images[0];
 		  buffer = wl_cursor_image_get_buffer(image);
+      
       wl_pointer_set_cursor(wayland_pointer, wayland_serial_id,
         wayland_cursor_surface,
         image->hotspot_x,
@@ -2296,15 +2304,18 @@ SERVER_END_REQ;
         image->width, image->height);
        
        wl_surface_commit(wayland_cursor_surface);
-       
-       wl_pointer_set_cursor(wayland_pointer, wayland_serial_id,
-        NULL, 0, 0);
-       wl_surface_commit(wayland_cursor_surface); 
+       #endif
+      
+      
+      //hide cursor
+      wl_pointer_set_cursor(wayland_pointer, wayland_serial_id, NULL, 0, 0);
+      wl_surface_commit(wayland_cursor_surface); 
         
       
       
       
-    } else {      
+    } else {
+      
       zwp_locked_pointer_v1_destroy(locked_pointer);
 	    zwp_relative_pointer_v1_destroy(relative_pointer);
 	    locked_pointer = NULL;
@@ -2342,9 +2353,10 @@ SERVER_END_REQ;
       
       
     } else {
-      
-      zwp_locked_pointer_v1_destroy(confined_pointer);
-	    zwp_relative_pointer_v1_destroy(relative_pointer);
+      if(confined_pointer)
+        zwp_locked_pointer_v1_destroy(confined_pointer);
+      if(relative_pointer)
+        zwp_relative_pointer_v1_destroy(relative_pointer);
 	    locked_pointer = NULL;
 	    relative_pointer = NULL;
       global_wayland_confine = 0;
@@ -2978,6 +2990,8 @@ BOOL CDECL WAYLANDDRV_ClipCursor( LPCRECT clip )
       } else if ( global_fullscreen_grab_cursor && global_is_cursor_visible ) {
         TRACE( "Remove Mouse Capture - fullscreen grab \n" );
         ungrab_wayland_screen();
+        TRACE( "Remove Mouse Capture - fullscreen grab done \n" );
+        return TRUE;
       }
       
       //Release grab instead
@@ -3492,13 +3506,6 @@ static void android_surface_flush( struct window_surface *window_surface )
     //paint_pixels(dest_pixels);
     
     IntersectRect( &rect, &rect, &surface->header.rect );
-    
-    
-    //TRACE("Client Rect rect %s - W/H %d %d - \n Rect is %s \n", wine_dbgstr_rect( &client_rect ), client_rect.right - client_rect.left, client_rect.bottom - client_rect.top, wine_dbgstr_rect( &rect ));
-    
-    //if(rect.left == 0 && rect.top == 0 && rect.right == 0 && rect.bottom == 0) {
-      //return;  
-    //}
     
     
     int size_changed = 0;
@@ -4021,6 +4028,8 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
   static const WCHAR unreal_class[] = {'U','n','r','e','a','l','W','i','n','d','o','w', 0};
   //POEWindowClass
   static const WCHAR poe_class[] = {'P','O','E','W','i','n','d','o','w','C','l','a','s','s', 0};
+  //OgreD3D11Wnd
+  static const WCHAR ogre_class[] = {'O','g','r','e','D','3','D','1','1','W','n','d', 0};
     
     
       
@@ -4054,6 +4063,9 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
         return TRUE;
       }
       if(!lstrcmpiW(class_name, poe_class)) {
+        return TRUE;
+      }
+      if(!lstrcmpiW(class_name, ogre_class)) {
         return TRUE;
       }
       
@@ -4246,29 +4258,7 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
       if (data->surface) window_surface_release( data->surface );
       data->surface = surface; 
 
-    } else {
-      //TRACE("Child window detected \n");
-      
-      //Recreate parent window???
-      //RECT parent_rect;
-      
-      //if(global_hwnd_clicked) {
-      
-        //SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE |   SWP_NOMOVE);
-        //global_hwnd_clicked = 0;
-        /*
-        if (!(data = get_win_data( parent ))) return;
-        if (*surface) window_surface_release( *surface );
-        GetWindowRect(parent, &surface_rect);
-        *surface = create_surface( parent, &surface_rect, alpha, key, FALSE );
-      
-         if (surface) window_surface_add_ref( surface );
-         if (data->surface) window_surface_release( data->surface );
-         data->surface = surface; 
-         */
-      //} 
-      
-    }
+    } 
 
     
 
@@ -4304,48 +4294,6 @@ BOOL CDECL WAYLANDDRV_CreateWindow( HWND hwnd )
     
     return TRUE;
     
-      
-    if(hwnd != GetDesktopWindow() && (!parent || parent == GetDesktopWindow())
-    ) {
-      
-      #if 0
-      if(RealGetWindowClassW(hwnd, class_name, ARRAY_SIZE(class_name))) {
-        
-        //if it's a menu class reparent
-        DWORD style = GetWindowLongW(hwnd, GWL_STYLE);
-        if(!wcscmp(class_name, menu_class)) {
-          style |= WS_CHILD; //set the "child" bit
-          style |= WS_CLIPSIBLINGS; //set the "child" bit
-          SetWindowLongW(hwnd,GWL_STYLE,style); //set the new style of b
-          if(owner) {
-            SetParent(hwnd, owner);
-          } else {
-            SetParent(hwnd, parent);
-          }
-          UpdateWindow(parent);
-          //SetActiveWindow(hwnd);
-          //SetForegroundWindow(hwnd);
-          return TRUE;
-        }
-      }
-      #endif
-      //lstrcmpiW
-      if(!lstrcmpiW(class_name, msg_class)) {
-        return TRUE;
-      }
-      if(!lstrcmpiW(class_name, ole_class)) {
-        return TRUE;
-      }
-      if(!lstrcmpiW(class_name, ime_class)) {
-        return TRUE;
-      }
-      TRACE("desktop parent %s %p \n", debugstr_w(class_name), hwnd);
-      //global_update_hwnd = hwnd;
-      //RedrawWindow(global_update_hwnd, 0, 0, RDW_INVALIDATE | RDW_ALLCHILDREN);
-      //SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE); 
-    }
-    
-    return TRUE;
   
     
 }
