@@ -12,6 +12,7 @@ Wine-wayland allows playing DX9/DX11 and Vulkan games using pure wayland and Win
 ## screenshot
 
 ![screenshot](https://raw.githubusercontent.com/varmd/wine-wayland/master/screenshot.png "Screenshot")
+![screenshot1](https://raw.githubusercontent.com/varmd/wine-wayland/master/screenshot1.png "Screenshot1")
 
 ## requirements
 

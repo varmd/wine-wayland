@@ -4658,7 +4658,8 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
   
     //do not show hidden vulkan windows
     if(! (GetWindowLongW( create_info->hwnd, GWL_STYLE ) & WS_VISIBLE) ) {
-      return VK_SUCCESS;
+      no_flag = 1;
+      //return VK_SUCCESS; <- causes crash in some games
     }
   
   
@@ -4682,7 +4683,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
       
       if(!lstrcmpiW(class_name, pdx_class)) {
         no_flag = 0;
-        //return VK_SUCCESS;
+        //return VK_SUCCESS; <- causes crash
       }
     }
     //#endif
