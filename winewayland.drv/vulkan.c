@@ -1403,7 +1403,7 @@ void *global_shm_data = NULL;
 struct wl_buffer *global_wl_buffer = NULL;
 struct wl_shm_pool *global_wl_pool = NULL;
 int is_buffer_busy = 0;
-DWORD desktop_tid;
+DWORD desktop_tid = 0;
 
 #define ZWP_RELATIVE_POINTER_MANAGER_V1_VERSION 1
 
@@ -1455,8 +1455,7 @@ static struct wl_surface_win_data *alloc_wl_win_data( struct wl_surface *surface
     if ((data = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*data))))
     {
         TRACE("Surface %d \n", context_wl_idx( surface ));
-        TRACE("Surface %d \n", context_wl_idx( &surface ));
-      
+        
         data->hwnd = hwnd;
         data->wayland_subsurface = surface;
         data->wayland_window = window;
@@ -1647,7 +1646,7 @@ void wayland_pointer_motion_cb(void *data,
   }
   
   
-  struct wayland_window *window = data;
+  //struct wayland_window *window = data;
   
 	
    
@@ -2359,7 +2358,7 @@ SERVER_END_REQ;
       
     } else {
       if(confined_pointer)
-        zwp_locked_pointer_v1_destroy(confined_pointer);
+        zwp_confined_pointer_v1_destroy(confined_pointer);
       if(relative_pointer)
         zwp_relative_pointer_v1_destroy(relative_pointer);
 	    locked_pointer = NULL;
@@ -3030,7 +3029,7 @@ void CDECL WAYLANDDRV_SetCursor( HCURSOR handle )
     
     
     if(!global_is_vulkan || global_hide_cursor) { 
-      return TRUE;  
+      return;  
     }
     
     
@@ -3736,9 +3735,12 @@ static BOOL is_argb_surface( struct window_surface *surface )
 }
 */
 
+//??
+//Not used
 /***********************************************************************
  *           set_color_key
  */
+#if 0
 static void set_color_key( struct android_window_surface *surface, COLORREF key )
 {
     if (key == CLR_INVALID)
@@ -3754,6 +3756,7 @@ static void set_color_key( struct android_window_surface *surface, COLORREF key 
     else
         surface->color_key = (GetRValue(key) << 16) | (GetGValue(key) << 8) | GetBValue(key);
 }
+#endif
 
 /***********************************************************************
  *           set_surface_region
@@ -3902,15 +3905,18 @@ static int do_create_win_data( HWND hwnd, const RECT *window_rect, const RECT *c
 
   
 
-    struct waylanddrv_win_data *data;
+    
     HWND parent;
 
-    if (!(parent = GetAncestor( hwnd, GA_PARENT ))) return NULL;  /* desktop */
+    if (!(parent = GetAncestor( hwnd, GA_PARENT ))) 
+      return 0;  /* desktop */
 
     // don't create win data for HWND_MESSAGE windows */
-    if (parent != GetDesktopWindow() && !GetAncestor( parent, GA_PARENT )) return NULL;
+    if (parent != GetDesktopWindow() && !GetAncestor( parent, GA_PARENT )) 
+      return 0;
 
-    if (GetWindowThreadProcessId( hwnd, NULL ) != GetCurrentThreadId()) return NULL;
+    if (GetWindowThreadProcessId( hwnd, NULL ) != GetCurrentThreadId()) 
+      return 0;
   
   
     return 1;
@@ -4038,17 +4044,12 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
   static const WCHAR poe_class[] = {'P','O','E','W','i','n','d','o','w','C','l','a','s','s', 0};
   //OgreD3D11Wnd
   static const WCHAR ogre_class[] = {'O','g','r','e','D','3','D','1','1','W','n','d', 0};
+  static const WCHAR unity_class[] = {'U','n','i','t','y','W','n','d','C','l','a','s','s', 0};
     
     
       
     if(RealGetWindowClassW(hwnd, class_name, ARRAY_SIZE(class_name))) {
       
-      
-        
-      
-      //if(!lstrcmpiW(class_name, menu_class)) {
-        //return TRUE;
-      //}
       if(!lstrcmpiW(class_name, msg_class)) {
         return;
       }
@@ -4074,6 +4075,9 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
         return;
       }
       if(!lstrcmpiW(class_name, ogre_class)) {
+        return;
+      }
+      if(!lstrcmpiW(class_name, unity_class)) {
         return;
       }
       
@@ -4441,6 +4445,11 @@ DWORD CDECL WAYLANDDRV_MsgWaitForMultipleObjectsEx( DWORD count, const HANDLE *h
     
     #if 0
     if(global_is_vulkan) {
+    
+      if(global_wait_for_configure) {
+        return WAIT_TIMEOUT;  
+      }
+    
       wl_display_dispatch_pending(wayland_display);
       while (wl_display_prepare_read(wayland_display) != 0) {          
         wl_display_dispatch_pending(wayland_display);             
@@ -4646,10 +4655,9 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
     //, *prev;
   
     int no_flag = 1;
-    int no_delete = 0;
   
     //do not show hidden vulkan windows
-    if(!GetWindowLongW( create_info->hwnd, GWL_STYLE ) & WS_VISIBLE) {
+    if(! (GetWindowLongW( create_info->hwnd, GWL_STYLE ) & WS_VISIBLE) ) {
       return VK_SUCCESS;
     }
   
