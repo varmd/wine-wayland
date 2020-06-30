@@ -3,7 +3,7 @@
 pkgname=lib32-wine-wayland
 _pkgname=wine-wayland
 pkgver=5.9
-pkgrel=3
+pkgrel=5
 _winesrcdir="wine-wine-$pkgver"
 
 
@@ -84,7 +84,6 @@ build() {
     --with-wine64="$srcdir/$_pkgname-64-build" \
 		--without-x \
     --without-gsm \
-    --without-openal \
     --without-opengl \
     --without-pcap \
     --without-sdl \
@@ -123,7 +122,9 @@ build() {
 		--disable-tests
   fi
 	
-	make -s -j 4
+  CPUS=$(getconf _NPROCESSORS_ONLN)
+  
+	make -s -j $CPUS
   
   
   

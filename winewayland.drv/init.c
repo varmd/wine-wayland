@@ -29,6 +29,7 @@
 #include "winreg.h"
 #include "waylanddrv.h"
 #include "wine/debug.h"
+#include <stdlib.h>
 
 WINE_DEFAULT_DEBUG_CHANNEL(waylanddrv);
 
@@ -58,12 +59,6 @@ static BOOL WINAPI device_init( INIT_ONCE *once, void *param, void **context )
 
 static inline void push_dc_driver2( PHYSDEV *dev, PHYSDEV physdev, const struct gdi_dc_funcs *funcs )
 {
-  
-  //if((*dev)->funcs->priority) {
-    //exit(1);
-  //}
-  
-  
   
   while ((*dev)->funcs->priority > funcs->priority) dev = &(*dev)->next;
     physdev->funcs = funcs;
@@ -99,8 +94,6 @@ static BOOL CDECL WAYLANDDRV_CreateDC( PHYSDEV *pdev, LPCWSTR driver, LPCWSTR de
                              LPCWSTR output, const DEVMODEW* initData )
 {
     
-    TRACE( "Creating DC1111\n" );
-  
     WAYLANDDRV_PDEVICE *physDev = create_x11_physdev( /*root_window*/ );
 
     if (!physDev) return FALSE;
@@ -131,7 +124,6 @@ static BOOL CDECL WAYLANDDRV_CreateDC( PHYSDEV *pdev, LPCWSTR driver, LPCWSTR de
     
     push_dc_driver2( pdev, &physDev->dev, &waylanddrv_funcs );
     
-    TRACE( "Creating435 115 DC1111\n" );
     return TRUE;
 }
 

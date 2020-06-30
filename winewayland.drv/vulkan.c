@@ -44,6 +44,9 @@
 
 
 
+
+
+
 #include "wine/gdi_driver.h"
 
 
@@ -55,6 +58,8 @@
 #include "wine/library.h"
 #include "wine/unicode.h"
 #include "wine/debug.h"
+
+//#include "shlwapi.h"
 
 //add xdg
 #include "xdg-shell-client-protocol.h"
@@ -88,10 +93,12 @@ WINE_DEFAULT_DEBUG_CHANNEL(waylanddrv);
 #define SONAME_LIBVULKAN ""
 #endif
 
-
+#define HAS_ESYNC 1
 
 //esync
+#if HAS_ESYNC
 extern void __wine_esync_set_queue_fd( int fd );
+#endif
 
 unsigned int global_wayland_confine = 0;
 unsigned int global_wayland_full = 0;
@@ -1350,8 +1357,6 @@ fail:
 
 
 
-//TODO figure out how to support two hwnds;
-
 
 
 int global_wait_for_configure = 0;
@@ -1436,7 +1441,7 @@ struct wl_surface_win_data
 
 static CRITICAL_SECTION win_data_section;
 
-static struct wl_surface_win_data *wl_surface_data_context[32768];
+static struct wl_surface_win_data *wl_surface_data_context[32768] = {0};
 
 static inline int context_wl_idx( struct wl_surface *wl_surface  )
 {
@@ -2501,40 +2506,40 @@ static const struct xdg_wm_base_listener xdg_wm_base_listener = {
     xdg_wm_base_ping,
 };
 
-static void registry_add_object (void *data, struct wl_registry *registry, uint32_t name, const char *interface, uint32_t version) {
+static void registry_add_object (void *data, struct wl_registry *registry, uint32_t name, const char *wl_interface, uint32_t version) {
   
   
-	if (!strcmp(interface,"wl_compositor")) {
+	if (!strcmp(wl_interface,"wl_compositor")) {
 		wayland_compositor = wl_registry_bind (registry, name, &wl_compositor_interface, 4);
     //Sway calls wl_shm before wl_compositor
     if(wayland_compositor && !wayland_cursor_surface) {
       wayland_cursor_surface = wl_compositor_create_surface(wayland_compositor);
     } 
-	} else if (strcmp(interface, "wl_subcompositor") == 0) {
+	} else if (strcmp(wl_interface, "wl_subcompositor") == 0) {
 		wayland_subcompositor = wl_registry_bind(registry,
 					 name, &wl_subcompositor_interface, 1);
 	}
 	//else if (!strcmp(interface,"wl_shell")) {
 		//wayland_shell = wl_registry_bind (registry, name, &wl_shell_interface, 1);
 	//} 
-  else if (strcmp(interface, "xdg_wm_base") == 0) {
+  else if (strcmp(wl_interface, "xdg_wm_base") == 0) {
 		wm_base = wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
 		xdg_wm_base_add_listener(wm_base, &xdg_wm_base_listener, NULL);
 	}
-  else if (!strcmp(interface, "wl_seat"))
+  else if (!strcmp(wl_interface, "wl_seat"))
 	{
 		wayland_seat = (struct wl_seat *) wl_registry_bind(registry, name, &wl_seat_interface, WINE_WAYLAND_SEAT_VERSION);
 
 		static const struct wl_seat_listener seat_listener =
 		{ seat_caps_cb, seat_handle_name };
 		wl_seat_add_listener(wayland_seat, &seat_listener, data);
-	} else if (strcmp(interface, "zwp_pointer_constraints_v1") == 0) {
+	} else if (strcmp(wl_interface, "zwp_pointer_constraints_v1") == 0) {
       pointer_constraints = wl_registry_bind(registry, name,
                          &zwp_pointer_constraints_v1_interface,
                          1);
-    } else if (strcmp(interface, "zwp_relative_pointer_manager_v1") == 0) {
+    } else if (strcmp(wl_interface, "zwp_relative_pointer_manager_v1") == 0) {
 		  relative_pointer_manager = wl_registry_bind(registry, name, &zwp_relative_pointer_manager_v1_interface, 1);
-    } else if (strcmp(interface, "wl_shm") == 0) {
+    } else if (strcmp(wl_interface, "wl_shm") == 0) {
       
       const char *cursor_theme;
       const char *cursor_size_str;
@@ -2577,6 +2582,7 @@ handle_xdg_surface_configure(void *data, struct xdg_surface *surface,
   TRACE( "Surface configured \n" );
   xdg_surface_ack_configure(surface, serial);
   global_wait_for_configure = 0;
+  
 	
 }
 
@@ -2643,7 +2649,6 @@ static void create_wayland_window_mini (struct wayland_window *window) {
 
 
 /* store the display fd into the message queue */
-//TODO create file file
 static void set_queue_display_fd( int esync_fd )
 {
     static done = 0;
@@ -2669,8 +2674,9 @@ static void set_queue_display_fd( int esync_fd )
   }
   #endif
   
-  
+    #if HAS_ESYNC
     __wine_esync_set_queue_fd( esync_fd );
+    #endif
 
     if (wine_server_fd_to_handle( esync_fd, GENERIC_READ | SYNCHRONIZE, 0, &handle ))
     {
@@ -2709,7 +2715,9 @@ static void create_wayland_display () {
   wl_display_roundtrip (wayland_display);
   fd = wl_display_get_fd(wayland_display);
   if(fd) {
-    set_queue_display_fd(fd);
+    #ifdef HAS_ESYNC
+      set_queue_display_fd(fd);
+    #endif
   }
   TRACE("Created wayland display %p \n");
 }
@@ -2961,7 +2969,7 @@ BOOL CDECL WAYLANDDRV_ClipCursor( LPCRECT clip )
      
      
     RECT virtual_rect = get_virtual_screen_rect();
-    HWND foreground = GetForegroundWindow();
+    //HWND foreground = GetForegroundWindow();
     
 
     #if 0
@@ -3522,7 +3530,7 @@ static void android_surface_flush( struct window_surface *window_surface )
     //TODO proper cleanup
     if(size_changed > 0) {
       
-      hwnd_data->gdi_fd = NULL;
+      hwnd_data->gdi_fd = 0;
       hwnd_data->shm_data = NULL;
       hwnd_data->wl_pool = NULL;
     }
@@ -4042,31 +4050,31 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
         //return TRUE;
       //}
       if(!lstrcmpiW(class_name, msg_class)) {
-        return TRUE;
+        return;
       }
       if(!lstrcmpiW(class_name, ole_class)) {
-        return TRUE;
+        return;
       }
       if(!lstrcmpiW(class_name, ime_class)) {
-        return TRUE;
+        return;
       }
       if(!lstrcmpiW(class_name, desktop_class)) {
-        return TRUE;
+        return;
       }
       if(!lstrcmpiW(class_name, tooltip_class)) {
-        return TRUE;
+        return;
       }
       if(!lstrcmpiW(class_name, sdl_class)) {
-        return TRUE;
+        return;
       }
       if(!lstrcmpiW(class_name, unreal_class)) {
-        return TRUE;
+        return;
       }
       if(!lstrcmpiW(class_name, poe_class)) {
-        return TRUE;
+        return;
       }
       if(!lstrcmpiW(class_name, ogre_class)) {
-        return TRUE;
+        return;
       }
       
       TRACE("changing %s \n", debugstr_w(class_name));    
@@ -4164,8 +4172,8 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
       */
       
       
-      HWND owner;
-      owner = GetWindow( hwnd, GW_OWNER );
+      //HWND owner;
+      //owner = GetWindow( hwnd, GW_OWNER );
       
       if ( (!parent || parent == GetDesktopWindow()) ) {
         if (*surface) {
@@ -4278,11 +4286,12 @@ BOOL CDECL WAYLANDDRV_CreateWindow( HWND hwnd )
     WCHAR class_name[64];
   
     
-    
+    #if 0
     static const WCHAR menu_class[] = {'#', '3', '2', '7', '6', '8', 0};
     static const WCHAR ole_class[] = {'O','l','e','M','a','i','n','T','h','r','e','a','d','W','n','d','C','l','a','s','s', 0};
     static const WCHAR msg_class[] = {'M','e','s','s','a','g','e', 0};
     static const WCHAR ime_class[] = {'I','M','E', 0};
+    #endif
     parent = GetAncestor(hwnd, GA_PARENT);
     HWND owner;
     owner = GetWindow( hwnd, GW_OWNER );
@@ -4352,7 +4361,7 @@ void CDECL WAYLANDDRV_DestroyWindow( HWND hwnd )
     WCHAR class_name[164];
     
     if(GetClassNameW(hwnd, class_name, ARRAY_SIZE(class_name) )) {
-      TRACE("Destroy window %s \n", debugstr_w(class_name));
+      TRACE("Destroy window %s %p \n", debugstr_w(class_name), hwnd);
     }
   
     if(global_is_vulkan) {
@@ -4360,6 +4369,22 @@ void CDECL WAYLANDDRV_DestroyWindow( HWND hwnd )
       if(hwnd == global_vulkan_hwnd) {
         global_vulkan_hwnd = NULL;
       }
+      
+      //destroy GDI windows games create
+      if(vulkan_window && vulkan_window->pointer_to_hwnd == hwnd) {
+        TRACE("Destroy wayland window \n");  
+        delete_wayland_window(vulkan_window);
+        vulkan_window = NULL;
+      } else if( vulkan_window && vulkan_window->pointer_to_hwnd != hwnd ){
+        //try to find the window
+        for(int ii = 0; ii < 32768; ii++ )
+          if(wl_surface_data_context[ii]) {
+            if(wl_surface_data_context[ii]->hwnd == hwnd) {
+              delete_wayland_window(wl_surface_data_context[ii]->wayland_window);
+            }
+          }
+      }
+      
       return;
     }
     
@@ -4414,6 +4439,18 @@ DWORD CDECL WAYLANDDRV_MsgWaitForMultipleObjectsEx( DWORD count, const HANDLE *h
       }
     }
     
+    #if 0
+    if(global_is_vulkan) {
+      wl_display_dispatch_pending(wayland_display);
+      while (wl_display_prepare_read(wayland_display) != 0) {          
+        wl_display_dispatch_pending(wayland_display);             
+      }
+      wl_display_flush(wayland_display);
+      wl_display_read_events(wayland_display);
+      wl_display_dispatch_pending(wayland_display);
+      return WAIT_OBJECT_0;
+    }
+    #endif
     
     
     DWORD ret;
@@ -4613,8 +4650,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
   
     //do not show hidden vulkan windows
     if(!GetWindowLongW( create_info->hwnd, GWL_STYLE ) & WS_VISIBLE) {
-      no_flag = 0;
-      //return VK_SUCCESS;
+      return VK_SUCCESS;
     }
   
   
@@ -4625,7 +4661,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
     //Hack
     //Do not create vulkan windows for Paradox detect    
     static const WCHAR pdx_class[] = {'P','d','x','D','e','t','e','c','t','W','i','n','d','o','w', 0};
-    static const WCHAR poe_class[] = {'P','d','x','D','e','t','e','c','t','W','i','n','d','o','w', 0};
+    //static const WCHAR poe_class[] = {'P','d','x','D','e','t','e','c','t','W','i','n','d','o','w', 0};
     WCHAR class_name[164];
     
     //if(RealGetWindowClassW(create_info->hwnd, class_name, ARRAY_SIZE(class_name))) {
@@ -4638,15 +4674,16 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
       
       if(!lstrcmpiW(class_name, pdx_class)) {
         no_flag = 0;
-        return VK_SUCCESS;
+        //return VK_SUCCESS;
       }
     }
     //#endif
     
     #if 0
-    if(vulkan_window) { 
+    if(vulkan_window && global_vulkan_hwnd) { 
       TRACE("Deleting already existing vulkan wl surface \n" );
-      delete_wayland_window(vulkan_window);
+      //global_vulkan_hwnd_last = global_vulkan_hwnd;
+      //delete_wayland_window(vulkan_window);
     }
     #endif
     
@@ -4684,8 +4721,8 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
     
     
 
-    TRACE("%p %p %p %p\n", instance, create_info->hwnd, allocator, surface);
-    TRACE("Creating vulkan Window \n");
+    //TRACE("%p %p %p %p\n", instance, create_info->hwnd, allocator, surface);
+    TRACE("Creating vulkan Window %p %s \n", create_info->hwnd, debugstr_w(class_name));
 
     if (allocator)
         FIXME("Support for allocation callbacks not implemented yet\n");
@@ -4746,7 +4783,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
     }
     
     
-    TRACE("Created vulkan Window for %p \n", global_vulkan_hwnd);
+    TRACE("Created vulkan Window for %p  %s \n", global_vulkan_hwnd, debugstr_w(class_name));
     
     
     
@@ -4906,27 +4943,62 @@ static VkResult WAYLANDDRV_vkGetPhysicalDeviceSurfaceCapabilities2KHR(VkPhysical
     return pvkGetPhysicalDeviceSurfaceCapabilitiesKHR(phys_dev, surface_info_host.surface, &capabilities->surfaceCapabilities);
 }
 
+
+/***************************************************************************
+ *	get_basename
+ *
+ * Return the base name of a file name (i.e. remove the path components).
+ */
+static const WCHAR *get_basename( const WCHAR *name )
+{
+    const WCHAR *ptr;
+
+    if (name[0] && name[1] == ':') name += 2;  /* strip drive specification */
+    if ((ptr = strrchrW( name, '\\' ))) name = ptr + 1;
+    if ((ptr = strrchrW( name, '/' ))) name = ptr + 1;
+    return name;
+}
+
+
+static WCHAR *global_current_exe = NULL;
+
 static VkResult WAYLANDDRV_vkGetPhysicalDeviceSurfaceCapabilitiesKHR(VkPhysicalDevice phys_dev,
         VkSurfaceKHR surface, VkSurfaceCapabilitiesKHR *capabilities)
 {
     struct wine_vk_surface *x11_surface = surface_from_handle(surface);
     VkResult res;
   
-    TRACE("%p, 0x%s, %p\n", phys_dev, wine_dbgstr_longlong(surface), capabilities);
+    static const WCHAR poe_exe[] = {'P','a','t','h','O','f','E','x','i','l','e','_','x','6','4','.','e','x','e', 0};
+  
+    //TRACE("%p, 0x%s, %p\n", phys_dev, wine_dbgstr_longlong(surface), capabilities);
 
+    
+    if(!global_current_exe) {
+      
+      static WCHAR global_current_exepath[MAX_PATH] = {0};
+      
+      GetModuleFileNameW(NULL, global_current_exepath, ARRAY_SIZE(global_current_exepath));
+      global_current_exe = (WCHAR *)get_basename(global_current_exepath);
+      
+      //TRACE("current exe path %s \n", debugstr_wn(global_current_exepath, strlenW( global_current_exepath )));
+      //TRACE("current exe %s \n", debugstr_wn(global_current_exe, strlenW( global_current_exe )));
+      
+    }  
+      
     
     
     
     //return VK_SUCCESS;
     res =  pvkGetPhysicalDeviceSurfaceCapabilitiesKHR(phys_dev, x11_surface->surface, capabilities);
+    
+    //Hack for Path Of Exile
+    if(!lstrcmpiW(global_current_exe, poe_exe)) {
+      capabilities->minImageCount = 2;
+      capabilities->maxImageCount = 16;
+    }
   
     return res;
-    //TODO
-    //enable with env or exe comparison when POE works with RADV
-    capabilities->minImageCount = 2;
-    capabilities->maxImageCount = 16;
-  
-    return res;
+    
 }
 
 static VkResult WAYLANDDRV_vkGetPhysicalDeviceSurfaceFormats2KHR(VkPhysicalDevice phys_dev,

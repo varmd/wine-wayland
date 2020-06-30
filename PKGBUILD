@@ -2,8 +2,10 @@
 
 pkgname=wine-wayland
 pkgver=5.9
-pkgrel=4
+#pkgver=master
+pkgrel=5
 _winesrcdir="wine-wine-$pkgver"
+#_winesrcdir="wine-master"
 
 pkgdesc='Wine wayland'
 
@@ -47,6 +49,7 @@ makedepends=('git'
 
 
 source=("https://github.com/wine-mirror/wine/archive/wine-$pkgver.zip")
+#source=("https://github.com/wine-mirror/wine/archive/master.zip")
     
 sha256sums=('SKIP')
 
@@ -84,6 +87,10 @@ prepare() {
     rm configure
     autoconf
 
+
+    #uncomment to disable
+    #: '
+    
     msg2 "Applying esync patches"
       cd "${srcdir}"
       cp -r ../esync .
@@ -102,10 +109,12 @@ prepare() {
     patch -Np1 < '../../fsync-mainline.patch'  
     
     #msg2 "Applying performance patches"
-    patch -Np1 < '../../performance-disable-raw-clock.patch'  
+    #patch -Np1 < '../../performance-disable-raw-clock.patch'  
     
     #Potentially buggy
     #patch -Np1 < '../../performance-proton-improve-vulkan-alloc.patch'  
+    
+    #'
     
     mkdir -p "${srcdir}"/"${pkgname}"-64-build
     
@@ -123,8 +132,6 @@ build() {
   #export CFLAGS="${CFLAGS} -w -march=native -pipe -Ofast"
   #export LDFLAGS="${CFLAGS}"
 	
-
-
   msg2 'Building Wine-64...'
 	cd  "${srcdir}"/"${pkgname}"-64-build
 	
@@ -180,7 +187,9 @@ build() {
 		--disable-tests
   fi
 	
-	make -s -j 5
+  CPUS=$(getconf _NPROCESSORS_ONLN)
+  
+	make -s -j $CPUS
 
 }
 

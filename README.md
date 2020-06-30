@@ -67,25 +67,27 @@ On first boot, click cancel on Install Gecko and Mono
 * Some games may take a while to start
 * Some games may crash if fullscreen is enabled/disabled. After crashing, look in the game settings folder and see if you can enable/disable fullscreen manually.
 * If a game is not starting try to disable WINE\_VK\_VULKAN_ONLY variable and start the game to see if there are any error popups 
-* While launchers are not working many games from launchers do not require launchers to be running. 
-* Use https://github.com/derrod/legendary to download and run games from Epic Games Store
+* While launchers are not working many games do not require launchers to run
+* You can use https://github.com/derrod/legendary to download and run games from Epic Games Store
+* You can use https://github.com/ValvePython/steamctl to download games from Steam
 * GOG games can be extracted with innounp
 * If a game is not starting, try wineserver -k, and start again
 * Use export XCURSOR_SIZE="xx" and export XCURSOR_THEME=themename to set cursor theme and increase cursor size 
 * Use export WINE_VK_NO_CLIP_CURSOR=1 to disable cursor locking for games that erroneously try to lock mouse cursor.
-* Use export WINE_VK_FULLSCREEN_GRAB_CURSOR=1 to automatically enable cursor locking in fullscreen.
+* Use export WINE_VK_FULLSCREEN_GRAB_CURSOR=1 to automatically enable cursor grab in fullscreen.
 
 ## caveats and issues
 
 * No controller support
 * No GDI apps support
-* Launchers are not working
 * No OpenGL support
 * No custom cursors
 
 
 ## games confirmed working
 
+* ABZU
+* Dirt 3
 * Subnautica
 * Rebel Galaxy
 * Endless Space
