@@ -2,7 +2,7 @@
 
 pkgname=lib32-wine-wayland
 _pkgname=wine-wayland
-pkgver=5.9
+pkgver=5.12
 pkgrel=5
 _winesrcdir="wine-wine-$pkgver"
 
@@ -17,11 +17,7 @@ options=('staticlibs' '!strip')
 license=('LGPL')
 
 depends=(
-    'fontconfig'            
-    'freetype2'             
-    'gcc-libs'              
-    'desktop-file-utils'
-    'gnutls'
+    'wine-wayland'
     'lib32-mpg123' 
     'lib32-glibc' 
     'lib32-gcc-libs' 

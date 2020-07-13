@@ -1,0 +1,28 @@
+From 7b617b003abd29e7869178cb8ca108802691159f Mon Sep 17 00:00:00 2001
+From: Zebediah Figura <z.figura12@gmail.com>
+Date: Sat, 4 Aug 2018 15:15:12 -0500
+Subject: [PATCH 74/83] ntdll, server: Abort if esync is enabled for the server
+ but not the client, and vice versa.
+
+Signed-off-by: Zebediah Figura <z.figura12@gmail.com>
+---
+ dlls/ntdll/thread.c |  3 +--
+ 3 files changed, 40 insertions(+), 3 deletions(-)
+
+diff --git a/dlls/ntdll/loader.c b/dlls/ntdll/loader.c
+index 2f66065e3..98cd95055 100644
+--- a/dlls/ntdll/loader.c
++++ b/dlls/ntdll/loader.c
+@@ -4405,8 +4405,7 @@ void __wine_process_init(void)
+     peb->ProcessHeap = RtlCreateHeap( HEAP_GROWABLE, NULL, 0, 0, NULL, NULL );
+     peb->LoaderLock = &loader_section;
+ 
+-    if (do_esync())
+-        esync_init();
++    esync_init();
+ 
+     init_unix_codepage();
+     init_directories();
+-- 
+2.19.1
+

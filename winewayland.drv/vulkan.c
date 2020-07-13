@@ -93,7 +93,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(waylanddrv);
 #define SONAME_LIBVULKAN ""
 #endif
 
-#define HAS_ESYNC 1
+#define HAS_ESYNC 0
 
 //esync
 #if HAS_ESYNC
@@ -2663,7 +2663,6 @@ static void set_queue_display_fd( int esync_fd )
   #if 0    
     char sfn[15] = "";
     FILE *sfp;
-    //strcpy(sfn, "/tmp/ed.XXXXXX" );
     esync_fd = open("/tmp/esync-fd", O_ASYNC | O_RDWR | O_NOATIME);  
   
     if (esync_fd == -1) {

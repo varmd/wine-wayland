@@ -379,12 +379,7 @@ static inline Display *thread_display(void)
     return data->display;
 }
 
-/* retrieve the thread display, creating it if needed */
-static inline Display *thread_init_display(void)
-{
-    
-    //return waylanddrv_init_thread_data()->display;
-}
+
 
 static inline size_t get_property_size( int format, unsigned long count )
 {

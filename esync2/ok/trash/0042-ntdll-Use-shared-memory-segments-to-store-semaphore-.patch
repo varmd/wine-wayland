@@ -1,0 +1,43 @@
+From 56864692e4ed8f588a5dcee931e70fe6da0a1920 Mon Sep 17 00:00:00 2001
+From: Zebediah Figura <z.figura12@gmail.com>
+Date: Mon, 11 Jun 2018 13:10:36 -0500
+Subject: [PATCH 42/83] ntdll: Use shared memory segments to store semaphore
+ and mutex state.
+
+This patch is pretty big, because it restructures the underlying esync
+objects. Instead of wrapping a struct esync, the semaphore and mutex structs
+are now contained within it, as a pointer to shared memory. This also means
+that we can move a lot of common code to create_esync() and open_esync()
+since now we don't have to allocate separate structures.
+
+Signed-off-by: Zebediah Figura <z.figura12@gmail.com>
+---
+ dlls/ntdll/loader.c |   4 +
+ 3 files changed, 155 insertions(+), 199 deletions(-)
+
+diff --git a/dlls/ntdll/loader.c b/dlls/ntdll/loader.c
+index 9972d680e..f9c529357 100644
+--- a/dlls/ntdll/loader.c
++++ b/dlls/ntdll/loader.c
+@@ -44,6 +44,7 @@
+ #include "wine/server.h"
+ #include "ntdll_misc.h"
+ #include "ddk/wdm.h"
++#include "unix/esync.h"
+ 
+ WINE_DEFAULT_DEBUG_CHANNEL(module);
+ WINE_DECLARE_DEBUG_CHANNEL(relay);
+@@ -4404,6 +4405,9 @@ void __wine_process_init(void)
+     peb->ProcessHeap = RtlCreateHeap( HEAP_GROWABLE, NULL, 0, 0, NULL, NULL );
+     peb->LoaderLock = &loader_section;
+ 
++    if (do_esync())
++        esync_init();
++
+     init_unix_codepage();
+     init_directories();
+     init_user_process_params( info_size );
+ 
+-- 
+2.19.1
+

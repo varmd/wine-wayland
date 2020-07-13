@@ -1,0 +1,27 @@
+From 95aeb83eac8e798e799fcfb622b091343809593a Mon Sep 17 00:00:00 2001
+From: Zebediah Figura <z.figura12@gmail.com>
+Date: Fri, 8 Jun 2018 15:33:46 -0500
+Subject: [PATCH 08/83] ntdll: Create esync objects for events.
+
+Signed-off-by: Zebediah Figura <z.figura12@gmail.com>
+---
+ dlls/ntdll/sync.c  |  3 +++
+ 3 files changed, 39 insertions(+)
+
+diff --git a/dlls/ntdll/sync.c b/dlls/ntdll/sync.c
+index 7955e540aa..84abb0d205 100644
+--- a/dlls/ntdll/unix/sync.c
++++ b/dlls/ntdll/unix/sync.c
+@@ -430,6 +430,9 @@ NTSTATUS WINAPI NtCreateEvent( HANDLE *handle, ACCESS_MASK access, const OBJECT_ATTRIBUTES *attr,
+     data_size_t len;
+     struct object_attributes *objattr;
+ 
++    if (do_esync())
++        return esync_create_event( handle, access, attr, type, state );
++
+     if ((ret = alloc_object_attributes( attr, &objattr, &len ))) return ret;
+ 
+     SERVER_START_REQ( create_event )
+-- 
+2.19.1
+

@@ -1,0 +1,29 @@
+From 3051ac9829667c1a7491de1210dee7730e0974fc Mon Sep 17 00:00:00 2001
+From: Zebediah Figura <z.figura12@gmail.com>
+Date: Thu, 7 Jun 2018 21:02:14 -0500
+Subject: [PATCH 05/83] ntdll: Implement NtReleaseSemaphore().
+
+Signed-off-by: Zebediah Figura <z.figura12@gmail.com>
+---
+ dlls/ntdll/sync.c  |  4 ++++
+ 3 files changed, 26 insertions(+)
+
+diff --git a/dlls/ntdll/sync.c b/dlls/ntdll/sync.c
+index 3d6db08668..2c8ef9bd6b 100644
+--- a/dlls/ntdll/unix/sync.c
++++ b/dlls/ntdll/unix/sync.c
+@@ -400,7 +400,11 @@ NTSTATUS WINAPI NtQuerySemaphore( HANDLE handle, SEMAPHORE_INFORMATION_CLASS cla
+ NTSTATUS WINAPI NtReleaseSemaphore( HANDLE handle, ULONG count, ULONG *previous )
+ {
+     NTSTATUS ret;
++
++    if (do_esync())
++        return esync_release_semaphore( handle, count, previous );
++
+
+     SERVER_START_REQ( release_semaphore )
+     {
+         req->handle = wine_server_obj_handle( handle );
+-- 
+2.19.1
+

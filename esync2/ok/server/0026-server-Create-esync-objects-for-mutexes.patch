@@ -1,0 +1,36 @@
+From 335d68a918df7ee8cf53d00d8791c4518d717c04 Mon Sep 17 00:00:00 2001
+From: Zebediah Figura <z.figura12@gmail.com>
+Date: Sat, 9 Jun 2018 15:48:46 -0500
+Subject: [PATCH 26/83] ntdll: Create esync objects for mutexes.
+
+Signed-off-by: Zebediah Figura <z.figura12@gmail.com>
+---
+ include/wine/server_protocol.h |  1 +
+ server/protocol.def            |  1 +
+ 5 files changed, 46 insertions(+)
+
+--- a/include/wine/server_protocol.h
++++ b/include/wine/server_protocol.h
+@@ -5690,6 +5690,7 @@ enum esync_type
+     ESYNC_SEMAPHORE = 1,
+     ESYNC_AUTO_EVENT,
+     ESYNC_MANUAL_EVENT,
++    ESYNC_MUTEX,
+     ESYNC_MANUAL_SERVER,
+     ESYNC_QUEUE,
+ };
+diff --git a/server/protocol.def b/server/protocol.def
+index 6ef953303b..5880fa1f64 100644
+--- a/server/protocol.def
++++ b/server/protocol.def
+@@ -3878,6 +3878,7 @@ enum esync_type
+     ESYNC_SEMAPHORE = 1,
+     ESYNC_AUTO_EVENT,
+     ESYNC_MANUAL_EVENT,
++    ESYNC_MUTEX,
+     ESYNC_MANUAL_SERVER,
+     ESYNC_QUEUE,
+ };
+-- 
+2.19.1
+

@@ -1,0 +1,46 @@
+From 5859768a8758afadbbe9054c3c34016b4ae67aba Mon Sep 17 00:00:00 2001
+From: Zebediah Figura <z.figura12@gmail.com>
+Date: Fri, 8 Jun 2018 19:25:05 -0500
+Subject: [PATCH 16/83] ntdll, server: Implement waiting on server-bound
+ objects.
+
+The code here is sort of self-explanatory, but since I split it up over
+several patches I'll provide a quick explanation. The basic principle is
+that we can create an eventfd descriptor for any synchronizable handle, and
+signal it on the server side whenever a wakeup would be triggered. This means
+not only that we can wait simultaneously on esync primitives and on other
+primitives, but that we can do it all in "user-mode", i.e. without having to
+make a server call.
+
+With this patch we break waiting on svcctl.exe.
+
+Signed-off-by: Zebediah Figura <z.figura12@gmail.com>
+---
+ server/thread.c    |  4 +++
+ 4 files changed, 84 insertions(+), 4 deletions(-)
+
+diff --git a/server/thread.c b/server/thread.c
+index e671ad8da2..f5ad0f066c 100644
+--- a/server/thread.c
++++ b/server/thread.c
+@@ -51,6 +51,7 @@
+ #include "request.h"
+ #include "user.h"
+ #include "security.h"
++#include "esync.h"
+ 
+ 
+ #ifdef __i386__
+@@ -919,6 +920,9 @@ void wake_up( struct object *obj, int max )
+     struct list *ptr;
+     int ret;
+ 
++    if (do_esync())
++        esync_wake_up( obj );
++
+     LIST_FOR_EACH( ptr, &obj->wait_queue )
+     {
+         struct wait_queue_entry *entry = LIST_ENTRY( ptr, struct wait_queue_entry, entry );
+-- 
+2.19.1
+

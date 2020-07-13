@@ -6,9 +6,9 @@ EXE_PATH=your-game.exe
 export RADV_PERFTEST=aco
 
 
-#enable esync or fsync
-#export WINEESYNC=1
-export WINEFSYNC=1
+#enable esync
+export WINEESYNC=1
+
 
 #enable/disable winedebug
 export WINEDEBUG=-all
@@ -56,7 +56,7 @@ export DXVK_HUD=1
 cd "prefix/$FOLDER1/$FOLDER2"
 
 
-WINEDLLOVERRIDES="dxgi,d3d11=n,b,dinput=d,winedbg=d"  wine64 $EXE_PATH #add command line arguments if needed 
+WINEDLLOVERRIDES="dxgi,d3d11=n,b;dinput=d;winedbg=d;winemenubuilder.exe=d;mscoree=d;mshtml=d"  wine64 $EXE_PATH #add command line arguments if needed 
 
 #or uncomment for 32bit
 #WINEDLLOVERRIDES="dxgi,d3d11=n,b,dinput=d,winedbg=d"  wine your32bitgame.exe #add command line arguments if neededPortal 
