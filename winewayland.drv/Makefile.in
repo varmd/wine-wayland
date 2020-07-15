@@ -9,6 +9,10 @@ EXTRALIBS = -lwayland-client  -lwayland-cursor
 #-lGLESv2
 #
 EXTRADLLFLAGS = 
+CFLAGS = -std=c11 -Wno-declaration-after-statement
+EXTRACFLAGS = -std=c11 -Wno-declaration-after-statement
+CPPFLAGS = -std=c11 -Wno-declaration-after-statement
+EXTRACROSSCFLAGS = -std=c11 -Wno-declaration-after-statement
 
 #	xim.c \
 # ime.c \

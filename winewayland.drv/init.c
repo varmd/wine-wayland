@@ -243,6 +243,7 @@ static INT CDECL WAYLANDDRV_ExtEscape( PHYSDEV dev, INT escape, INT in_count, LP
 /**********************************************************************
  *           WAYLANDDRV_wine_get_wgl_driver
 */ 
+#if 0
 static struct opengl_funcs * CDECL WAYLANDDRV_wine_get_wgl_driver( PHYSDEV dev, UINT version )
 {
     struct opengl_funcs *ret = NULL;
@@ -258,6 +259,7 @@ static struct opengl_funcs * CDECL WAYLANDDRV_wine_get_wgl_driver( PHYSDEV dev, 
     return ret;
     
 }
+#endif
 
 /**********************************************************************
  *           WAYLANDDRV_wine_get_vulkan_driver

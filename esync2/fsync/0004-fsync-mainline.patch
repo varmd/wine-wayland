@@ -1,0 +1,92 @@
+From 22febac9c67150769a389cb97dbf904033f9046f Mon Sep 17 00:00:00 2001
+From: Zebediah Figura <zfigura@codeweavers.com>
+Date: Wed, 7 Aug 2019 17:07:15 -0500
+Subject: [PATCH] ntdll: Store the fsync APC futex in the thread data directly.
+
+Essentially so we can take get_shm() out of any critical paths.
+---
+ dlls/ntdll/unix/unix_private.h |  2 +-
+ dlls/ntdll/unix/thread.c     |  4 ++--
+ 3 files changed, 18 insertions(+), 14 deletions(-)
+
+diff --git a/dlls/ntdll/unix/unix_private.h b/dlls/ntdll/unix/unix_private.h
+index 0b6a624d2c9..bf5aa20d38d 100644
+--- a/dlls/ntdll/unix/unix_private.h
++++ b/dlls/ntdll/unix/unix_private.h
+@@ -281,7 +281,8 @@ struct ntdll_thread_data
+     pthread_t          pthread_id;    /* pthread thread id */
+     int                esync_queue_fd;/* fd to wait on for driver events */
+     int                esync_apc_fd;  /* fd to wait on for user APCs */
++    int               *fsync_apc_futex;
+     struct list        entry;         /* entry in TEB list */
+ };
+ 
+ C_ASSERT( sizeof(struct ntdll_thread_data) <= sizeof(((TEB *)0)->GdiTebBatch) );
+diff --git a/dlls/ntdll/thread.c b/dlls/ntdll/thread.c
+index c6e86c196bd..f73e141911b 100644
+--- a/dlls/ntdll/unix/thread.c
++++ b/dlls/ntdll/unix/thread.c
+@@ -99,5 +99,5 @@ start_thread( TEB *teb )
+     thread_data->wait_fd[1] = -1;
+     thread_data->esync_queue_fd = -1;
+     thread_data->esync_apc_fd = -1;
+-    thread_data->fsync_apc_idx = 0;
++    thread_data->fsync_apc_futex = NULL;
+     signal_init_thread( teb );
+@@ -250,5 +250,5 @@ NTSTATUS WINAPI NtCreateThreadEx
+     thread_data->start_stack = (char *)teb->Tib.StackBase;
+     thread_data->esync_queue_fd = -1;
+     thread_data->esync_apc_fd = -1;
+-    thread_data->fsync_apc_idx = 0;
++    thread_data->fsync_apc_futex = NULL;
+ 
+     pthread_attr_init( &attr );
+From 6d23707f60898e08b7df7738613aa233ba9951bf Mon Sep 17 00:00:00 2001
+From: Zebediah Figura <zfigura@codeweavers.com>
+Date: Wed, 7 Aug 2019 17:14:54 -0500
+Subject: [PATCH] ntdll/esync: Lock accessing the shm_addrs array.
+
+---
+ dlls/ntdll/unix/esync.c | 18 +++++++++++++++++-
+ 1 file changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/dlls/ntdll/esync.c b/dlls/ntdll/esync.c
+index b6613bf0dcf..8054f80a09f 100644
+--- a/dlls/ntdll/unix/esync.c
++++ b/dlls/ntdll/unix/esync.c
+@@ -156,10 +156,22 @@ void esync_init(void)
+     shm_addrs_size = 128;
+ }
+ 
++static RTL_CRITICAL_SECTION shm_addrs_section;
++static RTL_CRITICAL_SECTION_DEBUG shm_addrs_debug =
++{
++    0, 0, &shm_addrs_section,
++    { &shm_addrs_debug.ProcessLocksList, &shm_addrs_debug.ProcessLocksList },
++      0, 0, { (DWORD_PTR)(__FILE__ ": shm_addrs_section") }
++};
++static RTL_CRITICAL_SECTION shm_addrs_section = { &shm_addrs_debug, -1, 0, 0, 0, 0 };
++
+ static void *get_shm( unsigned int idx )
+ {
+     int entry  = (idx * 8) / pagesize;
+     int offset = (idx * 8) % pagesize;
++    void *ret;
++
++    RtlEnterCriticalSection(&shm_addrs_section);
+ 
+     if (entry >= shm_addrs_size)
+     {
+@@ -181,7 +193,11 @@ static void *get_shm( unsigned int idx )
+             munmap( addr, pagesize ); /* someone beat us to it */
+     }
+ 
+-    return (void *)((unsigned long)shm_addrs[entry] + offset);
++    ret = (void *)((unsigned long)shm_addrs[entry] + offset);
++
++    RtlLeaveCriticalSection(&shm_addrs_section);
++
++    return ret;
+ }
+ 
+ /* We'd like lookup to be fast. To that end, we use a static list indexed by handle.

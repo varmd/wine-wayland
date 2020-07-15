@@ -40,7 +40,7 @@ index ec034455aa..3d24baa096 100644
 +++ b/dlls/ntdll/unix/server.c
 @@ -81,6 +81,7 @@
  #include "wine/debug.h"
- #include "ntdll_misc.h"
+ #include "unix_private.h"
  #include "ddk/wdm.h"
 +#include "esync.h"
  

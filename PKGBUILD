@@ -3,7 +3,7 @@
 pkgname=wine-wayland
 pkgver=5.12
 #pkgver=master
-pkgrel=5
+pkgrel=10
 _winesrcdir="wine-wine-$pkgver"
 #_winesrcdir="wine-master"
 
@@ -26,7 +26,6 @@ depends=(
 )
 
 makedepends=(
-    'git' 
     'autoconf' 
     'ncurses' 
     'bison' 
@@ -88,6 +87,9 @@ prepare() {
     cp ../../esync2/esync-copy/ntdll/* dlls/ntdll/unix/
     cp ../../esync2/esync-copy/server/* server/
     
+    cp ../../esync2/fsync-copy/ntdll/* dlls/ntdll/unix/
+    cp ../../esync2/fsync-copy/server/* server/
+    
 
     
     for _f in ../../esync2/ok/server/*.patch; do
@@ -101,37 +103,15 @@ prepare() {
     done
     
     
+    for _f in ../../esync2/fsync/*.patch; do
+      msg2 "Applying ${_f}"
+      patch -Np1 < ${_f}
+    done
+    
+    
     rm configure
     autoconf
 
-
-    
-
-    #old
-    : '
-    
-    cp ../../esync-copy/ntdll/* dlls/ntdll/unix/
-    cp ../../esync-copy/server/* server/
-    
-    msg2 "Applying esync patches"
-      cd "${srcdir}"
-      cp -r ../esync2 .
-      cd "${srcdir}"/"${_winesrcdir}"
-      for _f in "${srcdir}"/esync2/ok/*.patch; do
-        msg2 "Applying ${_f}"
-        patch -Np1 < ${_f}
-      done
-    
-    
-    
-    #msg2 "Applying fsync"
-    #patch -Np1 < '../../fsync-mainline.patch'  
-    
-    #msg2 "Applying performance patches"
-    #patch -Np1 < '../../performance-disable-raw-clock.patch'  
-    
-    '
-    
     mkdir -p "${srcdir}"/"${pkgname}"-64-build
     
   fi

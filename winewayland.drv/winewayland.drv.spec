@@ -24,7 +24,7 @@
 # Cursor
 @ cdecl GetCursorPos(ptr) WAYLANDDRV_GetCursorPos
 
-# @ cdecl ShowWindow(long long ptr long) WAYLANDDRV_ShowWindow
+@ cdecl ShowWindow(long long ptr long) WAYLANDDRV_ShowWindow
 
 # @ cdecl DestroyCursorIcon(long) WAYLANDDRV_DestroyCursorIcon
 @ cdecl SetCursor(long) WAYLANDDRV_SetCursor

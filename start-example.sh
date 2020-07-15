@@ -6,9 +6,12 @@ EXE_PATH=your-game.exe
 export RADV_PERFTEST=aco
 
 
+#enable fsync
+export WINEESYNC=0
+export WINEFSYNC=1
 #enable esync
-export WINEESYNC=1
-
+#export WINEESYNC=1
+#export WINEFSYNC=0
 
 #enable/disable winedebug
 export WINEDEBUG=-all

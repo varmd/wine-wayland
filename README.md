@@ -75,6 +75,7 @@ On first boot, click cancel on Install Gecko and Mono
 * Use export XCURSOR_SIZE="xx" and export XCURSOR_THEME=themename to set cursor theme and increase cursor size 
 * Use export WINE_VK_NO_CLIP_CURSOR=1 to disable cursor locking for games that erroneously try to lock mouse cursor.
 * Use export WINE_VK_FULLSCREEN_GRAB_CURSOR=1 to automatically enable cursor grab in fullscreen.
+* For best performance use fsync patched kernel, and export WINEFSYNC=1 variable
 
 ## caveats and issues
 
@@ -97,3 +98,5 @@ On first boot, click cancel on Install Gecko and Mono
 * Path of Exile
 * Pathfinder Kingmaker
 * Crusader Kings 2
+* Mutant Year Zero
+* Tropico 6

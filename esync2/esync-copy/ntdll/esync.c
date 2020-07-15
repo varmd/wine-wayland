@@ -325,17 +325,21 @@ static NTSTATUS get_object( HANDLE handle, struct esync **obj )
 NTSTATUS esync_close( HANDLE handle )
 {
     UINT_PTR entry, idx = handle_to_index( handle, &entry );
-
-    TRACE("%p.\n", handle);
+    int ret_close = 0;
+  
+    TRACE("%p %d \n", handle, &entry );
 
     if (entry < ESYNC_LIST_ENTRIES && esync_list[entry])
     {
         if (InterlockedExchange((int *)&esync_list[entry][idx].type, 0))
         {
-            close( esync_list[entry][idx].fd );
+            ret_close = close( esync_list[entry][idx].fd );
+            //printf("Realy closing %d \n", ret_close);
             return STATUS_SUCCESS;
         }
     }
+    
+    //printf("Invalid handle %d \n", &entry);
 
     return STATUS_INVALID_HANDLE;
 }
@@ -908,6 +912,8 @@ static NTSTATUS __esync_wait_objects( DWORD count, const HANDLE *handles,
          * (signaled on e.g. X11 events.) */
         msgwait = TRUE;
     }
+    //disable msgwait
+    msgwait = FALSE;
 
     if (has_esync && has_server)
     {
@@ -1305,8 +1311,10 @@ NTSTATUS esync_wait_objects( DWORD count, const HANDLE *handles, BOOLEAN wait_an
 
     if (!get_object( handles[count - 1], &obj ) && obj->type == ESYNC_QUEUE)
     {
-        msgwait = TRUE;
-        server_set_msgwait( 1 );
+        //disable msgwait
+        //msgwait = TRUE;
+        msgwait = FALSE;
+        //server_set_msgwait( 1 );
     }
 
     ret = __esync_wait_objects( count, handles, wait_any, alertable, timeout );
