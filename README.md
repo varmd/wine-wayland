@@ -1,13 +1,13 @@
 ## what is wine-wayland
 
-Wine-wayland allows playing DX9/DX11 and Vulkan games using pure wayland and Wine/DXVK.
+Wine-wayland allows running DX9/DX11 and Vulkan games using pure wayland and Wine/DXVK.
 
 ## why wine-wayland
 
- * You are tired of dealing with Xorg and don't care about launchers and controllers
- * You want to remove Xorg related packages from your PC
+ * You are tired of dealing with X11 and don't care about launchers and controllers
+ * You want to remove X11 related packages from your PC
  * You want to experience potentially faster and smoother gaming on Wayland
- * You are concerned about insecure Xorg games that can spy on other apps running on Xorg.
+ * You are concerned about insecure X11 games that can spy on other apps running on X11.
 
 ## screenshot
 
@@ -45,19 +45,17 @@ First compile and install regular wine-wayland, then in the same zip directory
    
 Copy relevant 64bit or 32bit dxvk dlls to prefix/your-game or use winetricks.
 
-Copy start-example.sh to your-dir and modify for your-game, change your-game and YourGameFolder at the top of the file.
+Copy start-example.sh to your-dir and modify it for your-game, change your-game and YourGameFolder at the top of the file.
 
 rename start-example.sh to start-your-game.sh
 
 Then in the terminal run sh start-your-game.sh
 
-On first boot, click cancel on Install Gecko and Mono
-
 
 ## keyboard shortcuts
 
-* F11 - Fullscreen mode
-* F10 - some games may not restrict cursor properly, manually restricts cursor to the game surface. After alt-tabbing, press F10 again two times
+* F11 - Enter fullscreen mode
+* F10 - some games may not restrict cursor properly, manually restricts cursor to the game surface. 
 * F9 - some games (such as NMS) that draw their own cursor may need this to lock the cursor pointer. Also enable export WINE_VK_HIDE_CURSOR=1 in the start-game.sh. After alt-tabbing, press F9 two times to reset cursor state
 
 
