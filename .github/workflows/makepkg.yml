@@ -3,8 +3,10 @@ name: Makepkg test
 on:
   push:
     branches: [ master ]
-    paths:
-      - 'release.txt'
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+    #paths:
+    #  - 'release.txt'
 
 jobs:
   pkgbuild:
@@ -32,10 +34,11 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # tag_name: ${{ github.ref }}
-          tag_name: v5.13
-          #release_name: Release ${{ github.ref }}
-          release_name: Release 5.13
+          tag_name: ${{ github.ref }}
+          #tag_name: v5.13
+          release_name: Release ${{ github.ref }}
+          #release_name: Release 5.13
+          body: " "
           draft: false
           prerelease: false
     - name: Upload Release Asset
