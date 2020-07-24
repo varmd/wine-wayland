@@ -1,9 +1,9 @@
 # Created by: varmd
 
 pkgname=wine-wayland
-pkgver=5.12
+pkgver=5.13
 #pkgver=master
-pkgrel=10
+pkgrel=11
 _winesrcdir="wine-wine-$pkgver"
 #_winesrcdir="wine-master"
 
@@ -22,7 +22,6 @@ depends=(
     'freetype2'             
     'gcc-libs'              
     'desktop-file-utils'
-    'gnutls'
 )
 
 makedepends=(
@@ -33,16 +32,13 @@ makedepends=(
     'flex'
     'gcc'
     'libpng'                
-    'gnutls'                
     'mpg123'                
     'openal'    
     'alsa-lib'
     'mesa'
     'vulkan-icd-loader'    
     'vulkan-headers'    
-    'freetype2'             
     'gettext'               
-    'fontconfig'            
     'faudio'            
     'zstd'            
 )

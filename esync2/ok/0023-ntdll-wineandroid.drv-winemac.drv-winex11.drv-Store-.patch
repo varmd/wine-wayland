@@ -13,6 +13,17 @@ Signed-off-by: Zebediah Figura <z.figura12@gmail.com>
 Doesn't seem to affect performance
 Disable for now
 
+#diff --git a/dlls/ntdll/ntdll.spec b/dlls/ntdll/ntdll.spec
+#index 87b5d7078f..2c2445a58a 100644
+#--- a/dlls/ntdll/ntdll.spec
+#+++ b/dlls/ntdll/ntdll.spec
+#@@ -1516,3 +1516,5 @@
+# # Filesystem
+# @ cdecl wine_nt_to_unix_file_name(ptr ptr long long)
+# @ cdecl wine_unix_to_nt_file_name(ptr ptr)
+#+
+#+# @ cdecl __wine_esync_set_queue_fd(long)
+
 ---
  dlls/ntdll/ntdll.spec          | 2 ++
  dlls/ntdll/ntdll_misc.h        | 1 +
@@ -22,16 +33,6 @@ Disable for now
  dlls/winex11.drv/x11drv_main.c | 3 +++
  7 files changed, 20 insertions(+)
 
-diff --git a/dlls/ntdll/ntdll.spec b/dlls/ntdll/ntdll.spec
-index 87b5d7078f..2c2445a58a 100644
---- a/dlls/ntdll/ntdll.spec
-+++ b/dlls/ntdll/ntdll.spec
-@@ -1516,3 +1516,5 @@
- # Filesystem
- @ cdecl wine_nt_to_unix_file_name(ptr ptr long long)
- @ cdecl wine_unix_to_nt_file_name(ptr ptr)
-+
-+# @ cdecl __wine_esync_set_queue_fd(long)
 diff --git a/dlls/ntdll/unix/unix_private.h b/dlls/ntdll/unix/unix_private.h
 index eea1387863..0ce1f32b70 100644
 --- a/dlls/ntdll/unix/unix_private.h

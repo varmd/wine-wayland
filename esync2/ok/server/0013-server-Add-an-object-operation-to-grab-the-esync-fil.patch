@@ -34,7 +34,6 @@ Signed-off-by: Zebediah Figura <z.figura12@gmail.com>
  server/semaphore.c  | 1 +
  server/serial.c     | 1 +
  server/signal.c     | 1 +
- server/snapshot.c   | 1 +
  server/sock.c       | 2 ++
  server/symlink.c    | 1 +
  server/thread.c     | 2 ++
@@ -126,7 +125,7 @@ index e1ae086cb7..b0038d079a 100644
 @@ -111,6 +112,7 @@ static const struct object_ops console_input_events_ops =
      add_queue,                        /* add_queue */
      remove_queue,                     /* remove_queue */
-     console_input_events_signaled,    /* signaled */
+     NULL,                             /* signaled */
 +    NULL,                             /* get_esync_fd */
      no_satisfied,                     /* satisfied */
      no_signal,                        /* signal */
@@ -550,18 +549,6 @@ index 74416fab7b..281304e653 100644
      NULL,                     /* satisfied */
      no_signal,                /* signal */
      no_get_fd,                /* get_fd */
-diff --git a/server/snapshot.c b/server/snapshot.c
-index e35588a136..c5da45124e 100644
---- a/server/snapshot.c
-+++ b/server/snapshot.c
-@@ -61,6 +61,7 @@ static const struct object_ops snapshot_ops =
-     no_add_queue,                 /* add_queue */
-     NULL,                         /* remove_queue */
-     NULL,                         /* signaled */
-+    NULL,                         /* get_esync_fd */
-     NULL,                         /* satisfied */
-     no_signal,                    /* signal */
-     no_get_fd,                    /* get_fd */
 diff --git a/server/sock.c b/server/sock.c
 index a8e6e28599..9cae4e26dc 100644
 --- a/server/sock.c
