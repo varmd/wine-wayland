@@ -33,14 +33,14 @@ jobs:
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          #tag_name: v5.13
-          release_name: Release ${{ github.ref }}
-          #release_name: Release 5.13
-          body: " "
-          draft: false
-          prerelease: false
+      with:
+        tag_name: ${{ github.ref }}
+        #tag_name: v5.13
+        release_name: Release ${{ github.ref }}
+        #release_name: Release 5.13
+        body: " "
+        draft: false
+        prerelease: false
     - name: Upload Release Asset
       id: upload-release-asset 
       uses: actions/upload-release-asset@v1
