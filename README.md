@@ -21,6 +21,12 @@ Wine-wayland allows running DX9/DX11 and Vulkan games using pure wayland and Win
  * Mesa 20 or later with Wayland and Vulkan support
  * weston based compositor (tested on wayward), wlroots based compositor (tested on sway)
  * SDL and Faudio
+ 
+## download
+
+You can download the 64bit only version from https://github.com/varmd/wine-wayland/releases. This version is automatically built via Github Actions. cd to download folder and install
+    
+    pacman -U wine-wayland*pkg*
 
 ## installation
 
