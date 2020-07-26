@@ -84,8 +84,9 @@ int do_esync(void)
 }
 
 /* Entry point for drivers to set queue fd. */
-void __wine_esync_set_queue_fd( int fd )
+extern void CDECL esync_set_queue_fd( int fd )
 {
+    printf("Setting Esync queue fd \n");
     ntdll_get_thread_data()->esync_queue_fd = fd;
 }
 
@@ -913,7 +914,7 @@ static NTSTATUS __esync_wait_objects( DWORD count, const HANDLE *handles,
         msgwait = TRUE;
     }
     //disable msgwait
-    msgwait = FALSE;
+    //msgwait = FALSE;
 
     if (has_esync && has_server)
     {
@@ -1312,9 +1313,9 @@ NTSTATUS esync_wait_objects( DWORD count, const HANDLE *handles, BOOLEAN wait_an
     if (!get_object( handles[count - 1], &obj ) && obj->type == ESYNC_QUEUE)
     {
         //disable msgwait
-        //msgwait = TRUE;
-        msgwait = FALSE;
-        //server_set_msgwait( 1 );
+        msgwait = TRUE;
+        //msgwait = FALSE;
+        server_set_msgwait( 1 );
     }
 
     ret = __esync_wait_objects( count, handles, wait_any, alertable, timeout );

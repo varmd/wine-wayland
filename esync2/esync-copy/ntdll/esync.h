@@ -22,6 +22,8 @@
 # include <pthread_np.h>
 #endif
 
+extern void CDECL esync_set_queue_fd(int fd) DECLSPEC_HIDDEN;
+
 extern void activate_esync(void) DECLSPEC_HIDDEN;
 extern int do_esync(void) DECLSPEC_HIDDEN;
 extern void esync_init(void) DECLSPEC_HIDDEN;

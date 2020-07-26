@@ -93,11 +93,11 @@ WINE_DEFAULT_DEBUG_CHANNEL(waylanddrv);
 #define SONAME_LIBVULKAN ""
 #endif
 
-//#define HAS_ESYNC 0
+#define HAS_ESYNC 1
 
 //esync
 #if HAS_ESYNC
-extern void __wine_esync_set_queue_fd( int fd );
+extern void CDECL wine_esync_set_queue_fd(int fd);
 #endif
 
 unsigned int global_wayland_confine = 0;
@@ -2066,7 +2066,7 @@ static const struct zwp_relative_pointer_v1_listener relative_pointer_listener =
 
 
 
-static void grab_wayland_screen() {
+void grab_wayland_screen(void) {
   if(!global_wayland_confine) {
           
     global_wayland_confine = 1;
@@ -2082,7 +2082,7 @@ static void grab_wayland_screen() {
   }
 }
 
-static void ungrab_wayland_screen() {
+void ungrab_wayland_screen(void) {
   if(global_wayland_confine) {
     
     if(locked_pointer)
@@ -2654,12 +2654,12 @@ static void create_wayland_window_mini (struct wayland_window *window) {
 #endif
 
 
-#if 0
+
 //Does not seem to affect performance on wayland
 /* store the display fd into the message queue */
 static void set_queue_display_fd( int esync_fd )
 {
-    static done = 0;
+    static int done = 0;
     int ret;
   
     if(done) {
@@ -2684,7 +2684,10 @@ static void set_queue_display_fd( int esync_fd )
   #endif
   
     #if HAS_ESYNC
-    __wine_esync_set_queue_fd( esync_fd );
+    
+    printf("Setting esync 1 fd \n");
+    wine_esync_set_queue_fd( esync_fd );
+    
     #endif
 
     if (wine_server_fd_to_handle( esync_fd, GENERIC_READ | SYNCHRONIZE, 0, &handle ))
@@ -2705,7 +2708,7 @@ static void set_queue_display_fd( int esync_fd )
     }
     CloseHandle( handle );
 }
-#endif
+
 
 
 

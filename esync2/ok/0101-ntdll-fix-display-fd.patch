@@ -1,0 +1,54 @@
+--- a/dlls/ntdll/ntdll.spec	2020-07-18 01:29:13.000000000 +0400
++++ b/dlls/ntdll/ntdll.spec	2020-07-24 12:26:53.180090612 +0400
+@@ -1609,3 +1609,5 @@
+ # Filesystem
+ @ cdecl wine_nt_to_unix_file_name(ptr ptr ptr long)
+ @ cdecl wine_unix_to_nt_file_name(str ptr ptr)
++
++@ cdecl wine_esync_set_queue_fd(long)
+--- a/dlls/ntdll/misc.c	2020-07-18 01:29:13.000000000 +0400
++++ b/dlls/ntdll/misc.c	2020-07-24 12:44:33.570044535 +0400
+@@ -62,6 +62,11 @@
+     return unix_funcs->get_build_id();
+ }
+ 
++
++void CDECL wine_esync_set_queue_fd( int fd )
++{
++    unix_funcs->unix_esync_set_queue_fd( fd );
++}
+ /*********************************************************************
+  *                  wine_get_host_version   (NTDLL.@)
+  */
+--- a/dlls/ntdll/unixlib.h	2020-07-18 01:29:13.000000000 +0400
++++ b/dlls/ntdll/unixlib.h	2020-07-24 11:42:32.150206370 +0400
+@@ -134,6 +134,9 @@
+     int           (CDECL *dbg_output)( const char *str );
+     int           (CDECL *dbg_header)( enum __wine_debug_class cls, struct __wine_debug_channel *channel,
+                                        const char *function );
++                                       
++    /* esync functions */
++    void          (CDECL *unix_esync_set_queue_fd )( int fd );
+ };
+ 
+ #endif /* __NTDLL_UNIXLIB_H */
+--- a/dlls/ntdll/unix/loader.c	2020-07-18 01:29:13.000000000 +0400
++++ b/dlls/ntdll/unix/loader.c	2020-07-24 12:41:18.916719652 +0400
+@@ -90,6 +90,9 @@
+ #include "wine/library.h"
+ #include "wine/debug.h"
+ 
++#include "esync.h"
++#include "fsync.h"
++
+ WINE_DEFAULT_DEBUG_CHANNEL(module);
+ 
+ extern IMAGE_NT_HEADERS __wine_spec_nt_header;
+@@ -1425,6 +1428,7 @@
+     __wine_dbg_strdup,
+     __wine_dbg_output,
+     __wine_dbg_header,
++    esync_set_queue_fd
+ };
+ 
+ 
