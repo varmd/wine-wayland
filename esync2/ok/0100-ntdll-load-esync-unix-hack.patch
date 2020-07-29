@@ -13,7 +13,7 @@
  void CDECL virtual_set_large_address_space(void)
  {
 +  
-+    printf("Begin unix esync load hack\n");
++    TRACE("Begin unix esync load hack\n");
 +  
 +    //Hack hack hack
 +    activate_esync();

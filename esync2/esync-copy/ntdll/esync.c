@@ -86,7 +86,7 @@ int do_esync(void)
 /* Entry point for drivers to set queue fd. */
 extern void CDECL esync_set_queue_fd( int fd )
 {
-    printf("Setting Esync queue fd \n");
+    TRACE("Setting Esync queue fd \n");
     ntdll_get_thread_data()->esync_queue_fd = fd;
 }
 
@@ -148,7 +148,7 @@ void esync_init(void)
     }
     
     
-    printf("Starting Esync \n");
+    TRACE("Starting Esync \n");
 
     if (stat( config_dir, &st ) == -1)
         ERR("Cannot stat %s\n", config_dir);
@@ -173,7 +173,7 @@ void esync_init(void)
     shm_addrs = RtlAllocateHeap( GetProcessHeap(), HEAP_ZERO_MEMORY, 128 * sizeof(shm_addrs[0]) );
     shm_addrs_size = 128;
     
-    printf("Esync loaded \n");
+    TRACE("Esync loaded \n");
     
 }
 
