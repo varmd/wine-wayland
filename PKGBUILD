@@ -1,9 +1,9 @@
 # Created by: varmd
 
 pkgname=wine-wayland
-pkgver=5.13
+pkgver=5.14
 #pkgver=master
-pkgrel=11
+pkgrel=12
 _winesrcdir="wine-wine-$pkgver"
 #_winesrcdir="wine-master"
 

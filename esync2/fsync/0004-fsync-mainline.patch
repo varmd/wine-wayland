@@ -13,15 +13,14 @@ diff --git a/dlls/ntdll/unix/unix_private.h b/dlls/ntdll/unix/unix_private.h
 index 0b6a624d2c9..bf5aa20d38d 100644
 --- a/dlls/ntdll/unix/unix_private.h
 +++ b/dlls/ntdll/unix/unix_private.h
-@@ -281,7 +281,8 @@ struct ntdll_thread_data
+@@ -281,6 +281,7 @@ struct ntdll_thread_data
      pthread_t          pthread_id;    /* pthread thread id */
      int                esync_queue_fd;/* fd to wait on for driver events */
      int                esync_apc_fd;  /* fd to wait on for user APCs */
 +    int               *fsync_apc_futex;
      struct list        entry;         /* entry in TEB list */
- };
- 
- C_ASSERT( sizeof(struct ntdll_thread_data) <= sizeof(((TEB *)0)->GdiTebBatch) );
+     PRTL_THREAD_START_ROUTINE start;  /* thread entry point */
+     void              *param;         /* thread entry point parameter */
 diff --git a/dlls/ntdll/thread.c b/dlls/ntdll/thread.c
 index c6e86c196bd..f73e141911b 100644
 --- a/dlls/ntdll/unix/thread.c

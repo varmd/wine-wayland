@@ -1367,6 +1367,7 @@ int global_disable_clip_cursor = 0;
 int global_fullscreen_grab_cursor = 0;
 int global_last_cursor_change = 0;
 int global_is_cursor_visible = 1;
+int global_is_always_fullscreen = 0;
 
 HWND global_vulkan_hwnd;
 HWND global_update_hwnd = NULL;
@@ -2402,7 +2403,6 @@ static void seat_caps_cb(void *data, struct wl_seat *seat, enum wl_seat_capabili
 	char *env_fullscreen_grab_cursor;
 	char *env_no_clip_cursor;	
   
-  
   if ((caps & WL_SEAT_CAPABILITY_POINTER) && !wayland_pointer)
 	{
     
@@ -2429,7 +2429,6 @@ static void seat_caps_cb(void *data, struct wl_seat *seat, enum wl_seat_capabili
     if(env_fullscreen_grab_cursor) {
       global_fullscreen_grab_cursor = 1;  
     }
-    
     
     if(!is_vulkan && !global_is_vulkan) {
       
@@ -2722,6 +2721,19 @@ static void create_wayland_display () {
     exit(1);
     return;
   }
+  //TODO move the rest of envs here
+  char *env_is_always_fullscreen;	
+
+
+  //Automate fullscreen
+  env_is_always_fullscreen = getenv( "WINE_VK_ALWAYS_FULLSCREEN" );
+
+  
+  if(env_is_always_fullscreen) {
+    TRACE("Is always fullscreen \n");
+    global_is_always_fullscreen = 1;  
+  }
+  
   struct wl_registry *registry = wl_display_get_registry (wayland_display);
   wl_registry_add_listener (registry, &registry_listener, NULL);
   wl_display_roundtrip (wayland_display);
@@ -2738,6 +2750,8 @@ static void create_wayland_display () {
 static struct wayland_window *create_wayland_window (HWND hwnd, int32_t width, int32_t height) {
 	
 	
+  TRACE("Creating wayland window \n");
+  
   struct wl_region *region;
   
   global_wait_for_configure = 1;
@@ -2759,6 +2773,10 @@ static struct wayland_window *create_wayland_window (HWND hwnd, int32_t width, i
   
   window->pointer_to_hwnd = hwnd;
   
+  
+  if(global_is_always_fullscreen)
+    xdg_toplevel_set_fullscreen(window->xdg_toplevel, NULL);
+      
   
   
   wl_surface_commit(window->surface);

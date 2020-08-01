@@ -68,6 +68,16 @@ index de39ee5553..d956a3d76a 100644
 +#include "fsync.h"
 
  WINE_DEFAULT_DEBUG_CHANNEL(server);
+@@ -1475,6 +1475,9 @@
+     activate_esync();
+     if (do_esync())
+       esync_init();  
++    activate_fsync();
++    if (do_fsync())
++      fsync_init();
+ 
+ #ifdef __APPLE__
+     send_server_task_port();
 @@ -1600,8 +1601,10 @@
  NTSTATUS WINAPI NtClose( HANDLE handle )
  {
@@ -264,29 +274,6 @@ index 7d7259425b..c6e86c196b 100644
 +    thread_data->fsync_apc_idx = 0;
  
      pthread_attr_init( &attr );
-diff --git a/dlls/ntdll/virtual.c b/dlls/ntdll/virtual.c
-index 2f66065e3..98cd95055 100644
---- a/dlls/ntdll/unix/virtual.c
-+++ b/dlls/ntdll/unix/virtual.c
-@@ -44,6 +44,7 @@
- #include "unix_private.h"
- #include "wine/debug.h"
- #include "esync.h"
-+#include "fsync.h"
- 
- WINE_DEFAULT_DEBUG_CHANNEL(module);
- WINE_DECLARE_DEBUG_CHANNEL(relay);
-@@ -3320,7 +3321,10 @@
-     //Hack hack hack
-     activate_esync();
-     if (do_esync())
-       esync_init();
-+     activate_fsync();
-+     if (do_fsync())
-+       fsync_init();
-   
-   
-     IMAGE_NT_HEADERS *nt = RtlImageNtHeader( NtCurrentTeb()->Peb->ImageBaseAddress );
 diff --git a/include/wine/server_protocol.h b/include/wine/server_protocol.h
 index 0c83438c45..3e2f82e47d 100644
 --- a/include/wine/server_protocol.h

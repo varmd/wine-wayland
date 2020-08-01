@@ -66,8 +66,8 @@ Then in the terminal run sh start-your-game.sh
 
 
 ## notes
-* For Unity games make sure game folder is executable
 
+* For Unity games make sure game folder is executable
 * Some games may take a while to start
 * Some games may crash if fullscreen is enabled/disabled. After crashing, look in the game settings folder and see if you can enable/disable fullscreen manually.
 * If a game is not starting try to disable WINE\_VK\_VULKAN_ONLY variable and start the game to see if there are any error popups 
@@ -79,7 +79,8 @@ Then in the terminal run sh start-your-game.sh
 * Use export XCURSOR_SIZE="xx" and export XCURSOR_THEME=themename to set cursor theme and increase cursor size 
 * Use export WINE_VK_NO_CLIP_CURSOR=1 to disable cursor locking for games that erroneously try to lock mouse cursor.
 * Use export WINE_VK_FULLSCREEN_GRAB_CURSOR=1 to automatically enable cursor grab in fullscreen.
-* For best performance use fsync patched kernel, and export WINEFSYNC=1 variable
+* Use export WINE_VK_ALWAYS_FULLSCREEN=1 to automatically set game to fullscreen without using F11. The WINE_VK_WAYLAND_WIDTH and WINE_VK_WAYLAND_HEIGHT must be set to your monitor's current resolution width and height or the game will crash.
+* For best performance use kernel with the fsync patch, and add export WINEFSYNC=1 variable
 
 ## caveats and issues
 
