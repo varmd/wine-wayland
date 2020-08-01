@@ -291,7 +291,8 @@ static BOOL write_registry_settings(const DEVMODEW *dm)
  */
 BOOL CDECL WAYLANDDRV_EnumDisplaySettingsEx( LPCWSTR name, DWORD n, LPDEVMODEW devmode, DWORD flags)
 {
-    static const WCHAR dev_name[CCHDEVICENAME] = { 'W','i','n','e',0 };
+    //static const WCHAR dev_name[CCHDEVICENAME] = { 'W','i','n','e',0 };
+    static const WCHAR dev_name[CCHDEVICENAME] = {'\\','\\','.','\\','D','I','S','P','L','A','Y', '\\', 'W','i','n','e',0};
         
     devmode->dmSize = FIELD_OFFSET(DEVMODEW, dmICMMethod);
     devmode->dmSpecVersion = DM_SPECVERSION;

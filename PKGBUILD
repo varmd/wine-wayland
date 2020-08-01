@@ -75,6 +75,7 @@ prepare() {
     
     patch dlls/user32/driver.c < ../../winewayland.drv/patch/user32-driverc.patch
     patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/user32-sysparamsc-new.patch
+    patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/0004-user32-sysparams-fix-valid-adapter.patch
     patch programs/explorer/desktop.c < ../../winewayland.drv/patch/explorer-desktopc.patch
     
     
