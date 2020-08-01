@@ -2684,7 +2684,6 @@ static void set_queue_display_fd( int esync_fd )
   
     #if HAS_ESYNC
     
-    printf("Setting esync 1 fd \n");
     wine_esync_set_queue_fd( esync_fd );
     
     #endif
