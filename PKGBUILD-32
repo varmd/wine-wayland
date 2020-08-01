@@ -2,7 +2,7 @@
 
 pkgname=lib32-wine-wayland
 _pkgname=wine-wayland
-pkgver=5.13
+pkgver=5.14
 pkgrel=10
 _winesrcdir="wine-wine-$pkgver"
 
