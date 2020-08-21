@@ -2,10 +2,6 @@ FOLDER1=your-game
 FOLDER2=YourGameFolder
 EXE_PATH=your-game.exe
 
-#enable aco
-export RADV_PERFTEST=aco
-
-
 #enable fsync
 export WINEESYNC=0
 export WINEFSYNC=1
@@ -41,7 +37,6 @@ export WINE_VK_WAYLAND_HEIGHT=1080
 
 
 #dxvk options here
-export DXVK_CONFIG_FILE=$PWD/dxvk.conf
 export DXVK_LOG_LEVEL=none
 #export DXVK_LOG_LEVEL=error
 #export DXVK_HUD=fps

@@ -1008,6 +1008,14 @@ index fc1caa9e0e..50cd89e21a 100644
      no_satisfied,                   /* satisfied */
      no_signal,                      /* signal */
      mailslot_device_get_fd,         /* get_fd */
+@@ -225,6 +225,7 @@ static const struct object_ops mailslot_device_file_ops =
+     remove_queue,                           /* remove_queue */
+     default_fd_signaled,                    /* signaled */
+     NULL,                                   /* get_esync_fd */
++    NULL,                                   /* get_fsync_idx */
+     no_satisfied,                           /* satisfied */
+     no_satisfied,                           /* satisfied */
+     no_signal,                              /* signal */
 diff --git a/server/main.c b/server/main.c
 index aca8738c4c..97a66c16d4 100644
 --- a/server/main.c

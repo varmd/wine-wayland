@@ -1237,7 +1237,7 @@ BOOL CDECL WAYLANDDRV_SetCursorPos(LPPOINT pos)
 
 
 
-
+#if 0
 static CRITICAL_SECTION context_section;
 static CRITICAL_SECTION_DEBUG critsect_debug =
 {
@@ -1246,6 +1246,7 @@ static CRITICAL_SECTION_DEBUG critsect_debug =
       0, 0, { (DWORD_PTR)(__FILE__ ": context_section") }
 };
 static CRITICAL_SECTION context_section = { &critsect_debug, -1, 0, 0, 0, 0 };
+#endif
 
 //typedef VkFlags VkWaylandSurfaceCreateFlagsKHR;
 #define VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR 1000006000;
@@ -1440,7 +1441,7 @@ struct wl_surface_win_data
 
 
 
-static CRITICAL_SECTION win_data_section;
+//static CRITICAL_SECTION win_data_section;
 
 static struct wl_surface_win_data *wl_surface_data_context[32768] = {0};
 
@@ -1652,7 +1653,7 @@ void wayland_pointer_motion_cb(void *data,
   
 	
    
-    global_input.u.mi.dwFlags     = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE ;
+    global_input.u.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE ;
     
   
     global_input.u.mi.dx = wl_fixed_to_int(sx);
@@ -1801,6 +1802,7 @@ void wayland_pointer_button_cb_vulkan(void *data,
      
     input.u.mi.mouseData = XBUTTON1;
 		break;
+    
   case BTN_BACK:
   case BTN_SIDE:
     TRACE("Back Click \n");
@@ -3183,7 +3185,7 @@ struct android_win_data
 };
 
 
-static CRITICAL_SECTION win_data_section;
+//static CRITICAL_SECTION win_data_section;
 
 static struct android_win_data *win_data_context[32768];
 
@@ -3914,7 +3916,7 @@ static void set_surface_layered( struct window_surface *window_surface, BYTE alp
 
 //Windows functions
 
-
+#if 0
 /***********************************************************************
  *		release_win_data
  *
@@ -3924,6 +3926,7 @@ void release_win_data( struct waylanddrv_win_data *data )
 {
     if (data) LeaveCriticalSection( &win_data_section );
 }
+#endif
 
 /***********************************************************************
  *		

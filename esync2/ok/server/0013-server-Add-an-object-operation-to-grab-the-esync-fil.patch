@@ -343,7 +343,15 @@ index 95308c40b0..f5cf216caa 100644
 +    NULL,                           /* get_esync_fd */
      no_satisfied,                   /* satisfied */
      no_signal,                      /* signal */
-     mailslot_device_get_fd,         /* get_fd */
+     no_get_fd,         /* get_fd */
+@@ -225,6 +225,7 @@ static const struct object_ops mailslot_device_file_ops =
+     add_queue,                              /* add_queue */
+     remove_queue,                           /* remove_queue */
+     default_fd_signaled,                    /* signaled */
++    NULL,                                   /* get_esync_fd */
+     no_satisfied,                           /* satisfied */
+     no_satisfied,                           /* satisfied */
+     no_signal,                              /* signal */
 diff --git a/server/mapping.c b/server/mapping.c
 index bc59b21b96..5544819c51 100644
 --- a/server/mapping.c

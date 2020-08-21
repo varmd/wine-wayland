@@ -18,7 +18,7 @@ Wine-wayland allows running DX9/DX11 and Vulkan games using pure wayland and Win
 
  * Archlinux or Manjaro
  * GPU with Vulkan and Wayland support
- * Mesa 20 or later with Wayland and Vulkan support
+ * Mesa 20.1 or later with Wayland and Vulkan support
  * weston based compositor (tested on wayward), wlroots based compositor (tested on sway)
  * SDL and Faudio
  

@@ -29,7 +29,9 @@ diff --git a/include/wine/server_protocol.h b/include/wine/server_protocol.h
 index 31619b9a48..1ead5f7ad1 100644
 --- a/include/wine/server_protocol.h
 +++ b/include/wine/server_protocol.h
-@@ -5500,6 +5500,8 @@ struct create_esync_reply
+@@ -5450,8 +5450,10 @@ struct create_esync_reply
+ struct create_esync_reply
+ {
      struct reply_header __header;
      obj_handle_t handle;
      int          type;
@@ -38,7 +40,7 @@ index 31619b9a48..1ead5f7ad1 100644
  };
  
  
-@@ -55515,6 +55515,8 @@ struct open_esync_reply
+@@ -5500,6 +5500,8 @@ struct open_esync_reply
      struct reply_header __header;
      obj_handle_t handle;
      int          type;

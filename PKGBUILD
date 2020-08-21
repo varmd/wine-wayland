@@ -1,11 +1,10 @@
 # Created by: varmd
 
+RELEASE=5.15
 pkgname=wine-wayland
-pkgver=5.14
-#pkgver=master
-pkgrel=12
+pkgver=$RELEASE
+pkgrel=1
 _winesrcdir="wine-wine-$pkgver"
-#_winesrcdir="wine-master"
 
 pkgdesc='Wine wayland'
 
@@ -45,7 +44,6 @@ makedepends=(
 
 
 source=("https://github.com/wine-mirror/wine/archive/wine-$pkgver.zip")
-#source=("https://github.com/wine-mirror/wine/archive/master.zip")
     
 sha256sums=('SKIP')
 
