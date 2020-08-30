@@ -118,8 +118,8 @@ void fsync_init(void)
 
     pagesize = sysconf( _SC_PAGESIZE );
 
-    shm_addrs = calloc( 128, sizeof(shm_addrs[0]) );
-    shm_addrs_size = 128;
+    shm_addrs = calloc( 1280000, sizeof(shm_addrs[0]) );
+    shm_addrs_size = 1280000;
 
     shm_size = pagesize;
     if (ftruncate( shm_fd, shm_size ) == -1)
@@ -202,6 +202,7 @@ static void *get_shm( unsigned int idx )
     int entry  = (idx * 8) / pagesize;
     int offset = (idx * 8) % pagesize;
 
+  
     if (entry >= shm_addrs_size)
     {
         if (!(shm_addrs = realloc( shm_addrs, (entry + 1) * sizeof(shm_addrs[0]) )))

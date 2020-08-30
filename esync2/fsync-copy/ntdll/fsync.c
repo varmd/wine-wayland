@@ -55,6 +55,9 @@
 #include "unix_private.h"
 #include "fsync.h"
 
+
+
+
 WINE_DEFAULT_DEBUG_CHANNEL(fsync);
 
 #include "pshpack4.h"
@@ -90,6 +93,9 @@ static int global_fsync_active = 0;
 void activate_fsync(void) {
   global_fsync_active = 1;
 }
+
+
+
 
 int do_fsync(void)
 {
@@ -149,7 +155,9 @@ static void **shm_addrs;
 static int shm_addrs_size;  /* length of the allocated shm_addrs array */
 static long pagesize;
 
-static RTL_CRITICAL_SECTION shm_addrs_section;
+static pthread_mutex_t shm_addrs_section = PTHREAD_MUTEX_INITIALIZER;;
+
+#if 0
 static RTL_CRITICAL_SECTION_DEBUG shm_addrs_debug =
 {
     0, 0, &shm_addrs_section,
@@ -157,6 +165,7 @@ static RTL_CRITICAL_SECTION_DEBUG shm_addrs_debug =
       0, 0, { (DWORD_PTR)(__FILE__ ": shm_addrs_section") }
 };
 static RTL_CRITICAL_SECTION shm_addrs_section = { &shm_addrs_debug, -1, 0, 0, 0, 0 };
+#endif
 
 static void *get_shm( unsigned int idx )
 {
@@ -164,14 +173,31 @@ static void *get_shm( unsigned int idx )
     int offset = (idx * 8) % pagesize;
     void *ret;
 
-    RtlEnterCriticalSection(&shm_addrs_section);
+    pthread_mutex_lock(&shm_addrs_section);
+  
+  
+    //printf("Entry is %d \n", entry);
 
     if (entry >= shm_addrs_size)
     {
         shm_addrs_size = entry + 1;
-        if (!(shm_addrs = RtlReAllocateHeap( GetProcessHeap(), HEAP_ZERO_MEMORY,
-                shm_addrs, shm_addrs_size * sizeof(shm_addrs[0]) )))
-            ERR("Failed to grow shm_addrs array to size %d.\n", shm_addrs_size);
+        
+        //Realloc seems to cause crashes
+        //for unknown reasons realloc causes crashes
+        //use large amount of initial array to avoid crashes
+        //TODO 
+        //probably new addresses needs to be set to zero like in server/fsync.c
+        printf("Realloc on %d \n", shm_addrs_size);
+        shm_addrs = realloc( shm_addrs, (entry + 1) * sizeof(shm_addrs[0]) );
+        if (!shm_addrs) {
+          ERR("Failed to grow shm_addrs array to size %d.\n", shm_addrs_size);
+          printf("Failed to grow shm_addrs array to size %d.\n", shm_addrs_size);
+          exit(1);
+        }  
+        //if (!(shm_addrs = RtlReAllocateHeap( GetProcessHeap(), HEAP_ZERO_MEMORY,
+        //        shm_addrs, shm_addrs_size * sizeof(shm_addrs[0]) )))
+        //        shm_addrs, shm_addrs_size * sizeof(shm_addrs[0]) )))
+            
     }
 
     if (!shm_addrs[entry])
@@ -188,7 +214,7 @@ static void *get_shm( unsigned int idx )
 
     ret = (void *)((unsigned long)shm_addrs[entry] + offset);
 
-    RtlLeaveCriticalSection(&shm_addrs_section);
+    pthread_mutex_unlock(&shm_addrs_section);
 
     return ret;
 }
@@ -279,7 +305,7 @@ static NTSTATUS get_object( HANDLE handle, struct fsync **obj )
 
     if (ret)
     {
-        WARN("Failed to retrieve shm index for handle %p, status %#x.\n", handle, ret);
+        WARN("Failed to retrieve shm index %d for handle %p, status %#x.\n", shm_idx, handle, ret);
         *obj = NULL;
         return ret;
     }
@@ -338,7 +364,7 @@ static NTSTATUS create_fsync( enum fsync_type type, HANDLE *handle,
         TRACE("-> handle %p, shm index %d.\n", *handle, shm_idx);
     }
 
-    RtlFreeHeap( GetProcessHeap(), 0, objattr );
+    free( objattr );
     return ret;
 }
 
@@ -376,6 +402,8 @@ static NTSTATUS open_fsync( enum fsync_type type, HANDLE *handle,
 
 void fsync_init(void)
 {
+    printf("fsync starting \n");
+  
     struct stat st;
 
     if (!do_fsync())
@@ -414,8 +442,14 @@ void fsync_init(void)
 
     pagesize = sysconf( _SC_PAGESIZE );
 
-    shm_addrs = RtlAllocateHeap( GetProcessHeap(), HEAP_ZERO_MEMORY, 128 * sizeof(shm_addrs[0]) );
-    shm_addrs_size = 128;
+    //shm_addrs = RtlAllocateHeap( GetProcessHeap(), HEAP_ZERO_MEMORY, 128 * sizeof(shm_addrs[0]) );
+    //shm_addrs = calloc( 128, 128 * sizeof(shm_addrs[0]) );
+    shm_addrs = calloc( 1280000, sizeof(shm_addrs[0]) );
+    if(!shm_addrs) {
+      exit(1);  
+    }
+    shm_addrs_size = 1280000;
+    printf("Alloc on %p %d %ld \n", shm_addrs, shm_addrs_size, sizeof(shm_addrs[0]));
 }
 
 NTSTATUS fsync_create_semaphore( HANDLE *handle, ACCESS_MASK access,
@@ -804,6 +838,8 @@ static NTSTATUS __fsync_wait_objects( DWORD count, const HANDLE *handles,
     else if (has_server)
         return STATUS_NOT_IMPLEMENTED;
 
+    
+    #if 0
     if (TRACE_ON(fsync))
     {
         TRACE("Waiting for %s of %d handles:", wait_any ? "any" : "all", count);
@@ -824,6 +860,7 @@ static NTSTATUS __fsync_wait_objects( DWORD count, const HANDLE *handles,
                 (long) (timeleft / TICKSPERSEC), (long) (timeleft % TICKSPERSEC));
         }
     }
+    #endif
 
     if (wait_any || count == 1)
     {

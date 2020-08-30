@@ -58,6 +58,8 @@ WINE_DEFAULT_DEBUG_CHANNEL(esync);
 
 static int global_esync_active = 0;
 
+static pthread_mutex_t shm_addrs_section = PTHREAD_MUTEX_INITIALIZER;;
+
 void activate_esync(void) {
   global_esync_active = 1;
 }
@@ -170,8 +172,9 @@ void esync_init(void)
 
     pagesize = sysconf( _SC_PAGESIZE );
 
-    shm_addrs = RtlAllocateHeap( GetProcessHeap(), HEAP_ZERO_MEMORY, 128 * sizeof(shm_addrs[0]) );
-    shm_addrs_size = 128;
+    //shm_addrs = RtlAllocateHeap( GetProcessHeap(), HEAP_ZERO_MEMORY, 128 * sizeof(shm_addrs[0]) );
+    shm_addrs = calloc( 1280000, sizeof(shm_addrs[0]) );
+    shm_addrs_size = 1280000;
     
     TRACE("Esync loaded \n");
     
@@ -181,12 +184,17 @@ static void *get_shm( unsigned int idx )
 {
     int entry  = (idx * 8) / pagesize;
     int offset = (idx * 8) % pagesize;
+    void *ret;
 
+    pthread_mutex_lock(&shm_addrs_section);
+  
     if (entry >= shm_addrs_size)
     {
         shm_addrs_size = entry + 1;
-        if (!(shm_addrs = RtlReAllocateHeap( GetProcessHeap(), HEAP_ZERO_MEMORY,
-                shm_addrs, shm_addrs_size * sizeof(shm_addrs[0]) )))
+        shm_addrs = realloc( shm_addrs, shm_addrs_size * sizeof(shm_addrs[0]) );
+        if(!shm_addrs)
+        //if (!(shm_addrs = RtlReAllocateHeap( GetProcessHeap(), HEAP_ZERO_MEMORY,
+        //        shm_addrs, shm_addrs_size * sizeof(shm_addrs[0]) )))
             ERR("Failed to grow shm_addrs array to size %d.\n", shm_addrs_size);
     }
 
@@ -198,11 +206,16 @@ static void *get_shm( unsigned int idx )
 
         TRACE("Mapping page %d at %p.\n", entry, addr);
 
-        if (InterlockedCompareExchangePointer( &shm_addrs[entry], addr, 0 ))
+        if (__sync_val_compare_and_swap( &shm_addrs[entry], 0, addr  ))
+        //if (InterlockedCompareExchangePointer( &shm_addrs[entry], addr, 0 ))
             munmap( addr, pagesize ); /* someone beat us to it */
     }
+    
+    ret =  (void *)((unsigned long)shm_addrs[entry] + offset);
+    
+    pthread_mutex_unlock(&shm_addrs_section);
 
-    return (void *)((unsigned long)shm_addrs[entry] + offset);
+    return ret;
 }
 
 /* We'd like lookup to be fast. To that end, we use a static list indexed by handle.
@@ -326,15 +339,14 @@ static NTSTATUS get_object( HANDLE handle, struct esync **obj )
 NTSTATUS esync_close( HANDLE handle )
 {
     UINT_PTR entry, idx = handle_to_index( handle, &entry );
-    int ret_close = 0;
   
-    TRACE("%p %d \n", handle, &entry );
+    //TRACE("%p %d \n", handle, &entry );
 
     if (entry < ESYNC_LIST_ENTRIES && esync_list[entry])
     {
         if (InterlockedExchange((int *)&esync_list[entry][idx].type, 0))
         {
-            ret_close = close( esync_list[entry][idx].fd );
+            close( esync_list[entry][idx].fd );
             //printf("Realy closing %d \n", ret_close);
             return STATUS_SUCCESS;
         }
@@ -388,7 +400,7 @@ static NTSTATUS create_esync( enum esync_type type, HANDLE *handle,
         TRACE("-> handle %p, fd %d, shm index %d.\n", *handle, fd, shm_idx);
     }
 
-    RtlFreeHeap( GetProcessHeap(), 0, objattr );
+    free( objattr );
     return ret;
 }
 

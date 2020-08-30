@@ -1012,9 +1012,9 @@ UINT CDECL WAYLANDDRV_MapVirtualKeyEx( UINT code, UINT maptype, HKL hkl )
  */
 HKL CDECL WAYLANDDRV_GetKeyboardLayout( DWORD thread_id )
 {
-    ULONG_PTR layout = MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
+    //ULONG_PTR layout = MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
   
-    return MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
+    return (HKL)MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
   
     /*
     ULONG_PTR layout = GetUserDefaultLCID();
@@ -3439,11 +3439,11 @@ static void android_surface_flush( struct window_surface *window_surface )
     
     if (!(hwnd_data = get_win_data( surface->hwnd ))) return;
     
-    if(global_update_hwnd && surface->hwnd != global_update_hwnd) {
+    //if(global_update_hwnd && surface->hwnd != global_update_hwnd) {
     //if(surface->hwnd != GetForegroundWindow()) {
       //TRACE("global_update_hwnd is %p and surface hwnd is %p \n", global_update_hwnd, surface->hwnd);
       //return;
-    }
+    //}
     
     
     
@@ -3542,7 +3542,7 @@ static void android_surface_flush( struct window_surface *window_surface )
     
     //dest_pixels = (unsigned int *)global_shm_data + client_rect.top * WIDTH + client_rect.left;
     
-    //paint_pixels(dest_pixels);
+    
     
     IntersectRect( &rect, &rect, &surface->header.rect );
     
@@ -3636,7 +3636,7 @@ static void android_surface_flush( struct window_surface *window_surface )
       
       //alloc_wl_win_data(hwnd_data->wayland_subsurface, surface->hwnd);
       
-      wl_subsurface_set_user_data(hwnd_data->wayland_surface, surface->hwnd);
+      wl_surface_set_user_data(hwnd_data->wayland_surface, surface->hwnd);
       
       wl_surface_attach(hwnd_data->wayland_surface, buffer, 0, 0);
     } else {
@@ -4078,6 +4078,8 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
   //OgreD3D11Wnd
   static const WCHAR ogre_class[] = {'O','g','r','e','D','3','D','1','1','W','n','d', 0};
   static const WCHAR unity_class[] = {'U','n','i','t','y','W','n','d','C','l','a','s','s', 0};
+  //Unreal splash screens are not destroyed
+  static const WCHAR unreal_splash_class[] = {'S','p','l','a','s','h','S','c','r','e','e','n','C','l','a','s','s', 0};
     
     
       
@@ -4111,6 +4113,9 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
         return;
       }
       if(!lstrcmpiW(class_name, unity_class)) {
+        return;
+      }
+      if(!lstrcmpiW(class_name, unreal_splash_class)) {
         return;
       }
       
@@ -4790,7 +4795,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
     create_wayland_display();
 	}
   
-  
+  //TODO disable fullscreen if HWND height/width does not match fullscreen width/height
   global_is_vulkan = 1;
 	vulkan_window = create_wayland_window (create_info->hwnd, 1920, 1080);
   

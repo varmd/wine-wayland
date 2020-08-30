@@ -34,7 +34,7 @@
 # include <sys/stat.h>
 #endif
 #include <unistd.h>
-
+ 
 #include "ntstatus.h"
 #define WIN32_NO_STATUS
 #include "windef.h"
@@ -93,8 +93,8 @@ void esync_init(void)
 
     pagesize = sysconf( _SC_PAGESIZE );
 
-    shm_addrs = calloc( 128, sizeof(shm_addrs[0]) );
-    shm_addrs_size = 128;
+    shm_addrs = calloc( 1280000, sizeof(shm_addrs[0]) );
+    shm_addrs_size = 1280000;
 
     shm_size = pagesize;
     if (ftruncate( shm_fd, shm_size ) == -1)

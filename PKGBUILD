@@ -1,6 +1,6 @@
 # Created by: varmd
 
-RELEASE=5.15
+RELEASE=5.16
 pkgname=wine-wayland
 pkgver=$RELEASE
 pkgrel=1
@@ -21,6 +21,13 @@ depends=(
     'freetype2'             
     'gcc-libs'              
     'desktop-file-utils'
+    'libpng'                
+    'mpg123'                
+    'openal'    
+    'alsa-lib'
+    'mesa'
+    'vulkan-icd-loader'
+    'faudio'
 )
 
 makedepends=(
@@ -29,16 +36,9 @@ makedepends=(
     'bison' 
     'perl' 
     'flex'
-    'gcc'
-    'libpng'                
-    'mpg123'                
-    'openal'    
-    'alsa-lib'
-    'mesa'
-    'vulkan-icd-loader'    
+    'gcc'    
     'vulkan-headers'    
-    'gettext'               
-    'faudio'            
+    'gettext'    
     'zstd'            
 )
 
