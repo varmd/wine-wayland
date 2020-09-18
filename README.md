@@ -101,9 +101,9 @@ For troubleshooting you can check the logs at YourGameFolder/log.log
 
 ## caveats and issues
 
-* No controller support
+* No controller support - though some are working
 * No GDI apps support
-* No OpenGL support
+* No OpenGL
 * No custom cursors
 
 
