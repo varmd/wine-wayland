@@ -4,7 +4,7 @@ RELEASE=`cat PKGBUILD | grep RELEASE= | sed  's/RELEASE=//'`
 echo $RELEASE
 pkgname=lib32-wine-wayland
 _pkgname=wine-wayland
-pkgver=5.15
+pkgver=$RELEASE
 pkgrel=10
 _winesrcdir="wine-wine-$pkgver"
 
@@ -30,6 +30,7 @@ depends=(
     'lib32-libjpeg-turbo'
     'lib32-libpng'
     'lib32-libxml2'
+    'lib32-sdl2'
 )
 
 makedepends=(
@@ -43,9 +44,6 @@ makedepends=(
     'vulkan-headers'    
     'gettext'               
 )
-
-conflicts=('wine' 'wine-staging' 'wine-esync')
-
 
 prepare() {
 
@@ -84,7 +82,6 @@ build() {
     --without-gsm \
     --without-opengl \
     --without-pcap \
-    --without-sdl \
     --without-cups \
     --without-cms \
     --without-vkd3d \

@@ -4,7 +4,7 @@ Wine-wayland allows running DX9/DX11 and Vulkan games using pure wayland and Win
 
 ## why wine-wayland
 
- * You are tired of dealing with X11 and don't care about launchers and controllers
+ * You are tired of dealing with X11 and don't care about launchers
  * You want to remove X11 related packages from your PC
  * You want to experience potentially faster and smoother gaming on Wayland
  * You are concerned about insecure X11 games that can spy on other apps running on X11.
@@ -40,16 +40,16 @@ download from github, cd to zip directory
 
 First compile and install regular wine-wayland, then in the same zip directory
 
-    makepkg -P PKGBUILD-32 --noextract
+    makepkg -p PKGBUILD-32 --noextract
     pacman -U lib32-wine-wayland*
 
-## running
+## using terminal to run games
 
     cd your-dir
     mkdir -p prefix/your-game
     cp -r YourGameFolder prefix/your-game/
    
-Copy relevant 64bit or 32bit dxvk dlls to prefix/your-game or use winetricks.
+Copy relevant 64bit or 32bit dxvk dlls to YourGameFolder or use winetricks.
 
 Copy start-example.sh to your-dir and modify it for your-game, change your-game and YourGameFolder at the top of the file.
 
@@ -57,6 +57,23 @@ rename start-example.sh to start-your-game.sh
 
 Then in the terminal run sh start-your-game.sh
 
+## using wineland launcher to run games
+
+From command line (or using file manager)
+
+    mkdir -p ~/.local/share/wineland/your-game
+    mv YourGameFolder ~/.local/share/wineland/your-game/
+    
+Then, go to your app launcher, click on the blue joystick icon. In the browser tab, click Edit below the card for your-game. Enter name for your game, YourGameFolder/game.exe for exe path. And -EpicPortal for game options (for EGS games). Set mangohud, fsync/esync, and other options if needed. See below screenshot for example of options for Subnautica.
+
+![screenshot](https://raw.githubusercontent.com/varmd/wine-wayland/master/wineland/wineland-screenshot-2.png "Screenshot")
+
+Afterwards, click Submit. Then click Launch.
+
+You can obtain YourGameFolder from EGS, Steam or GOG. See the notes section below for links to command line downloaders and tools for these services.
+
+For troubleshooting you can check the logs at YourGameFolder/log.log
+  
 
 ## keyboard shortcuts
 

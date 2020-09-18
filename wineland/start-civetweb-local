@@ -1,0 +1,74 @@
+#!/usr/bin/sh
+
+open_url()
+{
+    BROWSER=quickbrowser:x-www-browser:firefox:epiphany:konqueror:chromium:chromium-browser:google-chrome:gnome-web:chrome:falkon:$BROWSER
+
+    local oldifs="$IFS"
+    local browser browser_with_arg
+
+    IFS=":"
+    for browser in $BROWSER; do
+        IFS="$oldifs"
+
+        if [ -z "$browser" ]; then
+            continue
+        fi
+
+        $browser "$1"        
+
+        if [ $? -eq 0 ]; then
+            exit
+        fi
+    done
+}
+
+
+mkdir -p $HOME/.local/share
+
+rm $HOME/.local/share/wineland
+
+ln -s /run/media/alpha/ssd2/wine/prefix/ $HOME/.local/share/wineland
+
+mkdir -p $HOME/.local/share/wineland
+
+if [ -z $WINELAND_FILE_DIR ]; then
+  WINELAND_FILE_DIR="$HOME/.local/share/wineland";  
+fi
+
+#cp start.sh $WINELAND_FILE_DIR
+
+killall -9 wineland-civetweb
+
+#cd /usr/lib/onlyoffice/web
+#echo $PWD;
+
+CIVETWEB=/usr/lib/wineland/wineland-civetweb
+ROOT_DIR=/usr/lib/wineland/ui
+
+if [ ! -f $CIVETWEB ]; then
+  CIVETWEB=/usr/bin/civetweb
+  ROOT_DIR=$PWD
+fi
+
+
+#for development
+if [ ! -z $1 ]; then
+  CIVETWEB=/usr/bin/civetweb
+  ROOT_DIR=$PWD
+fi
+
+cd $ROOT_DIR
+
+$CIVETWEB -listening_ports 18180 -document_root $ROOT_DIR/ui \
+-cgi_environment WINELAND_FILE_DIR=$WINELAND_FILE_DIR  \
+-url_rewrite_patterns \
+/list-games=$ROOT_DIR/cgi/list-games.cgi\
+,/launch-game=$ROOT_DIR/cgi/launch-game.cgi\
+,/load-file=$ROOT_DIR/cgi/load-file.cgi\
+,/save-conf=$ROOT_DIR/cgi/save-conf.cgi\
+,/save-json=$ROOT_DIR/cgi/save-json.cgi\
+ &
+
+open_url http://localhost:18180
+#quickbrowser http://localhost:8080

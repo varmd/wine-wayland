@@ -49,7 +49,6 @@
 #include "windef.h"
 #include "winternl.h"
 #include "wine/debug.h"
-#include "wine/library.h"
 #include "wine/server.h"
 
 #include "unix_private.h"

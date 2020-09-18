@@ -55,7 +55,6 @@
 #include "waylanddrv.h"
 #include "wine/heap.h"
 #include "wine/server.h"
-#include "wine/library.h"
 #include "wine/unicode.h"
 #include "wine/debug.h"
 
@@ -4760,7 +4759,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
       UpdateWindow(global_vulkan_hwnd);
       TRACE("Global vulkan hwnd is %p \n", create_info->hwnd);
       
-      SetWindowPos( global_vulkan_hwnd, HWND_TOP, 0, 0, 1600, 900, SWP_NOZORDER | SWP_NOSIZE);
+      SetWindowPos( global_vulkan_hwnd, HWND_TOP, 0, 0, 1920, 1080, SWP_NOZORDER | SWP_NOSIZE);
       
     } else {
       TRACE("Not visible for %p %p %p %p\n", instance, create_info, allocator, surface);

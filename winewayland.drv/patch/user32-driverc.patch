@@ -3,7 +3,7 @@
 @@ -60,6 +60,26 @@
      WCHAR path[MAX_PATH];
      WCHAR key[ARRAY_SIZE(key_pathW) + ARRAY_SIZE(displayW) + 40];
-     UINT guid_atom = HandleToULong( GetPropW( hwnd, display_device_guid_propW ));
+     UINT guid_atom;
 +    
 +     //TODO add defines
 +    ret = (*module = LoadLibraryA( "C:\\windows\\system32\\winewayland.drv" )) != NULL;

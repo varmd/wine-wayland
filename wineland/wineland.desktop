@@ -1,0 +1,12 @@
+#!/usr/bin/env xdg-open
+
+[Desktop Entry]
+Name=Wineland
+GenericName=Wineland
+Comment=Wineland Games Launcher
+Exec=/usr/bin/sh /usr/lib/wineland/ui/start-civetweb-local
+Terminal=false
+Type=Application
+Icon=/usr/lib/wineland/ui/joystick.svg
+Categories=Games;
+MimeType=;

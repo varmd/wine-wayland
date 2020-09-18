@@ -1,6 +1,6 @@
 # Created by: varmd
 
-RELEASE=5.16
+RELEASE=5.17
 pkgname=wine-wayland
 pkgver=$RELEASE
 pkgrel=1
@@ -12,10 +12,13 @@ url=''
 arch=('x86_64')
 
 options=('!staticlibs' '!strip' '!docs')
-
 license=('LGPL')
 
+export LANG=en_US.utf8
+LANG=en_US.utf8
+
 depends=(
+    'adwaita-icon-theme'
     'fontconfig'            
     'libxml2'              
     'freetype2'             
@@ -28,6 +31,7 @@ depends=(
     'mesa'
     'vulkan-icd-loader'
     'faudio'
+    'sdl2'
 )
 
 makedepends=(
@@ -43,9 +47,12 @@ makedepends=(
 )
 
 
-source=("https://github.com/wine-mirror/wine/archive/wine-$pkgver.zip")
+source=(
+  "https://github.com/wine-mirror/wine/archive/wine-$pkgver.zip"
+  "https://github.com/civetweb/civetweb/archive/v1.12.zip"
+)
     
-sha256sums=('SKIP')
+sha256sums=('SKIP' 'SKIP')
 
 
 conflicts=('wine' 'wine-staging' 'wine-esync')
@@ -117,13 +124,16 @@ prepare() {
 
 
 build() {
+
+  #build civetweb for wineland
+  cd civetweb-1.12
+  make build WITH_IPV6=0 USE_LUA=0 PREFIX="$pkgdir/usr"
+
+
 	cd "${srcdir}"
   
   
   export CC=cc
-  #Remove these - potentially buggy
-  #export CFLAGS="${CFLAGS} -w -march=native -pipe -Ofast"
-  #export LDFLAGS="${CFLAGS}"
 	
   msg2 'Building Wine-64...'
 	cd  "${srcdir}"/"${pkgname}"-64-build
@@ -140,13 +150,11 @@ build() {
 		--without-dbus \
 		--without-gphoto \
 		--without-gssapi \
-		--without-udev \
 		--without-netapi \
 		--without-hal \
     --without-gsm \
     --without-opencl \
     --without-opengl \
-    --without-sdl \
     --without-cups \
     --without-cms \
     --without-vkd3d \
@@ -162,7 +170,6 @@ build() {
     --without-glu \
     --without-xcomposite \
     --without-xcursor \
-    --without-hal \
     --without-xfixes \
     --without-xshape \
     --without-xrender \
@@ -193,4 +200,13 @@ package() {
 			libdir="${pkgdir}/usr/lib" \
 			dlldir="${pkgdir}/usr/lib/wine" install
 
+
+  mkdir -p ${pkgdir}/usr/lib/wineland
+  cp ${srcdir}/civetweb*/civetweb ${pkgdir}/usr/lib/wineland/wineland-civetweb
+  cd ${srcdir}
+  cp -r ../wineland ${pkgdir}/usr/lib/wineland/ui
+  cp -r ../wineland/joystick.svg ${pkgdir}/usr/lib/wineland/ui/joystick.svg
+  
+  mkdir -p ${pkgdir}/usr/share/applications
+  cp -r ../wineland/wineland.desktop ${pkgdir}/usr/share/applications/wineland.desktop
 }

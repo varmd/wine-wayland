@@ -26,7 +26,7 @@
 #include <stdlib.h>
 
 
-#include "wine/library.h"
+
 #include "waylanddrv.h"
 #include "wine/debug.h"
 #include "wine/unicode.h"
