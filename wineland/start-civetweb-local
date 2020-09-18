@@ -24,24 +24,13 @@ open_url()
 }
 
 
-mkdir -p $HOME/.local/share
-
-rm $HOME/.local/share/wineland
-
-ln -s /run/media/alpha/ssd2/wine/prefix/ $HOME/.local/share/wineland
-
 mkdir -p $HOME/.local/share/wineland
 
 if [ -z $WINELAND_FILE_DIR ]; then
   WINELAND_FILE_DIR="$HOME/.local/share/wineland";  
 fi
 
-#cp start.sh $WINELAND_FILE_DIR
-
 killall -9 wineland-civetweb
-
-#cd /usr/lib/onlyoffice/web
-#echo $PWD;
 
 CIVETWEB=/usr/lib/wineland/wineland-civetweb
 ROOT_DIR=/usr/lib/wineland/ui
