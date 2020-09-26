@@ -18,6 +18,23 @@ export LANG=en_US.utf8
 LANG=en_US.utf8
 
 
+depends=(
+  'adwaita-icon-theme'
+  'fontconfig'            
+  'libxml2'              
+  'freetype2'             
+  'gcc-libs'              
+  'desktop-file-utils'
+  'libpng'                
+  'mpg123'                
+  'openal'    
+  'alsa-lib'
+  'mesa'
+  'vulkan-icd-loader'
+  'faudio'
+  'sdl2'
+)
+
 
 makedepends=(
     'autoconf' 
