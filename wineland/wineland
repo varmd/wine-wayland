@@ -1,0 +1,12 @@
+#!/usr/bin/sh
+
+#command line start wineland
+if [ -z $1 ]; then
+  /usr/bin/sh /usr/lib/wineland/ui/start-civetweb-local
+else
+  if [ -z $WINELAND_FILE_DIR ]; then
+    WINELAND_FILE_DIR="$HOME/.local/share/wineland";  
+  fi
+  cd $WINELAND_FILE_DIR
+  /usr/bin/sh /usr/lib/wineland/ui/start.sh $1
+fi

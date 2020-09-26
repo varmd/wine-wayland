@@ -538,6 +538,14 @@ index c322708556..412f02f713 100644
 +    NULL,                             /* get_fsync_idx */
      no_satisfied,                     /* satisfied */
      no_signal,                        /* signal */
+@@ -391,6 +391,7 @@ static const struct object_ops console_connection_ops =
+     no_add_queue,                     /* add_queue */
+     NULL,                             /* remove_queue */
+     NULL,                             /* signaled */
+     NULL,                             /* get_esync_fd */
++    NULL,                             /* get_fsync_idx */
+     no_satisfied,                     /* satisfied */
+     no_signal,                        /* signal */
 diff --git a/server/debugger.c b/server/debugger.c
 index 9a29ef41f4..85b1aece3b 100644
 --- a/server/debugger.c
@@ -1565,6 +1573,15 @@ index a49732bd80..cfb8aee5c9 100644
      no_satisfied,            /* satisfied */
      no_signal,               /* signal */
      ifchange_get_fd,         /* get_fd */
+@@ -1204,6 +1206,7 @@ static const struct object_ops socket_device_ops =
+     no_add_queue,               /* add_queue */
+     NULL,                       /* remove_queue */
+     NULL,                       /* signaled */
+     NULL,                       /* get_esync_fd */
++    NULL,                       /* get_fsync_idx */
+     no_satisfied,               /* satisfied */
+     no_signal,                  /* signal */
+     no_get_fd,                  /* get_fd */
 diff --git a/server/symlink.c b/server/symlink.c
 index 6b66b23dd1..90230f75a6 100644
 --- a/server/symlink.c

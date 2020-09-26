@@ -66,7 +66,7 @@ const ListPage = (objs) => `
 
 const DocForm = (obj) => `
   <form class="col-8">
-        <h4>Edit</h4>
+        <h4>Edit ${ obj.name }</h4>
 
         
         <input type="hidden" name="name" value="${ obj.name }" />

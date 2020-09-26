@@ -76,7 +76,7 @@ static inline int get_fdzero(void)
  *
  * Portable wrapper for anonymous mmaps
  */
-void *wine_anon_mmap( void *start, size_t size, int prot, int flags )
+static void *wine_anon_mmap( void *start, size_t size, int prot, int flags )
 {
 #ifdef MAP_SHARED
     flags &= ~MAP_SHARED;
@@ -341,25 +341,24 @@ static NTSTATUS get_object( HANDLE handle, struct esync **obj )
 
     /* We need to try grabbing it from the server. */
     server_enter_uninterrupted_section( &fd_cache_mutex, &sigset );
-    if (!(*obj = get_cached_object( handle )))
+    SERVER_START_REQ( get_esync_fd )
     {
-        SERVER_START_REQ( get_esync_fd )
+        req->handle = wine_server_obj_handle( handle );
+        if (!(ret = wine_server_call( req )))
         {
-            req->handle = wine_server_obj_handle( handle );
-            if (!(ret = wine_server_call( req )))
-            {
-                type = reply->type;
-                shm_idx = reply->shm_idx;
-                fd = receive_fd( &fd_handle );
-                assert( wine_server_ptr_handle(fd_handle) == handle );
-            }
+            type = reply->type;
+            shm_idx = reply->shm_idx;
+            fd = receive_fd( &fd_handle );
+            assert( wine_server_ptr_handle(fd_handle) == handle );
         }
-        SERVER_END_REQ;
     }
+    SERVER_END_REQ;
+    
     server_leave_uninterrupted_section( &fd_cache_mutex, &sigset );
 
     if (*obj)
     {
+        TRACE("2 - Got fd %d for handle %p.\n", fd, handle);
         /* We managed to grab it while in the CS; return it. */
         return STATUS_SUCCESS;
     }

@@ -58,8 +58,6 @@
 #include "wine/unicode.h"
 #include "wine/debug.h"
 
-//#include "shlwapi.h"
-
 //add xdg
 #include "xdg-shell-client-protocol.h"
 
@@ -2685,7 +2683,7 @@ static void set_queue_display_fd( int esync_fd )
   
     #if HAS_ESYNC
     
-    wine_esync_set_queue_fd( esync_fd );
+      wine_esync_set_queue_fd( esync_fd );
     
     #endif
 
@@ -3293,7 +3291,7 @@ static struct android_win_data *get_win_data( HWND hwnd )
 /***********************************************************************
  *           android_surface_lock
  */
-static void android_surface_lock( struct window_surface *window_surface )
+static void CDECL android_surface_lock( struct window_surface *window_surface )
 {
     //struct android_window_surface *surface = get_android_surface( window_surface );
 
@@ -3303,7 +3301,7 @@ static void android_surface_lock( struct window_surface *window_surface )
 /***********************************************************************
  *           android_surface_unlock
  */
-static void android_surface_unlock( struct window_surface *window_surface )
+static void CDECL android_surface_unlock( struct window_surface *window_surface )
 {
     //struct android_window_surface *surface = get_android_surface( window_surface );
 
@@ -3313,7 +3311,7 @@ static void android_surface_unlock( struct window_surface *window_surface )
 /***********************************************************************
  *           android_surface_get_bitmap_info
  */
-static void *android_surface_get_bitmap_info( struct window_surface *window_surface, BITMAPINFO *info )
+static void *CDECL android_surface_get_bitmap_info( struct window_surface *window_surface, BITMAPINFO *info )
 {
     struct android_window_surface *surface = get_android_surface( window_surface );
 
@@ -3324,7 +3322,7 @@ static void *android_surface_get_bitmap_info( struct window_surface *window_surf
 /***********************************************************************
  *           android_surface_get_bounds
  */
-static RECT *android_surface_get_bounds( struct window_surface *window_surface )
+static RECT *CDECL android_surface_get_bounds( struct window_surface *window_surface )
 {
     struct android_window_surface *surface = get_android_surface( window_surface );
 
@@ -3334,7 +3332,7 @@ static RECT *android_surface_get_bounds( struct window_surface *window_surface )
 /***********************************************************************
  *           android_surface_set_region
  */
-static void android_surface_set_region( struct window_surface *window_surface, HRGN region )
+static void CDECL android_surface_set_region( struct window_surface *window_surface, HRGN region )
 {
     struct android_window_surface *surface = get_android_surface( window_surface );
 
@@ -3395,7 +3393,7 @@ void paint_pixels(uint32_t *pixel) {
 //https://github.com/wayland-project/weston/blob/3957863667c15bc5f1984ddc6c5967a323f41e7a/clients/simple-shm.c
 
 //https://github.com/ricardomv/cairo-wayland/blob/master/src/shm.c
-static void android_surface_flush( struct window_surface *window_surface )
+static void CDECL android_surface_flush( struct window_surface *window_surface )
 {
   
   
@@ -3725,7 +3723,7 @@ static void android_surface_flush( struct window_surface *window_surface )
 /***********************************************************************
  *           android_surface_destroy
  */
-static void android_surface_destroy( struct window_surface *window_surface )
+static void CDECL android_surface_destroy( struct window_surface *window_surface )
 {
     struct android_window_surface *surface = get_android_surface( window_surface );
     struct android_win_data *win_data;
@@ -4240,6 +4238,7 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
         
         TRACE("Assigning hwnd %p \n", hwnd);
         global_update_hwnd = hwnd;
+        TRACE("Assigning hwnd done %p \n", hwnd);
         
       }
       
@@ -4332,9 +4331,9 @@ BOOL CDECL WAYLANDDRV_CreateWindow( HWND hwnd )
     static const WCHAR msg_class[] = {'M','e','s','s','a','g','e', 0};
     static const WCHAR ime_class[] = {'I','M','E', 0};
     #endif
-    parent = GetAncestor(hwnd, GA_PARENT);
-    HWND owner;
-    owner = GetWindow( hwnd, GW_OWNER );
+    //parent = GetAncestor(hwnd, GA_PARENT);
+    //HWND owner;
+    //owner = GetWindow( hwnd, GW_OWNER );
     
     if(RealGetWindowClassW(hwnd, class_name, ARRAY_SIZE(class_name))) {
       TRACE("%s \n", debugstr_w(class_name));
@@ -4738,6 +4737,20 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
     if(no_flag) {
       
       
+      char *env_width = getenv( "WINE_VK_WAYLAND_WIDTH" );
+      char *env_height = getenv( "WINE_VK_WAYLAND_HEIGHT" );
+      
+      int screen_width = 1920;
+      int screen_height = 1080;
+      
+      if(env_width) {
+        screen_width = atoi(env_width);
+      }
+      if(env_height) {
+        screen_height = atoi(env_height);
+      }
+      
+      
       #if 0
       if(global_vulkan_hwnd) {
         TRACE("Deleting already existing vulkan hwnd %p\n", create_info->hwnd );
@@ -4759,7 +4772,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
       UpdateWindow(global_vulkan_hwnd);
       TRACE("Global vulkan hwnd is %p \n", create_info->hwnd);
       
-      SetWindowPos( global_vulkan_hwnd, HWND_TOP, 0, 0, 1920, 1080, SWP_NOZORDER | SWP_NOSIZE);
+      SetWindowPos( global_vulkan_hwnd, HWND_TOP, 0, 0, screen_width, screen_height, NULL);
       
     } else {
       TRACE("Not visible for %p %p %p %p\n", instance, create_info, allocator, surface);

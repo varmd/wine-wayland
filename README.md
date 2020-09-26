@@ -43,20 +43,6 @@ First compile and install regular wine-wayland, then in the same zip directory
     makepkg -p PKGBUILD-32 --noextract
     pacman -U lib32-wine-wayland*
 
-## Using terminal to run games
-
-    cd your-dir
-    mkdir -p prefix/your-game
-    cp -r YourGameFolder prefix/your-game/
-   
-Copy relevant 64bit or 32bit dxvk dlls to YourGameFolder or use winetricks.
-
-Copy start-example.sh to your-dir and modify it for your-game, change your-game and YourGameFolder at the top of the file.
-
-Rename start-example.sh to start-your-game.sh
-
-Then in the terminal run sh start-your-game.sh
-
 ## Using wineland launcher to run games
 
 From command line (or using file manager)
@@ -74,6 +60,27 @@ You can obtain YourGameFolder from EGS, Steam or GOG. See the notes section belo
 
 For troubleshooting you can check the logs at YourGameFolder/log.log
   
+## Using terminal to run games with wineland launcher
+
+After setting up your game with the steps above, you can
+also run your games from the terminal.
+
+    wineland your-game
+    
+## Using terminal to run games without wineland launcher
+
+    cd your-dir
+    mkdir -p prefix/your-game
+    cp -r YourGameFolder prefix/your-game/
+   
+Copy relevant 64bit or 32bit dxvk dlls to YourGameFolder or use winetricks.
+
+Copy start-example.sh to your-dir and modify it for your-game, change your-game and YourGameFolder at the top of the file.
+
+Rename start-example.sh to start-your-game.sh
+
+Then in the terminal run sh start-your-game.sh
+
 
 ## Keyboard shortcuts
 

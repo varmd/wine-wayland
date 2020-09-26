@@ -41,7 +41,7 @@ fi
 
 printf "Content-type: text/plain\n\n"
 
-exec sh $SH_LAUNCH_PATH/start.sh $FILE_PATH
+/usr/bin/sh $SH_LAUNCH_PATH/start.sh $FILE_PATH
 
 
 exit 0

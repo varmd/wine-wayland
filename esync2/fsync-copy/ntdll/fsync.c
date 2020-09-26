@@ -59,6 +59,9 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(fsync);
 
+
+
+
 #include "pshpack4.h"
 struct futex_wait_block
 {
@@ -85,6 +88,45 @@ static inline int futex_wake( int *addr, int val )
 static inline int futex_wait( int *addr, int val, struct timespec *timeout )
 {
     return syscall( __NR_futex, addr, 0, val, timeout, 0, 0 );
+}
+
+static inline int get_fdzero(void)
+{
+    static int fd = -1;
+
+    if (MAP_ANON == 0 && fd == -1)
+    {
+        if ((fd = open( "/dev/zero", O_RDONLY )) == -1)
+        {
+            perror( "/dev/zero: open" );
+            exit(1);
+        }
+    }
+    return fd;
+}
+/***********************************************************************
+ *		wine_anon_mmap
+ *
+ * Portable wrapper for anonymous mmaps
+ */
+static void *wine_anon_mmap( void *start, size_t size, int prot, int flags )
+{
+#ifdef MAP_SHARED
+    flags &= ~MAP_SHARED;
+#endif
+
+    /* Linux EINVAL's on us if we don't pass MAP_PRIVATE to an anon mmap */
+    flags |= MAP_PRIVATE | MAP_ANON;
+
+    if (!(flags & MAP_FIXED))
+    {
+#ifdef MAP_TRYFIXED
+        /* If available, this will attempt a fixed mapping in-kernel */
+        flags |= MAP_TRYFIXED;
+#endif
+
+    }
+    return mmap( start, size, prot, flags, get_fdzero(), 0 );
 }
 
 static int global_fsync_active = 0;

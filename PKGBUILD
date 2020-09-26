@@ -1,7 +1,7 @@
 # Created by: varmd
 
-RELEASE=5.17
-pkgname=wine-wayland
+RELEASE=5.18
+pkgname=('wine-wayland')
 pkgver=$RELEASE
 pkgrel=1
 _winesrcdir="wine-wine-$pkgver"
@@ -17,22 +17,7 @@ license=('LGPL')
 export LANG=en_US.utf8
 LANG=en_US.utf8
 
-depends=(
-    'adwaita-icon-theme'
-    'fontconfig'            
-    'libxml2'              
-    'freetype2'             
-    'gcc-libs'              
-    'desktop-file-utils'
-    'libpng'                
-    'mpg123'                
-    'openal'    
-    'alsa-lib'
-    'mesa'
-    'vulkan-icd-loader'
-    'faudio'
-    'sdl2'
-)
+
 
 makedepends=(
     'autoconf' 
@@ -55,7 +40,7 @@ source=(
 sha256sums=('SKIP' 'SKIP')
 
 
-conflicts=('wine' 'wine-staging' 'wine-esync')
+
 
 OPTIONS=(!strip !docs !libtool !zipman !purge !debug) 
 makedepends=(${makedepends[@]} ${depends[@]})
@@ -79,13 +64,14 @@ prepare() {
     
     
     patch dlls/user32/driver.c < ../../winewayland.drv/patch/user32-driverc.patch
-    patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/user32-sysparamsc-new.patch
+    patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/0002-user32-sysparamsc-new2.patch
     patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/0004-user32-sysparams-fix-valid-adapter.patch
     patch programs/explorer/desktop.c < ../../winewayland.drv/patch/explorer-desktopc.patch
     
     
     cd "${srcdir}"/"${_winesrcdir}"
     
+
     cp ../../esync2/esync-copy/ntdll/* dlls/ntdll/unix/
     cp ../../esync2/esync-copy/server/* server/
     
@@ -193,7 +179,27 @@ build() {
 
 }
 
-package() {
+package_wine-wayland() {
+  depends=(
+    'adwaita-icon-theme'
+    'fontconfig'            
+    'libxml2'              
+    'freetype2'             
+    'gcc-libs'              
+    'desktop-file-utils'
+    'libpng'                
+    'mpg123'                
+    'openal'    
+    'alsa-lib'
+    'mesa'
+    'vulkan-icd-loader'
+    'faudio'
+    'sdl2'
+  )
+
+  conflicts=('wine' 'wine-staging' 'wine-esync')
+
+
 	export PKGEXT='.pkg.tar.zst'
 	cd "${srcdir}/${pkgname}"-64-build
 	make -s	prefix="${pkgdir}/usr" \
@@ -206,6 +212,8 @@ package() {
   cd ${srcdir}
   cp -r ../wineland ${pkgdir}/usr/lib/wineland/ui
   cp -r ../wineland/joystick.svg ${pkgdir}/usr/lib/wineland/ui/joystick.svg
+  cp -r ../wineland/wineland ${pkgdir}/usr/bin/wineland
+  chmod +x ${pkgdir}/usr/bin/wineland
   
   mkdir -p ${pkgdir}/usr/share/applications
   cp -r ../wineland/wineland.desktop ${pkgdir}/usr/share/applications/wineland.desktop

@@ -42,9 +42,9 @@ static struct screen_size {
     unsigned int height;
 } screen_sizes[] = {
     /* 4:3 */
-    { 320,  240},
-    { 400,  300},
-    { 512,  384},
+    //{ 320,  240},
+    //{ 400,  300},
+    //{ 512,  384},
     { 640,  480},
     { 768,  576},
     { 800,  600},
@@ -65,7 +65,7 @@ static struct screen_size {
     {2560, 1440},
     {3840, 2160},
     /* 16:10 */
-    { 320,  200},
+    //{ 320,  200},
     { 640,  400},
     {1280,  800},
     {1440,  900},
@@ -93,15 +93,15 @@ static void make_modes(void)
     for (i=0; i<ARRAY_SIZE(screen_sizes); i++)
     {
         
-            if ( (screen_sizes[i].width != screen_width) || (screen_sizes[i].height != screen_height)  )
-            {
+            //if ( (screen_sizes[i].width != screen_width) || (screen_sizes[i].height != screen_height)  )
+            //{
                 //TRACE("Adding  mode: %d %d \n", screen_sizes[i].width, screen_sizes[i].height);
                 /* only add them if they are smaller than the root window and unique */
                 //24bit
                 WAYLANDDRV_Settings_AddOneMode(screen_sizes[i].width, screen_sizes[i].height, 24, 60);
                 //32bit
                 WAYLANDDRV_Settings_AddOneMode(screen_sizes[i].width, screen_sizes[i].height, 32, 60);
-            }
+            //}
         
     }
    
@@ -169,7 +169,7 @@ void WAYLANDDRV_Settings_AddOneMode(unsigned int width, unsigned int height, uns
     info->refresh_rate  = freq;
     info->bpp           = bpp;
     
-    //TRACE("Resolution initialized mode %d: %dx%dx%d @%d Hz (%s)\n",          dd_mode_count, width, height, bpp, freq, handler_name);
+    TRACE("Resolution initialized mode %d: %dx%dx%d @%d Hz (%s)\n",          dd_mode_count, width, height, bpp, freq, handler_name);
     dd_mode_count++;
 }
 
@@ -308,7 +308,7 @@ BOOL CDECL WAYLANDDRV_EnumDisplaySettingsEx( LPCWSTR name, DWORD n, LPDEVMODEW d
         
     
     
-    //TRACE("mode %d %p \n", n, handler_name);    
+    TRACE("mode %d %p \n", n, handler_name);    
     
         
 
@@ -337,7 +337,7 @@ BOOL CDECL WAYLANDDRV_EnumDisplaySettingsEx( LPCWSTR name, DWORD n, LPDEVMODEW d
 
         return TRUE;
     }
-    //TRACE("mode %d -- not present (%s)\n", n, handler_name);
+    TRACE("mode %d -- not present (%s)\n", n, handler_name);
     SetLastError(ERROR_NO_MORE_FILES);
     return FALSE;
 }

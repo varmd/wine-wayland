@@ -117,11 +117,6 @@ static BOOL CDECL WAYLANDDRV_CreateDC( PHYSDEV *pdev, LPCWSTR driver, LPCWSTR de
       exit(1);  
     }
     
-    if(!&waylanddrv_funcs) {
-      TRACE( "NO funcs \n" );
-      exit(1);  
-    }
-    
     push_dc_driver2( pdev, &physDev->dev, &waylanddrv_funcs );
     
     return TRUE;
