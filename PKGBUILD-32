@@ -1,6 +1,5 @@
 # Created by: varmd
 
-
 depends+=(
     'lib32-mpg123' 
     'lib32-glibc' 
@@ -104,8 +103,6 @@ package_lib32-wine-wayland() {
   
 
   build_32
-
-  export PKGEXT='.pkg.tar.zst'	
 
   cd "${srcdir}"/wine-wayland-32-build
 	make -s	prefix="${pkgdir}/usr" \

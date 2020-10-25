@@ -22,8 +22,8 @@ jobs:
     - name: Print Package Files
       run: |
         echo "Successfully created the following package archive"
-        echo "Package: ${{ steps.makepkg.outputs.pkgfile0 }}"
-        echo "Package: ${{ steps.makepkg.outputs.pkgfile1 }}"
+        echo "Package: 0 - ${{ steps.makepkg.outputs.pkgfile0 }}"
+        echo "Package: 1 - ${{ steps.makepkg.outputs.pkgfile1 }}"
     - name: Upload Package Archive
       uses: actions/upload-artifact@v1
       with:
@@ -41,9 +41,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ github.ref }}
-        #tag_name: v5.13
         release_name: Release ${{ github.ref }}
-        #release_name: Release 5.13
         body: " "
         draft: false
         prerelease: false

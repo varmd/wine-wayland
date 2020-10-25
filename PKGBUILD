@@ -19,6 +19,7 @@ license=('LGPL')
 
 export LANG=en_US.utf8
 LANG=en_US.utf8
+export PKGEXT='.pkg.tar.zst'
 
 depends=(
   'adwaita-icon-theme'
@@ -68,10 +69,11 @@ fi
 
 
 if [ -z "${WINE_BUILD_32:-}" ]; then
-  echo "Not building wine 32"
+  #msg2 "Not building wine 32"
+  D=1
 else
   source ./PKGBUILD-32
-  echo "Also building wine 32"
+  #msg2 "Also building wine 32"
 fi
 
 
@@ -243,7 +245,6 @@ package_wine-wayland() {
   conflicts=('wine' 'wine-staging' 'wine-esync')
 
 
-	export PKGEXT='.pkg.tar.zst'
 	cd "${srcdir}/${pkgname}"-64-build
 	make -s	prefix="${pkgdir}/usr" \
 			libdir="${pkgdir}/usr/lib" \
