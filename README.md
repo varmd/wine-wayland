@@ -24,19 +24,25 @@ Wine-wayland allows running DX9/DX11 and Vulkan games using pure wayland and Win
  
 ## Download
 
-You can download the 64bit only version from https://github.com/varmd/wine-wayland/releases. This version is automatically built via Github Actions. cd to download folder and install
+You can download the 64bit only archlinux package from https://github.com/varmd/wine-wayland/releases. This version is automatically built via Github Actions. cd to download folder and install
     
     pacman -U wine-wayland*pkg*
+    
+## Download of 32bit (optional, for 32bit games)
 
-## Installation
+You can download the optional 32bit version from https://github.com/varmd/wine-wayland/releases. It is automatically built via Github Actions. First, download both the 64bit and 32bit archlinux packages, cd to download folder and install
+    
+    pacman -U *wine-wayland*pkg* 
 
-download from github, cd to zip directory
+## Compile
+
+download or clone from github, cd to zip directory
 
     makepkg
     pacman -U wine-wayland*pkg*
 
 
-#### Installation of 32bit (optional, for 32bit games)
+#### Compile 32bit (optional, for 32bit games)
 
 In wine-wayland directory
 
