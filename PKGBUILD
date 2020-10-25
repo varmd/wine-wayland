@@ -1,7 +1,10 @@
 # Created by: varmd
 
-RELEASE=5.18
+RELEASE=5.20
 pkgname=('wine-wayland')
+
+
+
 pkgver=$RELEASE
 pkgrel=1
 _winesrcdir="wine-wine-$pkgver"
@@ -16,7 +19,6 @@ license=('LGPL')
 
 export LANG=en_US.utf8
 LANG=en_US.utf8
-
 
 depends=(
   'adwaita-icon-theme'
@@ -56,6 +58,11 @@ source=(
     
 sha256sums=('SKIP' 'SKIP')
 
+
+if [ -n "$WINE_BUILD_32" ]; then
+  source ./PKGBUILD-32
+  echo "Also building wine 32"
+fi
 
 
 
@@ -113,6 +120,15 @@ prepare() {
       patch -Np1 < ${_f}
     done
     
+    rm -rf programs/explorer
+    rm -rf programs/iexplore
+    
+    # speed up
+    sed -i '/programs\/explorer/d' configure.ac
+    sed -i '/programs\/iexplore/d' configure.ac
+    sed -i '/programs\/dxdiag/d' configure.ac
+    sed -i '/programs\/hh/d' configure.ac
+    sed -i '/programs\/powershell/d' configure.ac
     
     rm configure
     autoconf

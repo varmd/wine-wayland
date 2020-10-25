@@ -1,25 +1,7 @@
 # Created by: varmd
 
-RELEASE=`cat PKGBUILD | grep RELEASE= | sed  's/RELEASE=//'`
-echo $RELEASE
-pkgname=lib32-wine-wayland
-_pkgname=wine-wayland
-pkgver=$RELEASE
-pkgrel=10
-_winesrcdir="wine-wine-$pkgver"
 
-
-pkgdesc=''
-
-url=''
-arch=('x86_64')
-
-options=('staticlibs' '!strip')
-
-license=('LGPL')
-
-depends=(
-    'wine-wayland'
+depends+=(
     'lib32-mpg123' 
     'lib32-glibc' 
     'lib32-gcc-libs' 
@@ -33,7 +15,7 @@ depends=(
     'lib32-sdl2'
 )
 
-makedepends=(
+makedepends+=(
     'autoconf' 
     'bison' 
     'perl' 
@@ -45,18 +27,11 @@ makedepends=(
     'gettext'               
 )
 
-prepare() {
-
-	echo ""
-	
-}
+pkgname+=('lib32-wine-wayland')
 
 
-
-
-build() {
+build_32() {
   cd "${srcdir}"
-  
   
 
   #32 bit build fails without these
@@ -65,10 +40,10 @@ build() {
   export LDFLAGS="${LDFLAGS/,-z,now/}"
 
   # create new build dirs
-	mkdir -p "${srcdir}"/"${_pkgname}"-32-build
+	mkdir -p "${srcdir}"/wine-wayland-32-build
 
   msg2 'Building Wine-32...'
-	cd  "${srcdir}"/"${_pkgname}"-32-build
+	cd  "${srcdir}"/wine-wayland-32-build
 	
   
   if [ -e Makefile ]; then 
@@ -77,7 +52,7 @@ build() {
   ../${_winesrcdir}/configure \
 		--prefix='/usr' \
 		--libdir=/usr/lib32 \
-    --with-wine64="$srcdir/$_pkgname-64-build" \
+    --with-wine64="$srcdir/wine-wayland-64-build" \
 		--without-x \
     --without-gsm \
     --without-opengl \
@@ -125,10 +100,15 @@ build() {
   
 }
 
-package() {
+package_lib32-wine-wayland() {
+
+  
+
+  build_32
+
   export PKGEXT='.pkg.tar.zst'	
 
-  cd "${srcdir}/${_pkgname}"-32-build
+  cd "${srcdir}"/wine-wayland-32-build
 	make -s	prefix="${pkgdir}/usr" \
     libdir="${pkgdir}/usr/lib32" \
 	  dlldir="${pkgdir}/usr/lib32/wine" install

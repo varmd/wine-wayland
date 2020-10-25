@@ -506,15 +506,7 @@ index c322708556..412f02f713 100644
      no_satisfied,                     /* satisfied */
      no_signal,                        /* signal */
      console_input_get_fd,             /* get_fd */
-@@ -147,6 +147,7 @@ static const struct object_ops console_input_events_ops =
-     remove_queue,                     /* remove_queue */
-     NULL,                             /* signaled */
-     NULL,                             /* get_esync_fd */
-+    NULL,                             /* get_fsync_idx */
-     no_satisfied,                     /* satisfied */
-     no_signal,                        /* signal */
-     console_input_events_get_fd,      /* get_fd */
-@@ -213,6 +213,7 @@ static const struct object_ops console_server_ops =
+@@ -147,6 +147,7 @@ static const struct object_ops console_server_ops =
      remove_queue,                     /* remove_queue */
      console_server_signaled,          /* signaled */
      NULL,                             /* get_esync_fd */

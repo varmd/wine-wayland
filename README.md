@@ -38,9 +38,9 @@ download from github, cd to zip directory
 
 #### Installation of 32bit (optional, for 32bit games)
 
-First compile and install regular wine-wayland, then in the same zip directory
+In wine-wayland directory
 
-    makepkg -p PKGBUILD-32 --noextract
+    WINE_BUILD_32=1 makepkg
     pacman -U lib32-wine-wayland*
 
 ## Using wineland launcher to run games
@@ -129,3 +129,4 @@ Then in the terminal run sh start-your-game.sh
 * Crusader Kings 2
 * Mutant Year Zero
 * Tropico 6
+* Wasteland 2
