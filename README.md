@@ -16,21 +16,21 @@ Wine-wayland allows running DX9/DX11 and Vulkan games using pure Wayland and Win
 
 ## Requirements
 
- * Archlinux or Manjaro
+ * Arch Linux or Manjaro
  * GPU with Vulkan and Wayland support
  * Mesa 20.1 or later with Wayland and Vulkan support
- * Weston-based compositor (tested on wayward), wlroots based compositor (tested on Sway)
+ * Weston-based compositor (tested on wayward), wlroots-based compositor (tested on Sway)
  * SDL and FAudio
  
 ## Download
 
-You can download the 64-bit only version from https://github.com/varmd/wine-wayland/releases. This version is automatically built via GitHub Actions. cd to download folder and install
+You can download the 64-bit only version from https://github.com/varmd/wine-wayland/releases. This version is automatically built via GitHub Actions. cd to the download folder and install
     
     pacman -U wine-wayland*pkg*
 
 ## Installation
 
-Download from GitHub, cd to zip directory
+Download from GitHub, cd to the zip directory
 
     makepkg
     pacman -U wine-wayland*pkg*
