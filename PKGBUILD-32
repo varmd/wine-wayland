@@ -36,7 +36,6 @@ build_32() {
 
   #32 bit build fails without these
   export CFLAGS="${CFLAGS/-fno-plt/}"
-  #export CFLAGS="${CFLAGS} -Wno-declaration-after-statement"
   export LDFLAGS="${LDFLAGS/,-z,now/}"
 
   # create new build dirs

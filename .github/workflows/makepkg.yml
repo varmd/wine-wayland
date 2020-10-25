@@ -24,11 +24,16 @@ jobs:
         echo "Successfully created the following package archive"
         echo "Package: ${{ steps.makepkg.outputs.pkgfile0 }}"
         echo "Package: ${{ steps.makepkg.outputs.pkgfile1 }}"
-#    - name: Upload Package Archive
-#      uses: actions/upload-artifact@v1
-#      with:
-#        name: ${{ steps.makepkg.outputs.pkgfile0 }}
-#        path: ${{ steps.makepkg.outputs.pkgfile0 }}
+    - name: Upload Package Archive
+      uses: actions/upload-artifact@v1
+      with:
+        name: ${{ steps.makepkg.outputs.pkgfile0 }}
+        path: ${{ steps.makepkg.outputs.pkgfile0 }}
+    - name: Upload Package Archive
+      uses: actions/upload-artifact@v1
+      with:
+        name: ${{ steps.makepkg.outputs.pkgfile1 }}
+        path: ${{ steps.makepkg.outputs.pkgfile1 }}
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
