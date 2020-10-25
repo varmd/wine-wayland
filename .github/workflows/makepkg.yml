@@ -16,12 +16,9 @@ jobs:
       uses: actions/checkout@v2
     - name: Makepkg Build and Check
       id: makepkg
-      env:
-        WINEBUILD32: true
       uses: edlanglois/pkgbuild-action@v1
       with:
-        namcapDisable: true      
-        WINEBUILD32: true      
+        namcapDisable: true     
     - name: Print Package Files
       run: |
         echo "Successfully created the following package archive"
