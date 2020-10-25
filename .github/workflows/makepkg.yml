@@ -17,7 +17,7 @@ jobs:
     - name: Makepkg Build and Check
       id: makepkg
       env:
-        WINE_BUILD_32: 1
+        WINE_BUILD_32: "1"
       uses: edlanglois/pkgbuild-action@v1
       with:
         namcapDisable: true      
