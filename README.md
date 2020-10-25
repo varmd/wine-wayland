@@ -40,7 +40,7 @@ download from github, cd to zip directory
 
 In wine-wayland directory
 
-    WINE_BUILD_32=1 makepkg
+    INPUT_WINEBUILD32=1 makepkg
     pacman -U lib32-wine-wayland*
 
 ## Using wineland launcher to run games

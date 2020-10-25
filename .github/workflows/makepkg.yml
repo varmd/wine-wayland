@@ -17,10 +17,11 @@ jobs:
     - name: Makepkg Build and Check
       id: makepkg
       env:
-        WINE_BUILD_32: true
+        WINEBUILD32: true
       uses: edlanglois/pkgbuild-action@v1
       with:
         namcapDisable: true      
+        WINEBUILD32: true      
     - name: Print Package Files
       run: |
         echo "Successfully created the following package archive"

@@ -58,7 +58,7 @@ source=(
     
 sha256sums=('SKIP' 'SKIP')
 
-if [ -z "${WINE_BUILD_32:-}" ]; then
+if [ -z "${INPUT_WINEBUILD32:-}" ]; then
   echo "Not building wine 32"
 else
   source ./PKGBUILD-32
