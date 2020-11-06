@@ -1,6 +1,6 @@
 # Created by: varmd
 
-RELEASE=5.20
+RELEASE=5.21
 pkgname=('wine-wayland')
 
 
@@ -143,7 +143,10 @@ prepare() {
     sed -i '/programs\/powershell/d' configure.ac
     sed -i '/programs\/winemenubuilder/d' configure.ac
     sed -i '/programs\/wordpad/d' configure.ac
-    sed -i '/dlls\/d3d9\./d' configure.ac
+    sed -i '/\/tests/d' configure.ac
+    sed -i '/dlls\/d3d8/d' configure.ac
+    sed -i '/dlls\/d3d12/d' configure.ac
+    
     
     rm configure
     autoconf
