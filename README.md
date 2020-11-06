@@ -97,7 +97,7 @@ Then in the terminal run sh start-your-game.sh
 
 ## Notes
 
-* For Unity games make sure game folder is executable
+* Some Unity games require that game folder is executable
 * Some games may take a while to start
 * Some games may crash if fullscreen is enabled/disabled. After crashing, look in the game settings folder and see if you can enable/disable fullscreen manually.
 * If a game is not starting try to disable WINE\_VK\_VULKAN_ONLY variable and start the game to see if there are any error popups 
