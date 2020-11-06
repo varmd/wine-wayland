@@ -41,8 +41,6 @@ LOG_PATH=$PWD/$1/log.log
 
 
 
-#export WINEDEBUG=+waylanddrv
-
 WINEDLLOVERRIDES="d3dcompiler_47,d3d9,dxgi,d3d11=n,b;dinput=d;winedbg=d;winemenubuilder.exe=d;mscoree=d;mshtml=d"
 
 WINE_VK_WAYLAND_WIDTH=1920
@@ -88,9 +86,11 @@ export WINE_VK_WAYLAND_HEIGHT
 export MANGOHUD
 export MANGOHUD_CONFIG
 export WINEDLLOVERRIDES
-export WINE_VK_ALWAYS_FULLSCREEN
+export WINE_VK_FULLSCREEN_GRAB_CURSOR
 export WINE_VK_VULKAN_ONLY
 export XCURSOR_SIZE
+export WINE_VK_USE_CUSTOM_CURSORS
+
 
 export WINEPREFIX=$PWD_PATH/wine
 
@@ -131,7 +131,7 @@ fi
 export WINEFSYNC
 export WINEESYNC
 
- 
+export WINEDEBUG=-all,+waylanddrv
 
 rm $PWD_PATH/wine/drive_c/users/$USER/"My Documents"
 mkdir -p $PWD_PATH/wine/drive_c/users/$USER/"My Documents"

@@ -41,6 +41,8 @@ static INIT_ONCE init_once = INIT_ONCE_STATIC_INIT;
 
 static const struct gdi_dc_funcs waylanddrv_funcs;
 
+ColorShifts global_palette_default_shifts = { {0,0,0,}, {0,0,0}, {0,0,0}, {0,0,0}, {0,0,0}, {0,0,0} };
+
 
 /**********************************************************************
  *	     device_init
@@ -99,10 +101,8 @@ static BOOL CDECL WAYLANDDRV_CreateDC( PHYSDEV *pdev, LPCWSTR driver, LPCWSTR de
     if (!physDev) return FALSE;
 
     
-    physDev->depth         = 24;
-    
-    //physDev->color_shifts  = &WAYLANDDRV_PALETTE_default_shifts;
-    
+    physDev->depth         = 32;
+    //physDev->color_shifts  = &global_palette_default_shifts;
     physDev->dc_rect       = get_virtual_screen_rect();
   
     
@@ -205,7 +205,7 @@ static INT CDECL WAYLANDDRV_GetDeviceCaps( PHYSDEV dev, INT cap )
         return virtual_rect.bottom - virtual_rect.top;
     }
     case BITSPIXEL:
-        return screen_bpp;
+        return 32;
     case SIZEPALETTE:
         return palette_size;
     default:

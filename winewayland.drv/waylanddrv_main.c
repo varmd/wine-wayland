@@ -58,9 +58,6 @@ WINE_DECLARE_DEBUG_CHANNEL(synchronous);
 WINE_DECLARE_DEBUG_CHANNEL(winediag);
 
 
-
-//Colormap default_colormap = None;
-//XPixmapFormatValues **pixmap_formats;
 unsigned int screen_bpp;
 Window root_window;
 
@@ -279,7 +276,7 @@ static BOOL process_attach(void)
     
     init_visuals( 0);
     //screen_bpp = pixmap_formats[default_visual.depth]->bits_per_pixel;
-    screen_bpp = 24;
+    screen_bpp = 32;
     
      TRACE( "Creating desktop %d %d \n\n", screen_width , screen_height ); 
     

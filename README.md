@@ -47,7 +47,7 @@ download or clone from github, cd to zip directory
 In wine-wayland directory
 
     WINE_BUILD_32=1 makepkg
-    pacman -U lib32-wine-wayland*
+    pacman -U *wine-wayland*pkg*
 
 ## Using wineland launcher to run games
 
@@ -107,6 +107,7 @@ Then in the terminal run sh start-your-game.sh
 * GOG games can be extracted with innounp
 * If a game is not starting, try wineserver -k, and start again
 * Use export XCURSOR_SIZE="xx" and export XCURSOR_THEME=themename to set cursor theme and increase cursor size 
+* Use export WINE_VK_USE_CUSTOM_CURSORS=1 to enable experimental custom game cursors. Or click the "Enable custom game cursors" checkbox in the wineland launcher.
 * Use export WINE_VK_NO_CLIP_CURSOR=1 to disable cursor locking for games that erroneously try to lock mouse cursor.
 * Use export WINE_VK_FULLSCREEN_GRAB_CURSOR=1 to automatically enable cursor grab in fullscreen.
 * Use export WINE_VK_ALWAYS_FULLSCREEN=1 to automatically set game to fullscreen without using F11. The WINE_VK_WAYLAND_WIDTH and WINE_VK_WAYLAND_HEIGHT must be set to your monitor's current resolution width and height or the game will crash.
@@ -117,8 +118,6 @@ Then in the terminal run sh start-your-game.sh
 * No controller support - though some are working
 * No GDI apps support
 * No OpenGL
-* No custom cursors
-
 
 ## Games confirmed working
 

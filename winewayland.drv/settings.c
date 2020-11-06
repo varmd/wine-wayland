@@ -169,7 +169,7 @@ void WAYLANDDRV_Settings_AddOneMode(unsigned int width, unsigned int height, uns
     info->refresh_rate  = freq;
     info->bpp           = bpp;
     
-    TRACE("Resolution initialized mode %d: %dx%dx%d @%d Hz (%s)\n",          dd_mode_count, width, height, bpp, freq, handler_name);
+    //TRACE("Resolution initialized mode %d: %dx%dx%d @%d Hz (%s)\n",          dd_mode_count, width, height, bpp, freq, handler_name);
     dd_mode_count++;
 }
 
@@ -308,7 +308,7 @@ BOOL CDECL WAYLANDDRV_EnumDisplaySettingsEx( LPCWSTR name, DWORD n, LPDEVMODEW d
         
     
     
-    TRACE("mode %d %p \n", n, handler_name);    
+    //TRACE("mode %d %p \n", n, handler_name);    
     
         
 
@@ -380,19 +380,21 @@ LONG CDECL WAYLANDDRV_ChangeDisplaySettingsEx( LPCWSTR devname, LPDEVMODEW devmo
     DEVMODEW dm;
     BOOL def_mode = TRUE;
 
-    TRACE("(%s,%p,%p,0x%08x,%p)\n",debugstr_w(devname),devmode,hwnd,flags,lpvoid);
-    TRACE("flags=%s\n",_CDS_flags(flags));
+    //TRACE("(%s,%p,%p,0x%08x,%p)\n",debugstr_w(devname),devmode,hwnd,flags,lpvoid);
+    //TRACE("flags=%s\n",_CDS_flags(flags));
     if (devmode)
     {
         /* this is the minimal dmSize that XP accepts */
         if (devmode->dmSize < FIELD_OFFSET(DEVMODEW, dmFields))
             return DISP_CHANGE_FAILED;
 
+        /*
         TRACE("DM_fields=%s\n",_DM_fields(devmode->dmFields));
         TRACE("width=%d height=%d bpp=%d freq=%d (%s)\n",
               devmode->dmPelsWidth,devmode->dmPelsHeight,
               devmode->dmBitsPerPel,devmode->dmDisplayFrequency, handler_name);
-
+        */  
+       
         dwBpp = devmode->dmBitsPerPel;
         if (devmode->dmFields & DM_BITSPERPEL) def_mode &= !dwBpp;
         if (devmode->dmFields & DM_PELSWIDTH)  def_mode &= !devmode->dmPelsWidth;

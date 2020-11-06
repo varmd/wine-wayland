@@ -20,8 +20,10 @@ const ConfFile = (options) => `
 ${options.gdi ? '' : 'WINE_VK_VULKAN_ONLY=1' }
 ${options.fullscreen ? 'WINE_VK_ALWAYS_FULLSCREEN=1' : '' }
 ${options.fullscreen_grab ? 'WINE_VK_FULLSCREEN_GRAB_CURSOR=1' : '' }
+${options.custom_cursors ? 'WINE_VK_USE_CUSTOM_CURSORS=1' : '' }
 ${options.winefsync ? 'WINEFSYNC=1' : 'WINEFSYNC=0' }
 ${options.wineesync ? 'WINEESYNC=1' : '' }
+
 MANGOHUD=${options.mangohud  ? 1 : ''}
 MANGOHUD_CONFIG="${options.mangohud_config  ? options.mangohud_config : ''}"
 GAME_PATH="${options.game_path}"
@@ -163,6 +165,13 @@ const DocForm = (obj) => `
                 <label for="cursor_size" class="required">Cursor Size</label>
                 <input type="number" name="cursor_size" value="${ obj.options.cursor_size }" required class="form-control" placeholder="Cursor Size">  
               </div>
+                
+              <div class="form-group">  
+                <div class="custom-checkbox">
+                  <input type="checkbox" name="custom_cursors" id="checkbox-custom-cursors" value="1" ${ obj.options.custom_cursors ? 'checked="checked"' : '' }>
+                  <label for="checkbox-custom-cursors">Enable custom game cursors (disables cursor size)</label>
+                </div>
+              </div>  
           
           
           
@@ -453,6 +462,7 @@ function load_docs(){
         width: 1920,
         height: 1080,
         cursor_size: 32,
+        custom_cursors: 0,
     };
     
     console.log(obj);
@@ -498,6 +508,8 @@ function load_docs(){
           width: el.width.value,
           height: el.height.value,
           cursor_size: el.cursor_size.value,
+          custom_cursors: el.custom_cursors.value,
+          
         }
       
         console.log("Test///");

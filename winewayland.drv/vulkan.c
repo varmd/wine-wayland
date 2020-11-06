@@ -1205,45 +1205,10 @@ BOOL CDECL WAYLANDDRV_GetCursorPos(LPPOINT pos)
 }
 
 
-/***********************************************************************
- *		GetCursorPos (WAYLANDDRV.@)
-
-
-BOOL CDECL WAYLANDDRV_SetCursorPos(LPPOINT pos)
-{
-    if(!global_sx) {
-      pos->x = 0;
-      pos->y = 0;
-      return TRUE;
-    }
-
-
-    pos->x = global_sx;
-    pos->y = global_sy;
-
-    //TRACE( "pointer at %d \n", pos->x, pos->y );
-
-    return TRUE;
-
-
-}
-*/
-
 //End Wayland keyboard arrays and funcs
 
 
 
-
-#if 0
-static CRITICAL_SECTION context_section;
-static CRITICAL_SECTION_DEBUG critsect_debug =
-{
-    0, 0, &context_section,
-    { &critsect_debug.ProcessLocksList, &critsect_debug.ProcessLocksList },
-      0, 0, { (DWORD_PTR)(__FILE__ ": context_section") }
-};
-static CRITICAL_SECTION context_section = { &critsect_debug, -1, 0, 0, 0, 0 };
-#endif
 
 //typedef VkFlags VkWaylandSurfaceCreateFlagsKHR;
 #define VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR 1000006000;
@@ -1438,7 +1403,7 @@ struct wl_surface_win_data
 
 
 
-//static CRITICAL_SECTION win_data_section;
+
 
 static struct wl_surface_win_data *wl_surface_data_context[32768] = {0};
 
@@ -1477,6 +1442,9 @@ static void free_wl_win_data( struct wl_surface_win_data *data )
 }
 
 
+
+
+
 /***********************************************************************
  *           get_win_data
  *
@@ -1493,6 +1461,48 @@ static struct wl_surface_win_data *get_wl_win_data( struct wl_surface *surface )
     return NULL;
 }
 
+//Cursors and cursor cache
+struct cursor_cache
+{
+    HCURSOR handle;           /* cursor that this cache belongs to */
+    uint32_t *cached_pixels;    
+    int width;    
+    int height;
+    int xhotspot;  
+    int yhotspot;  
+
+};
+
+
+int global_cursor_set = 0;
+int global_cursor_gdi_fd = 0;
+int global_cursor_last_change = 0;
+int global_cursor_height = 0;
+int global_cursor_width = 0;
+int global_custom_cursors = 0;
+HCURSOR global_last_cursor_handle = NULL;
+void *global_cursor_shm_data = NULL;
+struct wl_shm_pool *global_cursor_pool = NULL;
+struct cursor_cache *global_cursor_cache[32768] = {0};
+
+static inline int cursor_idx( HCURSOR handle  )
+{
+    return LOWORD( handle ) >> 1;
+}
+
+
+static void alloc_cursor_cache( HCURSOR handle )
+{
+    struct cursor_cache *data;
+
+    if ((data = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*data))))
+    {
+        global_cursor_cache[cursor_idx(handle)] = data;
+
+    }
+}
+
+//End Cursor cache
 
 
 
@@ -2078,7 +2088,8 @@ void grab_wayland_screen(void) {
     wl_surface_commit(vulkan_window->surface);
 
     //hide mouse
-    wl_pointer_set_cursor(wayland_pointer, wayland_serial_id, NULL, 0, 0);
+    //TODO test
+    //wl_pointer_set_cursor(wayland_pointer, wayland_serial_id, NULL, 0, 0);
   }
 }
 
@@ -2103,7 +2114,7 @@ void ungrab_wayland_screen(void) {
 
       image = wayland_default_cursor->images[0];
       buffer = wl_cursor_image_get_buffer(image);
-      wl_pointer_set_cursor(wayland_pointer, wayland_serial_id,
+      A(wayland_pointer, wayland_serial_id,
         wayland_cursor_surface,
         image->hotspot_x,
         image->hotspot_y);
@@ -2147,16 +2158,14 @@ void wayland_keyboard_key_cb (void *data, struct wl_keyboard *keyboard,
 		    uint32_t state)
 {
   INPUT input;
-  //int vkey;
   HWND hwnd;
 
 
 
-  if ((unsigned int)keycode >= sizeof(keycode_to_vkey)/sizeof(keycode_to_vkey[0]) || !keycode_to_vkey[keycode])
-    {
+  if ((unsigned int)keycode >= sizeof(keycode_to_vkey)/sizeof(keycode_to_vkey[0]) || !keycode_to_vkey[keycode]) {
         //TRACE( "keyboard_event: code %u unmapped key, ignoring \n",  keycode );
 
-    }
+  }
 
 
     /*
@@ -2292,25 +2301,7 @@ SERVER_END_REQ;
 
       }
 
-      #if 0
-      struct wl_cursor_image *image;
-      struct wl_buffer *buffer;
 
-
-      //show/hide mouse
-      image = wayland_default_cursor->images[0];
-		  buffer = wl_cursor_image_get_buffer(image);
-
-      wl_pointer_set_cursor(wayland_pointer, wayland_serial_id,
-        wayland_cursor_surface,
-        image->hotspot_x,
-        image->hotspot_y);
-        wl_surface_attach(wayland_cursor_surface, buffer, 0, 0);
-        wl_surface_damage(wayland_cursor_surface, 0, 0,
-        image->width, image->height);
-
-       wl_surface_commit(wayland_cursor_surface);
-       #endif
 
 
       //hide cursor
@@ -2401,6 +2392,7 @@ static void seat_caps_cb(void *data, struct wl_seat *seat, enum wl_seat_capabili
 	char *env_hide_cursor;
 	char *env_fullscreen_grab_cursor;
 	char *env_no_clip_cursor;
+	char *env_use_custom_cursors;
 
   if ((caps & WL_SEAT_CAPABILITY_POINTER) && !wayland_pointer)
 	{
@@ -2416,6 +2408,9 @@ static void seat_caps_cb(void *data, struct wl_seat *seat, enum wl_seat_capabili
 
     //Some games need ClipCursor disabled
     env_no_clip_cursor = getenv( "WINE_VK_NO_CLIP_CURSOR" );
+    
+    //Some games use custom cursors
+    env_use_custom_cursors = getenv( "WINE_VK_USE_CUSTOM_CURSORS" );
 
     if(env_hide_cursor) {
       global_hide_cursor = 1;
@@ -2427,6 +2422,10 @@ static void seat_caps_cb(void *data, struct wl_seat *seat, enum wl_seat_capabili
 
     if(env_fullscreen_grab_cursor) {
       global_fullscreen_grab_cursor = 1;
+    }
+    
+    if(env_use_custom_cursors) {
+      global_custom_cursors = 1;
     }
 
     if(!is_vulkan && !global_is_vulkan) {
@@ -2969,7 +2968,7 @@ BOOL CDECL WAYLANDDRV_ClipCursor( LPCRECT clip )
         global_wayland_confine = 0;
 
         //show mouse if it's not hidden by env variable
-        if(!global_hide_cursor) {
+        if(!global_hide_cursor  && !global_custom_cursors) {
           image = wayland_default_cursor->images[0];
           buffer = wl_cursor_image_get_buffer(image);
           wl_pointer_set_cursor(wayland_pointer, wayland_serial_id,
@@ -3051,11 +3050,293 @@ void CDECL WAYLANDDRV_ShowCursor( HCURSOR handle )
   TRACE("Show cursor \n");
 
 }
+
+
+static uint32_t *get_bitmap_argb( HDC hdc, HBITMAP color, HBITMAP mask, unsigned int *width, unsigned int *height )
+{
+    char buffer[FIELD_OFFSET( BITMAPINFO, bmiColors[256] )];
+    BITMAPINFO *info = (BITMAPINFO *)buffer;
+    BITMAP bm;
+    uint32_t *ptr, *bits = NULL;
+    unsigned char *mask_bits = NULL;
+    int i, j;
+    BOOL has_alpha = FALSE;
+    int red, green, blue, alpha;
+
+    if (!color) return NULL;
+
+    if (!GetObjectW( color, sizeof(bm), &bm )) return NULL;
+    info->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    info->bmiHeader.biWidth = bm.bmWidth;
+    info->bmiHeader.biHeight = -bm.bmHeight;
+    info->bmiHeader.biPlanes = 1;
+    info->bmiHeader.biBitCount = 32;
+    info->bmiHeader.biCompression = BI_RGB;
+    info->bmiHeader.biSizeImage = bm.bmWidth * bm.bmHeight * 4;
+    info->bmiHeader.biXPelsPerMeter = 0;
+    info->bmiHeader.biYPelsPerMeter = 0;
+    info->bmiHeader.biClrUsed = 0;
+    info->bmiHeader.biClrImportant = 0;
+    
+    
+    int cClrBits = 0;
+    // Convert the color format to a count of bits.  
+    cClrBits = (WORD)(bm.bmPlanes * bm.bmBitsPixel); 
+    if (cClrBits == 1) 
+        cClrBits = 1; 
+    else if (cClrBits <= 4) 
+        cClrBits = 4; 
+    else if (cClrBits <= 8) 
+        cClrBits = 8; 
+    else if (cClrBits <= 16) 
+        cClrBits = 16; 
+    else if (cClrBits <= 24) 
+        cClrBits = 24; 
+    else cClrBits = 32;
+    
+    TRACE("Got %d format for cursor \n", cClrBits);
+    
+    
+   
+    
+    int size = bm.bmWidth * bm.bmHeight;
+    
+    if (!(bits = HeapAlloc( GetProcessHeap(), 0, bm.bmWidth * bm.bmHeight * sizeof(unsigned int) )))
+        goto failed;
+    if (!GetDIBits( hdc, color, 0, bm.bmHeight, bits, info, DIB_RGB_COLORS )) goto failed;
+
+    *width = bm.bmWidth;
+    *height = bm.bmHeight;
+
+    for (i = 0; i < bm.bmWidth * bm.bmHeight; i++)
+        if ((has_alpha = (bits[i] & 0xff000000) != 0)) break;
+    
+    ptr = bits;
+
+    if (!has_alpha)
+    {
+        TRACE("No alpha channel for cursor \n");    
+        unsigned int width_bytes = (bm.bmWidth + 31) / 32 * 4;
+        /* generate alpha channel from the mask */
+        info->bmiHeader.biBitCount = 1;
+        info->bmiHeader.biSizeImage = width_bytes * bm.bmHeight;
+        if (!(mask_bits = HeapAlloc( GetProcessHeap(), 0, info->bmiHeader.biSizeImage ))) goto failed;
+        if (!GetDIBits( hdc, mask, 0, bm.bmHeight, mask_bits, info, DIB_RGB_COLORS )) goto failed;
+      
+        
+        
+        for (i = 0; i < bm.bmHeight; i++) {
+            for (j = 0; j < bm.bmWidth; j++, ptr++) {
+                  if (!((mask_bits[i * width_bytes + j / 8] << (j % 8)) & 0x80)) *ptr |= 0xff000000;
+                
+            }  
+        }    
+        
+        HeapFree( GetProcessHeap(), 0, mask_bits );
+    }
+    
+    
+    
+    ptr = bits;
+    for (i = 0; i < bm.bmWidth * bm.bmHeight; i++, ptr++) {
+      red   = (*ptr >> 16) & 0xff;
+      green = (*ptr >> 8) & 0xff;
+      blue  = (*ptr >> 0) & 0xff;
+      alpha   = (*ptr >> 24);
+    
+      
+      if(!alpha || alpha < 26) {
+        *ptr = 0x00000000;
+      } else if ( (red + green + blue < 0x40) && alpha < 26 ) {
+        *ptr = 0x00000000;
+      } else if(*ptr) {
+        //*ptr |= 0x50000000;  
+        //*ptr = blue | green << 8 | red << 16 | alpha << 24;
+      }
+      
+      
+    }
+    
+    
+    
+
+    return bits;
+
+failed:
+    HeapFree( GetProcessHeap(), 0, bits );
+    HeapFree( GetProcessHeap(), 0, mask_bits );
+    *width = *height = 0;
+    return NULL;
+}
+
+void set_custom_cursor( HCURSOR handle ) {
+  
+  
+    unsigned int width = 0, height = 0;
+    unsigned int xhotspot = 0, yhotspot = 0;
+    ICONINFOEXW info;
+    struct wl_buffer *buffer;
+    uint32_t *dest_pixels  = NULL;
+    uint32_t *src_pixels  = NULL;
+    uint32_t *bits = NULL;
+    
+    char sprint_buffer[200];
+    struct cursor_cache *cached_cursor;
+
+    if ((cached_cursor = global_cursor_cache[cursor_idx(handle)])) {
+      
+      bits = global_cursor_cache[cursor_idx( handle )]->cached_pixels;
+      width = global_cursor_cache[cursor_idx( handle )]->width;
+      height = global_cursor_cache[cursor_idx( handle )]->height;
+      xhotspot = global_cursor_cache[cursor_idx( handle )]->xhotspot;
+      yhotspot = global_cursor_cache[cursor_idx( handle )]->yhotspot;
+      
+      TRACE("Cache hit w h %d %d %d \n", width, height, cursor_idx(handle));      
+      
+    } else {
+      
+      TRACE("Cache miss w h %p %d \n", handle, cursor_idx(handle));
+      
+      info.cbSize = sizeof(info);
+      if (!GetIconInfoExW( handle, &info )) 
+        return;
+      
+      
+      HDC hdc = CreateCompatibleDC( 0 );
+      
+      bits = get_bitmap_argb( hdc, info.hbmColor, info.hbmMask, &width, &height);
+      
+      if(!bits) {
+        return;  
+      }  
+      if(width < 1) {
+        return;  
+      }
+      
+      
+      
+      /* make sure hotspot is valid */
+      if (info.xHotspot >= width || info.yHotspot >= height)
+      {
+          info.xHotspot = width / 2;
+          info.yHotspot = height / 2;
+      }
+      
+      TRACE("Cache set w h %p %d \n", handle, cursor_idx(handle));
+      alloc_cursor_cache(handle);
+      
+      
+      global_cursor_cache[cursor_idx( handle )]->cached_pixels = bits;
+      global_cursor_cache[cursor_idx( handle )]->handle = handle;
+      global_cursor_cache[cursor_idx( handle )]->width = width;
+      global_cursor_cache[cursor_idx( handle )]->height = height;
+      global_cursor_cache[cursor_idx( handle )]->xhotspot = info.xHotspot;
+      global_cursor_cache[cursor_idx( handle )]->yhotspot = info.yHotspot;
+      xhotspot = info.xHotspot;
+      yhotspot = info.yHotspot;
+      
+      DeleteDC( hdc );
+    }
+    
+    
+  TRACE("Cursor width is %d %d\n", width, height);
+  
+  
+  
+  int stride = width * 4; // 4 bytes per pixel
+  int size = stride * height;
+  
+  if(width != global_cursor_width || height != global_cursor_height) {
+    
+    if(global_cursor_gdi_fd) {
+      close(global_cursor_gdi_fd);
+    }  
+      
+    sprintf(sprint_buffer, "wine-shared-cursor-%d", width);
+
+    TRACE( "creating gdi fd %s \n", sprint_buffer);
+
+    global_cursor_gdi_fd = memfd_create(sprint_buffer, MFD_CLOEXEC | MFD_ALLOW_SEALING);
+    if (global_cursor_gdi_fd >= 0) {
+      fcntl(global_cursor_gdi_fd, F_ADD_SEALS, F_SEAL_SHRINK);
+    } else {
+      exit(1);  
+    }
+    posix_fallocate(global_cursor_gdi_fd, 0, size);
+    
+
+    
+    
+    if(global_cursor_shm_data) {
+      munmap(global_cursor_shm_data, global_cursor_width * 4 * global_cursor_height);
+    }
+    
+    global_cursor_width = width;
+    global_cursor_height = height;
+    
+    //MAP_SHARED
+    
+    
+      
+    global_cursor_shm_data = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, global_cursor_gdi_fd, 0);          
+    
+    if (global_cursor_shm_data == MAP_FAILED) {
+      fprintf(stderr, "mmap failed: %m\n");
+      close(global_cursor_gdi_fd);      
+      exit(1);
+    } 
+    
+    TRACE( "creating cursor wl_shm_data \n" );
+    
+    
+    
+    
+
+    if(global_cursor_pool) {
+      wl_shm_pool_destroy(global_cursor_pool);
+    }
+    global_cursor_pool = wl_shm_create_pool(global_shm, global_cursor_gdi_fd, size);
+    
+  
+  }
+  
+  
+  dest_pixels = (uint32_t *)global_cursor_shm_data;
+  src_pixels = bits;
+    
+  is_buffer_busy = 1;
+
+  buffer = wl_shm_pool_create_buffer(global_cursor_pool, 0, width, height, stride, WL_SHM_FORMAT_ARGB8888);
+  wl_buffer_add_listener(buffer, &buffer_listener, NULL);
+        
+  wl_surface_attach(wayland_cursor_surface, buffer, 0, 0);
+      
+  int y,x;
+  int alpha,red, green, blue = 0;
+  
+  for (y = 0; y < height ; y++) {        
+    for (x = 0; x < width; x++) { 
+        dest_pixels[x] = src_pixels[x];
+    } 
+    src_pixels += width;
+    dest_pixels += width;
+  }
+      
+  wl_surface_damage(wayland_cursor_surface, 0, 0, width, height);
+  wl_surface_commit(wayland_cursor_surface);
+  wl_pointer_set_cursor(wayland_pointer, wayland_serial_id,
+    wayland_cursor_surface,
+    xhotspot,
+    yhotspot);
+
+  return;
+}
+
 void CDECL WAYLANDDRV_SetCursor( HCURSOR handle )
 {
 
 
-    if(!global_is_vulkan || global_hide_cursor) {
+    if(!global_is_vulkan || global_hide_cursor || !wayland_default_cursor) {
       return;
     }
 
@@ -3068,24 +3349,31 @@ void CDECL WAYLANDDRV_SetCursor( HCURSOR handle )
       struct wl_buffer *buffer;
 
       //show mouse
-      if(wayland_default_cursor && (!global_is_cursor_visible || !global_last_cursor_change ) ) {
+      if( !global_is_cursor_visible || !global_last_cursor_change || 
+        ( global_custom_cursors && handle != global_last_cursor_handle)   
+      ) {
 
         TRACE("Showing cursor \n");
 
         global_last_cursor_change = 1;
         global_is_cursor_visible = 1;
 
-        image = wayland_default_cursor->images[0];
-        buffer = wl_cursor_image_get_buffer(image);
-        wl_pointer_set_cursor(wayland_pointer, wayland_serial_id,
-          wayland_cursor_surface,
-          image->hotspot_x,
-          image->hotspot_y);
-          wl_surface_attach(wayland_cursor_surface, buffer, 0, 0);
-          wl_surface_damage(wayland_cursor_surface, 0, 0,
-          image->width, image->height);
+        if(!global_custom_cursors) {
+          image = wayland_default_cursor->images[0];
+          buffer = wl_cursor_image_get_buffer(image);
+          wl_pointer_set_cursor(wayland_pointer, wayland_serial_id,
+            wayland_cursor_surface,
+            image->hotspot_x,
+            image->hotspot_y);
+            wl_surface_attach(wayland_cursor_surface, buffer, 0, 0);
+            wl_surface_damage(wayland_cursor_surface, 0, 0,
+            image->width, image->height);
 
-        wl_surface_commit(wayland_cursor_surface);
+          wl_surface_commit(wayland_cursor_surface);
+        } else {
+          global_last_cursor_handle = handle;
+          set_custom_cursor( handle );
+        }
 
         //ungrab screen if necessary
         ungrab_wayland_screen();
@@ -3112,7 +3400,7 @@ void CDECL WAYLANDDRV_SetCursor( HCURSOR handle )
 void CDECL WAYLANDDRV_SetCapture( HWND hwnd, UINT flags )
 {
 
-  TRACE("Set Window Capture called \r\n");
+  //TRACE("Set Window Capture called \r\n");
 }
 
 
@@ -3457,6 +3745,7 @@ static void CDECL android_surface_flush( struct window_surface *window_surface )
     RECT client_rect;
 
 
+    #if 0
     if(surface->hwnd && !owner) {
 
 
@@ -3467,6 +3756,7 @@ static void CDECL android_surface_flush( struct window_surface *window_surface )
 
 
     }
+    #endif
 
     GetWindowRect(surface->hwnd, &client_rect);
 
@@ -3498,10 +3788,7 @@ static void CDECL android_surface_flush( struct window_surface *window_surface )
              surface->header.rect.bottom - surface->header.rect.top );
 
 
-    /*
-    TRACE( "flushing %p hwnd %p rect %s %s \n",
-           surface, surface->hwnd, wine_dbgstr_rect( &rect ), wine_dbgstr_rect( &surface->bounds ) );
-    */
+    
     //Checks and reduces rect to changed areas
 
     needs_flush = IntersectRect( &rect, &rect, &surface->bounds );
@@ -3665,9 +3952,9 @@ static void CDECL android_surface_flush( struct window_surface *window_surface )
     }
 
 
-    if(src_pixels == dest_pixels) {
+    //if(src_pixels == dest_pixels) {
       //return;
-    }
+    //}
 
 
 
@@ -3991,33 +4278,6 @@ static inline BOOL get_surface_rect( const RECT *visible_rect, RECT *surface_rec
     return TRUE;
 }
 
-
-#if 0
-static LRESULT WINAPI foreign_window_proc( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam )
-{
-
-    switch(msg)
-    {
-    case WM_WINDOWPOSCHANGED:
-
-    case WM_PARENTNOTIFY:
-        if (LOWORD(wparam) == WM_DESTROY)
-        {
-            TRACE( "%p: got parent notify destroy for win %lx\n", hwnd, lparam );
-            PostMessageW( hwnd, WM_CLOSE, 0, 0 );  // so that we come back here once the child is gone
-        }
-        return 0;
-    case WM_CLOSE:
-        if (GetWindow( hwnd, GW_CHILD )) return 0;  // refuse to die if we still have children
-        break;
-    }
-    return DefWindowProcW( hwnd, msg, wparam, lparam );
-}
-
-
-
-#endif
-
 int global_surface_added = 0;
 int global_gdi_enabled = -1;
 
@@ -4208,9 +4468,6 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
       */
 
 
-      //HWND owner;
-      //owner = GetWindow( hwnd, GW_OWNER );
-
       if ( (!parent || parent == GetDesktopWindow()) ) {
         if (*surface) {
           window_surface_release( *surface );
@@ -4282,7 +4539,7 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
     if (!layered || !GetLayeredWindowAttributes( hwnd, &key, NULL, &flags ) || !(flags & LWA_COLORKEY))
         key = CLR_INVALID;
 
-    alpha = 255;
+
 
 
 
@@ -4314,7 +4571,6 @@ BOOL CDECL WAYLANDDRV_CreateWindow( HWND hwnd )
 
     TRACE("Created window %p \n", hwnd);
 
-    HWND parent;
     WCHAR class_name[64];
 
 
@@ -4324,13 +4580,9 @@ BOOL CDECL WAYLANDDRV_CreateWindow( HWND hwnd )
     static const WCHAR msg_class[] = {'M','e','s','s','a','g','e', 0};
     static const WCHAR ime_class[] = {'I','M','E', 0};
     #endif
-    //parent = GetAncestor(hwnd, GA_PARENT);
-    //HWND owner;
-    //owner = GetWindow( hwnd, GW_OWNER );
 
     if(RealGetWindowClassW(hwnd, class_name, ARRAY_SIZE(class_name))) {
       TRACE("%s \n", debugstr_w(class_name));
-
     }
 
     return TRUE;
@@ -4684,6 +4936,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
     struct wine_vk_surface *x11_surface;
 
     int no_flag = 1;
+    int count = 0;
 
     //do not show hidden vulkan windows
     if(! (GetWindowLongW( create_info->hwnd, GWL_STYLE ) & WS_VISIBLE) ) {
@@ -4764,7 +5017,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
       UpdateWindow(global_vulkan_hwnd);
       TRACE("Global vulkan hwnd is %p \n", create_info->hwnd);
 
-      SetWindowPos( global_vulkan_hwnd, HWND_TOP, 0, 0, screen_width, screen_height, NULL);
+      SetWindowPos( global_vulkan_hwnd, HWND_TOP, 0, 0, screen_width, screen_height, 0);
 
     } else {
       TRACE("Not visible for %p %p %p %p\n", instance, create_info, allocator, surface);
@@ -4804,7 +5057,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
 	vulkan_window = create_wayland_window (create_info->hwnd, 1920, 1080);
 
 
-  int count = 0;
+  
   while (!count) {
     sleep(0.5);
 		wl_display_dispatch_pending (wayland_display);
@@ -5174,9 +5427,6 @@ static void *WAYLANDDRV_get_vk_instance_proc_addr(VkInstance instance, const cha
 
 const struct vulkan_funcs *get_vulkan_driver(UINT version)
 {
-
-    TRACE("Getting vulkan drivers\n");
-
 
     static INIT_ONCE init_once = INIT_ONCE_STATIC_INIT;
 

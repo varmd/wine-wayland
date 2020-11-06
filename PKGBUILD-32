@@ -101,7 +101,8 @@ build_32() {
 package_lib32-wine-wayland() {
 
   
-
+  provides=('lib32-wine')
+  
   build_32
 
   cd "${srcdir}"/wine-wayland-32-build

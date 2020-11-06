@@ -141,6 +141,9 @@ prepare() {
     sed -i '/programs\/dxdiag/d' configure.ac
     sed -i '/programs\/hh/d' configure.ac
     sed -i '/programs\/powershell/d' configure.ac
+    sed -i '/programs\/winemenubuilder/d' configure.ac
+    sed -i '/programs\/wordpad/d' configure.ac
+    sed -i '/dlls\/d3d9\./d' configure.ac
     
     rm configure
     autoconf
@@ -243,6 +246,7 @@ package_wine-wayland() {
   )
 
   conflicts=('wine' 'wine-staging' 'wine-esync')
+  provides=('wine')
 
 
 	cd "${srcdir}/${pkgname}"-64-build
