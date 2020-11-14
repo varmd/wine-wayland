@@ -508,7 +508,7 @@ function load_docs(){
           width: el.width.value,
           height: el.height.value,
           cursor_size: el.cursor_size.value,
-          custom_cursors: el.custom_cursors.value,
+          custom_cursors: el.custom_cursors.checked,
           
         }
       

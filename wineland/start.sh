@@ -93,6 +93,7 @@ export WINE_VK_USE_CUSTOM_CURSORS
 
 
 export WINEPREFIX=$PWD_PATH/wine
+MANGO_PREFIX=$PWD_PATH/mangohud
 
 if [ ! -d $WINEPREFIX ]; then
   NEW_WINEPREFIX=1
@@ -123,9 +124,49 @@ if [ ! -d $WINEPREFIX ]; then
     cp -r dxvk/dxvk-1.7.1/x64/* wine/drive_c/windows/system32/
   fi
   
-  
-  
 fi
+
+if [[ -z "$MANGOHUD" ]]; then
+  echo ""
+else
+if [ ! -d $MANGO_PREFIX ]; then
+  
+  
+  cd "$PWD_PATH"
+  if [ ! -d $PWD/mangohud ]; then
+    mkdir mangohud
+    cd mangohud
+    curl  -L "https://github.com/flightlessmango/MangoHud/releases/download/v0.5.1/MangoHud-v0.5.1.tar.gz" > mangohud.tar.gz
+    tar xf mangohud.tar.gz
+    tar xf MangoHud/MangoHud-package.tar
+    cd "$PWD_PATH"
+  fi
+fi
+
+
+  mkdir -p /run/user/$UID/mangohud-wine-wayland
+  cp -r mangohud/usr/lib/mangohud/* /run/user/$UID/mangohud-wine-wayland
+  cp -r mangohud/usr/share/vulkan/implicit_layer.d/*.json mangohud/mangohud.json
+  
+  
+  
+
+  if [[ -z "$IS_64_EXE" ]]; then
+    echo "is 32bit mangohud"
+    LIB="lib32"
+  else
+    echo "is 64bit mangohud"
+    LIB="lib"
+  fi
+  
+  sed -i "s/\/usr\/lib\/mangohud/\/run\/user\/${UID}\/mangohud-wine-wayland/g" mangohud/mangohud.json
+
+  export VK_INSTANCE_LAYERS=VK_LAYER_MANGOHUD_overlay
+  export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d:"$PWD_PATH/mangohud"
+  export VK_LAYER_PATH="$PWD_PATH/mangohud"
+
+fi #end mangohud
+
 
 #export variables
 export WINEFSYNC
@@ -147,21 +188,13 @@ cd "$GAME_PATH"
 
 #set
 
-# ~/.local/bin/steamctl depot download --app appid -os windows -o foldername
-
-
 
 #export WINEDLLOVERRIDES="d3dcompiler_47,d3d10,d3d9,dxgi,d3d11=n,b;winedbg=d"  
 
 #mangohud
 
 
-#export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d:"$PWD/$1/mangohud"
-#export VK_INSTANCE_LAYERS=VK_LAYER_MANGOHUD_overlay
-#export VK_LAYER_PATH="$PWD/$1/mangohud"
-#export VK_LAYER_PATH=/home/.local/share/mangohud-link2
-#export VK_LAYER_PATH=/home/alpha/mangohud
-#echo $VK_LAYER_PATH
+#
 
 #if [ -z ${NEW_WINEPREFIX+x} ]; then
   #

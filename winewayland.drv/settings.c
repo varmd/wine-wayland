@@ -45,7 +45,7 @@ static struct screen_size {
     //{ 320,  240},
     //{ 400,  300},
     //{ 512,  384},
-    { 640,  480},
+    //{ 640,  480},
     { 768,  576},
     { 800,  600},
     {1024,  768},
@@ -66,7 +66,7 @@ static struct screen_size {
     {3840, 2160},
     /* 16:10 */
     //{ 320,  200},
-    { 640,  400},
+    //{ 640,  400},
     {1280,  800},
     {1440,  900},
     {1680, 1050},
@@ -88,8 +88,8 @@ static void make_modes(void)
     unsigned int screen_height = primary_rect.bottom - primary_rect.top;
 
     /* original specified desktop size */
-    WAYLANDDRV_Settings_AddOneMode(screen_width, screen_height, 24, 60);
     WAYLANDDRV_Settings_AddOneMode(screen_width, screen_height, 32, 60);
+    WAYLANDDRV_Settings_AddOneMode(screen_width, screen_height, 24, 60);    
     for (i=0; i<ARRAY_SIZE(screen_sizes); i++)
     {
         
@@ -97,10 +97,11 @@ static void make_modes(void)
             //{
                 //TRACE("Adding  mode: %d %d \n", screen_sizes[i].width, screen_sizes[i].height);
                 /* only add them if they are smaller than the root window and unique */
-                //24bit
-                WAYLANDDRV_Settings_AddOneMode(screen_sizes[i].width, screen_sizes[i].height, 24, 60);
                 //32bit
                 WAYLANDDRV_Settings_AddOneMode(screen_sizes[i].width, screen_sizes[i].height, 32, 60);
+                //24bit
+                WAYLANDDRV_Settings_AddOneMode(screen_sizes[i].width, screen_sizes[i].height, 24, 60);
+                
             //}
         
     }
@@ -292,12 +293,12 @@ static BOOL write_registry_settings(const DEVMODEW *dm)
 BOOL CDECL WAYLANDDRV_EnumDisplaySettingsEx( LPCWSTR name, DWORD n, LPDEVMODEW devmode, DWORD flags)
 {
     //static const WCHAR dev_name[CCHDEVICENAME] = { 'W','i','n','e',0 };
-    static const WCHAR dev_name[CCHDEVICENAME] = {'\\','\\','.','\\','D','I','S','P','L','A','Y', '\\', 'W','i','n','e',0};
+    //static const WCHAR dev_name[CCHDEVICENAME] = {'\\','\\','.','\\','D','I','S','P','L','A','Y', '\\', 'W','i','n','e',0};
         
     devmode->dmSize = FIELD_OFFSET(DEVMODEW, dmICMMethod);
     devmode->dmSpecVersion = DM_SPECVERSION;
     devmode->dmDriverVersion = DM_SPECVERSION;
-    memcpy(devmode->dmDeviceName, dev_name, sizeof(dev_name));
+    //memcpy(devmode->dmDeviceName, dev_name, sizeof(dev_name));
     devmode->dmDriverExtra = 0;
     devmode->u2.dmDisplayFlags = 0;
     devmode->dmDisplayFrequency = 0;

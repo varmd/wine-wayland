@@ -41,7 +41,8 @@ static MONITORINFOEXW default_monitor =
     {0, 0, 1440, 900},             /* rcMonitor */
     { 0, 0, 1440, 900 },             /* rcWork */
     MONITORINFOF_PRIMARY,       /* dwFlags */
-    {'\\','\\','.','\\', 'D','I','S','P','L','A','Y','1','\\', 'M','o','n','i','t','o','r','0','\\',0}   /* szDevice */
+    //{'\\','\\','.','\\', 'D','I','S','P','L','A','Y','1','\\', 'M','o','n','i','t','o','r','0','\\',0}   /* szDevice */
+    { '\\','\\','.','\\','D','I','S','P','L','A','Y','1',0 }   /* szDevice */
 };
 //static const WCHAR monitor_deviceW[] = { '\\','\\','.','\\','D','I','S','P','L','A','Y','%','d',0 };
 

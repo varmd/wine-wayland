@@ -5,7 +5,7 @@
      HKEY hkey;
      BOOL ret = FALSE;
 -
-+    if(index > 1)
++    if(index > 0)
 +      return FALSE;
 +    #if 0
      TRACE("%s %d %p %#x\n", debugstr_w( device ), index, info, flags);
