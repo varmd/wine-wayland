@@ -5,15 +5,19 @@ depends+=(
 )
 
 makedepends+=(
+    'lib32-alsa-lib' 
+    'lib32-expat' 
+    'lib32-freetype2' 
     'lib32-gcc-libs' 
-    'lib32-vulkan-icd-loader'
-    'lib32-wayland'
-    'lib32-freetype2'
-    'lib32-libjpeg-turbo'
+    'lib32-libdrm' 
+    'lib32-libelf' 
+    'lib32-libjpeg-turbo' 
     'lib32-libpng'
     'lib32-libxml2'
+    'lib32-vulkan-icd-loader'
+    'lib32-wayland'
     'lib32-sdl2'
-    
+    'lib32-zlib'    
     'cmake'               
     'glslang'               
 )
