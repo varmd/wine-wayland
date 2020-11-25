@@ -165,19 +165,6 @@ void add_device_bounds( WAYLANDDRV_PDEVICE *dev, const RECT *rect )
 }
 
 /***********************************************************************
- *           WAYLANDDRV_SetBoundsRect
- */
-static UINT CDECL WAYLANDDRV_SetBoundsRect( PHYSDEV dev, RECT *rect, UINT flags )
-{
-    WAYLANDDRV_PDEVICE *pdev = get_waylanddrv_dev( dev );
-
-    if (flags & DCB_DISABLE) pdev->bounds = NULL;
-    else if (flags & DCB_ENABLE) pdev->bounds = rect;
-    return DCB_RESET;  /* we don't have device-specific bounds */
-}
-
-
-/***********************************************************************
  *           GetDeviceCaps    (WAYLANDDRV.@)
  */
 static INT CDECL WAYLANDDRV_GetDeviceCaps( PHYSDEV dev, INT cap )

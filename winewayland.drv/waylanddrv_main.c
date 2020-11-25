@@ -50,13 +50,10 @@
 #include "wine/unicode.h"
 #include "wine/debug.h"
 
-#include "ntstatus.h"
+//#include "ntstatus.h"
 
 
 WINE_DEFAULT_DEBUG_CHANNEL(waylanddrv);
-WINE_DECLARE_DEBUG_CHANNEL(synchronous);
-WINE_DECLARE_DEBUG_CHANNEL(winediag);
-
 
 unsigned int screen_bpp;
 Window root_window;
@@ -85,8 +82,6 @@ char *process_name = NULL;
 
 //static waylanddrv_error_callback err_callback;   /* current callback for error */
 
-
-static char input_style[20];
 
 #define IS_OPTION_TRUE(ch) \
     ((ch) == 'y' || (ch) == 'Y' || (ch) == 't' || (ch) == 'T' || (ch) == '1')
@@ -118,7 +113,7 @@ static void init_visuals( int screen )
 
 
 }
-
+#if 0
 /* Registry key and value names */
 static const WCHAR ComputerW[] = {'\\','R','e','g','i','s','t','r','y','\\',
                                   'M','a','c','h','i','n','e','\\',
@@ -196,7 +191,7 @@ out:
     }
 }
 
-
+#endif
 
 void manage_desktop(  )
 {
@@ -212,6 +207,8 @@ void manage_desktop(  )
     static const WCHAR desktopW[] = {'D','e','s','k','t','o','p',0};
     void (WINAPI *pShellDDEInit)( BOOL ) = NULL;
     
+    #if 0
+    
     static const WCHAR cdot[] = {'.',0};
     static const WCHAR cname[] = {'W', 'I', 'V', 'K',0};
     
@@ -220,6 +217,7 @@ void manage_desktop(  )
     SetComputerNameExW( ComputerNamePhysicalDnsDomain, (LPCWSTR)cdot );
     SetComputerNameExW( ComputerNamePhysicalDnsHostname, (LPCWSTR)cname );
     fix_computername_init();
+    #endif
 
         if (!(desktop = CreateDesktopW( desktopW, NULL, NULL, 0, DESKTOP_ALL_ACCESS, NULL )))
         {
@@ -323,7 +321,10 @@ struct waylanddrv_thread_data *waylanddrv_init_thread_data(void)
     
     struct waylanddrv_thread_data *data = waylanddrv_thread_data();
 
-    if (data) return data;
+    if (data) 
+      return data;
+    
+    return NULL;
   
   /*
 

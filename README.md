@@ -135,3 +135,5 @@ Then in the terminal run sh start-your-game.sh
 * Mutant Year Zero
 * Tropico 6
 * Wasteland 2
+* Torchlight 1
+* Dungeons 3

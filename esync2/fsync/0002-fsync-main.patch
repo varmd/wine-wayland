@@ -498,23 +498,23 @@ index c322708556..412f02f713 100644
  
  struct screen_buffer;
  struct console_input_events;
-@@ -87,6 +87,7 @@ static const struct object_ops console_input_ops =
-     NULL,                             /* remove_queue */
-     NULL,                             /* signaled */
+@@ -80,6 +80,7 @@ static const struct object_ops console_input_ops =
+     remove_queue,                             /* remove_queue */
+     console_input_signaled,                             /* signaled */
      NULL,                             /* get_esync_fd */
 +    NULL,                             /* get_fsync_idx */
      no_satisfied,                     /* satisfied */
      no_signal,                        /* signal */
      console_input_get_fd,             /* get_fd */
-@@ -147,6 +147,7 @@ static const struct object_ops console_server_ops =
+@@ -156,6 +160,7 @@ static const struct object_ops console_server_ops =
      remove_queue,                     /* remove_queue */
      console_server_signaled,          /* signaled */
      NULL,                             /* get_esync_fd */
 +    NULL,                             /* get_fsync_idx */
      no_satisfied,                     /* satisfied */
      no_signal,                        /* signal */
-     no_get_fd,                        /* get_fd */
-@@ -286,6 +286,7 @@ static const struct object_ops screen_buffer_ops =
+     console_server_get_fd,            /* get_fd */
+@@ -224,6 +229,7 @@ static const struct object_ops screen_buffer_ops =
      NULL,                             /* remove_queue */
      NULL,                             /* signaled */
      NULL,                             /* get_esync_fd */
@@ -522,22 +522,38 @@ index c322708556..412f02f713 100644
      NULL,                             /* satisfied */
      no_signal,                        /* signal */
      screen_buffer_get_fd,             /* get_fd */
-@@ -333,6 +333,7 @@ static const struct object_ops console_device_ops =
-     no_add_queue,                     /* add_queue */
+@@ -272,6 +278,7 @@ static const struct object_ops console_device_ops =
      NULL,                             /* remove_queue */
      NULL,                             /* signaled */
      NULL,                             /* get_esync_fd */
 +    NULL,                             /* get_fsync_idx */
      no_satisfied,                     /* satisfied */
      no_signal,                        /* signal */
-@@ -391,6 +391,7 @@ static const struct object_ops console_connection_ops =
-     no_add_queue,                     /* add_queue */
+     no_get_fd,                        /* get_fd */
+@@ -297,6 +301,7 @@ static const struct object_ops input_device_ops =
      NULL,                             /* remove_queue */
      NULL,                             /* signaled */
      NULL,                             /* get_esync_fd */
 +    NULL,                             /* get_fsync_idx */
      no_satisfied,                     /* satisfied */
      no_signal,                        /* signal */
+     input_device_get_fd,              /* get_fd */
+@@ -327,6 +332,7 @@ static const struct object_ops output_device_ops =
+     NULL,                             /* remove_queue */
+     NULL,                             /* signaled */
+     NULL,                             /* get_esync_fd */
++    NULL,                             /* get_fsync_idx */
+     no_satisfied,                     /* satisfied */
+     no_signal,                        /* signal */
+     output_device_get_fd,             /* get_fd */
+@@ -365,6 +371,7 @@ static const struct object_ops console_connection_ops =
+     NULL,                             /* remove_queue */
+     NULL,                             /* signaled */
+     NULL,                             /* get_esync_fd */
++    NULL,                             /* get_fsync_idx */
+     no_satisfied,                     /* satisfied */
+     no_signal,                        /* signal */
+     console_connection_get_fd,        /* get_fd */
 diff --git a/server/debugger.c b/server/debugger.c
 index 9a29ef41f4..85b1aece3b 100644
 --- a/server/debugger.c

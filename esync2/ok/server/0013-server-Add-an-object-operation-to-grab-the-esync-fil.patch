@@ -102,7 +102,7 @@ diff --git a/server/completion.c b/server/completion.c
 index 8b8983a157..85850835bf 100644
 --- a/server/completion.c
 +++ b/server/completion.c
-@@ -65,6 +65,7 @@ static const struct object_ops completion_ops =
+@@ -65,6 +65,7 @S@ static const struct object_ops completion_ops =
      add_queue,                 /* add_queue */
      remove_queue,              /* remove_queue */
      completion_signaled,       /* signaled */
@@ -115,32 +115,30 @@ index e1ae086cb7..b0038d079a 100644
 --- a/server/console.c
 +++ b/server/console.c
 @@ -75,6 +75,7 @@ static const struct object_ops console_input_ops =
-     no_add_queue,                     /* add_queue */
-     NULL,                             /* remove_queue */
-     NULL,                             /* signaled */
+     add_queue,                     /* add_queue */
+     remove_queue,                             /* remove_queue */
+     console_input_signaled,           /* signaled */
 +    NULL,                             /* get_esync_fd */
      no_satisfied,                     /* satisfied */
      no_signal,                        /* signal */
      console_input_get_fd,             /* get_fd */
-@@ -147,6 +147,7 @@ static const struct object_ops console_server_ops =
+@@ -151,6 +155,7 @@ static const struct object_ops console_server_ops =
      add_queue,                        /* add_queue */
      remove_queue,                     /* remove_queue */
      console_server_signaled,          /* signaled */
 +    NULL,                             /* get_esync_fd */
      no_satisfied,                     /* satisfied */
      no_signal,                        /* signal */
-     no_get_fd,                        /* get_fd */
-@@ -214,6 +214,7 @@ static const struct object_ops screen_buffer_ops =
-     no_add_queue,                     /* add_queue */
+     console_server_get_fd,            /* get_fd */
+@@ -218,6 +223,7 @@ static const struct object_ops screen_buffer_ops =
+     screen_buffer_add_queue,          /* add_queue */
      NULL,                             /* remove_queue */
      NULL,                             /* signaled */
 +    NULL,                             /* get_esync_fd */
      NULL,                             /* satisfied */
      no_signal,                        /* signal */
      screen_buffer_get_fd,             /* get_fd */
-@@ -261,8 +261,9 @@ static const struct object_ops console_device_ops =
-     console_device_dump,              /* dump */
-     console_device_get_type,          /* get_type */
+@@ -265,6 +271,7 @@ static const struct object_ops console_device_ops =
      no_add_queue,                     /* add_queue */
      NULL,                             /* remove_queue */
      NULL,                             /* signaled */
@@ -148,7 +146,23 @@ index e1ae086cb7..b0038d079a 100644
      no_satisfied,                     /* satisfied */
      no_signal,                        /* signal */
      no_get_fd,                        /* get_fd */
-@@ -300,6 +300,7 @@ static const struct object_ops console_connection_ops =
+@@ -297,6 +301,7 @@ static const struct object_ops input_device_ops =
+     input_device_add_queue,           /* add_queue */
+     NULL,                             /* remove_queue */
+     NULL,                             /* signaled */
++    NULL,                             /* get_esync_fd */
+     no_satisfied,                     /* satisfied */
+     no_signal,                        /* signal */
+     input_device_get_fd,              /* get_fd */
+@@ -327,6 +332,7 @@ static const struct object_ops output_device_ops =
+     output_device_add_queue,          /* add_queue */
+     NULL,                             /* remove_queue */
+     NULL,                             /* signaled */
++    NULL,                             /* get_esync_fd */
+     no_satisfied,                     /* satisfied */
+     no_signal,                        /* signal */
+     output_device_get_fd,             /* get_fd */
+@@ -365,6 +371,7 @@ static const struct object_ops console_connection_ops =
      no_add_queue,                     /* add_queue */
      NULL,                             /* remove_queue */
      NULL,                             /* signaled */
