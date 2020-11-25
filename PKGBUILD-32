@@ -20,6 +20,8 @@ makedepends+=(
     'lib32-zlib'    
     'unzip'               
     'cmake'               
+    'meson'               
+    'ninja'               
     'glslang'               
 )
 
@@ -69,7 +71,7 @@ build_openal_32() {
 
   fi
   
-  unzip openal.zip  
+  unzip -q openal.zip  
   
   export CC="gcc -m32"
   export CXX="g++ -m32"
@@ -105,7 +107,7 @@ build_mesa_32() {
   
   
 
-  unzip mesa.zip
+  unzip -q mesa.zip
 
   cd $(find . -maxdepth 1 -type d -name "*mesa*" | sed 1q)
   ls -la
@@ -270,6 +272,8 @@ package_lib32-wine-wayland() {
   rm -rf  $pkgdir/usr/lib32/libubsan*
   rm -rf  $pkgdir/usr/lib32/libgo*
   rm -rf  $pkgdir/usr/lib32/libfortran*
+  rm -rf  $pkgdir/usr/lib32/libxcb*
+  rm -rf  $pkgdir/usr/lib32/libX*
   
   mkdir -p $pkgdir/usr/wineland
   mv $pkgdir/usr/lib32 $pkgdir/usr/wineland/lib32
