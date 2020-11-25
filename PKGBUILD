@@ -36,6 +36,8 @@ depends=(
   'vulkan-icd-loader'
   'faudio'
   'sdl2'
+  'wayland'
+  'wayland-protocols'  
 )
 
 makedepends=(

@@ -16,13 +16,12 @@ makedepends+=(
     'lib32-libxml2'
     'lib32-vulkan-icd-loader'
     'lib32-wayland'
-    'lib32-sdl2'
     'lib32-zlib'    
     'unzip'               
     'cmake'               
     'meson'               
     'ninja'               
-    'python-mako'               
+    'python-mako'
     'glslang'               
 )
 
@@ -31,6 +30,7 @@ pkgname+=('lib32-wine-wayland')
 url_mpg123="https://mpg123.de/download/mpg123-1.26.3.tar.bz2"
 url_openal="https://github.com/kcat/openal-soft/archive/openal-soft-1.21.0.zip"
 url_mesa="https://github.com/mesa3d/mesa/archive/b7793e39ee40727f21c58b72a4b4516b8b5cc948.zip"
+url_sdl2="https://github.com/spurious/SDL-mirror/archive/release-2.0.12.zip"
 
 
 build_mpg123_32() {
@@ -119,26 +119,16 @@ build_mesa_32() {
   export CXX="g++ -m32"
   export PKG_CONFIG_PATH="/usr/lib32/pkgconfig:$pkgdir/usr/lib32/pkgconfig"
   
-  
-  
-  
   arch-meson . build \
     --libdir=/usr/lib32 \
     -D b_ndebug=true \
+    -D b_lto=false \
     -D platforms=wayland,surfaceless \
     -D gallium-drivers= \
     -D dri-drivers= \
     -D vulkan-drivers=amd,intel \
     -D egl=false \
     -D opengl=false \
-    -D gallium-extra-hud=false \
-    -D gallium-nine=false \
-    -D gallium-omx=disabled \
-    -D gallium-va=false \
-    -D gallium-vdpau=false \
-    -D gallium-xa=false \
-    -D gallium-xvmc=false \
-    -D gallium-opencl=disabled \
     -D vulkan-overlay-layer=true \
     -D gbm=false \
     -D gles1=false \
@@ -162,6 +152,62 @@ build_mesa_32() {
   
   cd $pkgdir/usr/lib32/pkgconfig
   sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" *.pc  
+}
+
+
+build_sdl2_32() {
+  cd "${srcdir}"
+
+  rm -rf $(find . -maxdepth 1 -type d -name "*SDL*" | sed 1q)
+
+  if [ ! -f sdl2.zip ]; then
+    curl -L $url_sdl2 > sdl2.zip
+  fi
+  
+  
+
+  unzip -q sdl2.zip
+  
+
+  cd $(find . -maxdepth 1 -type d -name "*SDL*" | sed 1q)
+  
+  patch -Np1 < ../../lib32/sdl2/remove-dbus.patch
+  mkdir -p build
+  cd build
+  
+  export CC='gcc -m32'
+  export CXX='g++ -m32'
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig:$pkgdir/usr/lib32/pkgconfig"
+  
+  cmake .. \
+      -DCMAKE_INSTALL_PREFIX=/usr \
+      -DLIB_SUFFIX=32 \
+      -DSDL_STATIC=OFF \
+      -DSDL_DLOPEN=ON \
+      -DSDL_USE_LIBDBUS=OFF \
+      -DARTS=OFF \
+      -DESD=OFF \
+      -DNAS=OFF \
+      -DALSA=ON \
+      -DJACK=OFF \
+      -DDBUS=OFF \
+      -DPULSEAUDIO=OFF \
+      -DPULSEAUDIO_SHARED=OFF \
+      -DVIDEO=ON \
+      -DVIDEO_WAYLAND=ON \
+      -DVIDEO_X11=OFF \
+      -DVIDEO_OPENGLES=ON \
+      -DVIDEO_EGL=ON \
+      -DRPATH=OFF \
+      -DCLOCK_GETTIME=ON
+      
+  CPUS=$(getconf _NPROCESSORS_ONLN)
+  
+  make -j $CPUS
+  make DESTDIR="${pkgdir}" install
+  
+  cd $pkgdir/usr/lib32/pkgconfig
+  sed -i "s~\${exec_prefix}/lib32~$pkgdir/usr/lib32~g" sdl2.pc  
 }
 
 build_32() {
@@ -256,12 +302,13 @@ package_lib32-wine-wayland() {
   build_mpg123_32
   build_openal_32
   build_mesa_32
+  build_sdl2_32
   build_32
   
   mkdir -p $pkgdir/usr/wineland/
   mkdir -p $pkgdir/usr/wineland/vulkan/icd.d
   
-  cp /usr/share/vulkan/icd.d/*i686* $pkgdir/usr/wineland/vulkan/icd.d/
+  cp $pkgdir/usr/share/vulkan/icd.d/*i686* $pkgdir/usr/wineland/vulkan/icd.d/
   
   rm -rf $pkgdir/usr/share
   rm -rf $pkgdir/usr/include
