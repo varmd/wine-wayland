@@ -22,6 +22,7 @@ makedepends+=(
     'cmake'               
     'meson'               
     'ninja'               
+    'python-mako'               
     'glslang'               
 )
 
