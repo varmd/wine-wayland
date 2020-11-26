@@ -7,7 +7,6 @@ depends+=(
 makedepends+=(
     'lib32-alsa-lib' 
     'lib32-expat' 
-    'lib32-freetype2' 
     'lib32-gcc-libs' 
     'lib32-libdrm' 
     'lib32-libelf' 
@@ -32,6 +31,7 @@ url_mpg123="https://mpg123.de/download/mpg123-1.26.3.tar.bz2"
 url_openal="https://github.com/kcat/openal-soft/archive/openal-soft-1.21.0.zip"
 url_mesa="https://github.com/mesa3d/mesa/archive/b7793e39ee40727f21c58b72a4b4516b8b5cc948.zip"
 url_sdl2="https://github.com/spurious/SDL-mirror/archive/release-2.0.12.zip"
+url_freetype2="https://download.savannah.gnu.org/releases/freetype/freetype-2.10.1.tar.xz"
 
 
 build_mpg123_32() {
@@ -212,6 +212,39 @@ build_sdl2_32() {
   sed -i "s~\${exec_prefix}/lib32~$pkgdir/usr/lib32~g" sdl2.pc  
 }
 
+
+build_freetype2_32() {
+  cd "${srcdir}"
+
+  rm -rf $(find . -maxdepth 1 -type d -name "*freetype-*" | sed 1q)
+
+  if [ ! -f freetype2.tar.xz ]; then
+    curl -L $url_freetype2 > freetype2.tar.xz
+  fi
+  
+  
+
+  tar xf freetype2.tar.xz
+  
+
+  cd $(find . -maxdepth 1 -type d -name "*freetype-*" | sed 1q)
+  
+  
+  export CC="gcc -m32"
+  export CXX="g++ -m32"
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig/"
+
+  ./configure --prefix=/usr --without-png --without-bzip2 --without-harfbuzz --disable-static --libdir=/usr/lib32
+      
+  CPUS=$(getconf _NPROCESSORS_ONLN)
+  
+  make -j $CPUS
+  make DESTDIR="${pkgdir}" install
+  
+  cd $pkgdir/usr/lib32/pkgconfig
+  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" freetype2.pc
+}
+
 build_32() {
   cd "${srcdir}"
   
@@ -245,7 +278,7 @@ build_32() {
   else
   ../${_winesrcdir}/configure \
 		--prefix='/usr' \
-		--libdir=$pkgdir/usr/lib32 \
+		--libdir=/usr/lib32 \
     --with-wine64="$srcdir/wine-wayland-64-build" \
 		--without-x \
     --without-gsm \
@@ -305,6 +338,7 @@ package_lib32-wine-wayland() {
   build_openal_32
   build_mesa_32
   build_sdl2_32
+  build_freetype2_32
   build_32
   
   mkdir -p $pkgdir/usr/wineland/
@@ -319,8 +353,12 @@ package_lib32-wine-wayland() {
   rm -rf  $pkgdir/usr/lib32/pkgconfig
   rm -rf  $pkgdir/usr/lib32/cmake
   rm -rf  $pkgdir/usr/lib32/*.a
+  rm -rf  $pkgdir/usr/lib32/libasan*
   rm -rf  $pkgdir/usr/lib32/libubsan*
   rm -rf  $pkgdir/usr/lib32/libgo*
+  rm -rf  $pkgdir/usr/lib32/libghobos*
+  rm -rf  $pkgdir/usr/lib32/libgdruntime*
+  rm -rf  $pkgdir/usr/lib32/libgfortran*
   rm -rf  $pkgdir/usr/lib32/libfortran*
   rm -rf  $pkgdir/usr/lib32/libxcb*
   rm -rf  $pkgdir/usr/lib32/libX*
