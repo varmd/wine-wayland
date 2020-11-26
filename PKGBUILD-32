@@ -22,7 +22,8 @@ makedepends+=(
     'meson'               
     'ninja'               
     'python-mako'
-    'glslang'               
+    'glslang'
+    'dbus'
 )
 
 pkgname+=('lib32-wine-wayland')
