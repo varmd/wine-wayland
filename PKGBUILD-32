@@ -173,6 +173,7 @@ build_sdl2_32() {
   cd $(find . -maxdepth 1 -type d -name "*SDL*" | sed 1q)
   
   patch -Np1 < ../../lib32/sdl2/remove-dbus.patch
+  patch -Np1 < ../../lib32/sdl2/remove-ibus.patch
   mkdir -p build
   cd build
   
