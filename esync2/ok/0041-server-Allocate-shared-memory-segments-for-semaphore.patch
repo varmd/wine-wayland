@@ -53,10 +53,11 @@ diff --git a/server/main.c b/server/main.c
 index 7aed338e96..20d3c48c4d 100644
 --- a/server/main.c
 +++ b/server/main.c
-@@ -36,6 +36,7 @@
+@@ -36,7 +36,8 @@
  #include "file.h"
  #include "thread.h"
  #include "request.h"
+ #include "unicode.h"
 +#include "esync.h"
  
  /* command-line options */

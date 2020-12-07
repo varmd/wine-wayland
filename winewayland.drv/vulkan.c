@@ -1332,6 +1332,11 @@ int global_last_cursor_change = 0;
 int global_is_cursor_visible = 1;
 int global_is_always_fullscreen = 0;
 
+int global_gdi_fd = 0;
+void *global_shm_data = NULL;
+struct wl_buffer *global_wl_buffer = NULL;
+struct wl_shm_pool *global_wl_pool = NULL;
+
 HWND global_vulkan_hwnd;
 HWND global_update_hwnd = NULL;
 HWND global_update_hwnd_last = NULL;
@@ -1359,13 +1364,8 @@ struct wl_shm *global_shm;
 struct wl_subcompositor *wayland_subcompositor;
 
 
-//temp file support for wl_shm
-
-int global_gdi_fd = 0;
 typedef uint32_t pixel;
-void *global_shm_data = NULL;
-struct wl_buffer *global_wl_buffer = NULL;
-struct wl_shm_pool *global_wl_pool = NULL;
+
 int is_buffer_busy = 0;
 DWORD desktop_tid = 0;
 
@@ -1374,7 +1374,6 @@ DWORD desktop_tid = 0;
 struct wayland_window {
 
 	struct wl_surface *surface;
-	//struct wl_shell_surface *shell_surface;
 	struct xdg_surface *xdg_surface;
 	struct xdg_toplevel *xdg_toplevel;
 
@@ -2614,43 +2613,6 @@ static const struct xdg_surface_listener xdg_surface_listener = {
 	handle_xdg_surface_configure
 };
 
-#if 0
-static void shell_surface_ping (void *data, struct wl_shell_surface *shell_surface, uint32_t serial) {
-	wl_shell_surface_pong (shell_surface, serial);
-}
-static void shell_surface_configure (void *data, struct wl_shell_surface *shell_surface, uint32_t edges, int32_t width, int32_t height) {
-	//struct wayland_window *window = data;
-  //if(global_vulkan_hwnd) {
-    //TRACE("Changing sizes width height %d %d \n", width, height);
-    //SetWindowPos( global_vulkan_hwnd, HWND_TOP, 0, 0, width, height,
-    //              SWP_NOACTIVATE | SWP_NOZORDER);
-  //}
-}
-
-
-
-
-static void shell_surface_popup_done (void *data, struct wl_shell_surface *shell_surface) {
-
-}
-
-static struct wl_shell_surface_listener shell_surface_listener = {&shell_surface_ping, &shell_surface_configure, &shell_surface_popup_done};
-
-
-static void create_wayland_window_mini (struct wayland_window *window) {
-
-
-	window->surface = wl_compositor_create_surface (wayland_compositor);
-	window->shell_surface = wl_shell_get_shell_surface (wayland_shell, window->surface);
-	wl_shell_surface_add_listener (window->shell_surface, &shell_surface_listener, window);
-
-
-	wl_shell_surface_set_toplevel (window->shell_surface);
-
-}
-#endif
-
-
 
 //Does not seem to affect performance on wayland
 /* store the display fd into the message queue */
@@ -2904,9 +2866,7 @@ static void draw_wayland_window (struct wayland_window *window) {
     //dest_pixels = (unsigned int *)global_shm_data + rect.top * WIDTH + rect.left;
 
 
-    //if ( (!parent || parent == GetDesktopWindow() ) ) {
-      dest_pixels = (unsigned int *)global_shm_data + 1 ;
-    //}
+    dest_pixels = (unsigned int *)global_shm_data + 1 ;
 
 
 
@@ -3731,9 +3691,10 @@ static void CDECL android_surface_flush( struct window_surface *window_surface )
 
 
     HWND parent;
+    HWND owner;
     parent = GetParent( surface->hwnd );
 
-    HWND owner;
+    
     owner = GetWindow( surface->hwnd, GW_OWNER );
 
     if ( parent && parent != GetDesktopWindow() ) {
@@ -3745,40 +3706,15 @@ static void CDECL android_surface_flush( struct window_surface *window_surface )
     RECT client_rect;
 
 
-    #if 0
-    if(surface->hwnd && !owner) {
-
-
-    }
-
-
-    if(surface->hwnd && owner) {
-
-
-    }
-    #endif
-
     GetWindowRect(surface->hwnd, &client_rect);
 
 
-    int HEIGHT = 900;
-    int WIDTH = 1440;
+    int HEIGHT = 0;
+    int WIDTH = 0;
     WIDTH = client_rect.right - client_rect.left + 1;
     HEIGHT = client_rect.bottom - client_rect.top  + 1;
     int stride = WIDTH * 4; // 4 bytes per pixel
     int size = stride * HEIGHT;
-
-
-
-
-
-
-
-
-
-
-
-
 
     RECT rect;
     BOOL needs_flush;
@@ -3994,7 +3930,6 @@ static void CDECL android_surface_flush( struct window_surface *window_surface )
     }
     hwnd_data->surface_changed = 0;
 
-    //wl_surface_damage(surface->wayland_surface, 0, 0, WIDTH, min( HEIGHT, rect.bottom - 1));
     wl_surface_damage(hwnd_data->wayland_surface, 0, 0, WIDTH, HEIGHT);
     wl_surface_commit(hwnd_data->wayland_surface);
 
@@ -4138,10 +4073,6 @@ static struct window_surface *create_surface( HWND hwnd, const RECT *rect,
     surface->info.bmiHeader.biSizeImage   = get_dib_image_size( &surface->info );
 
 
-    //???
-    //InitializeCriticalSection( &surface->crit );
-    //surface->crit.DebugInfo->Spare[0] = (DWORD_PTR)(__FILE__ ": surface");
-
     surface->header.funcs = &android_surface_funcs;
     surface->header.rect  = *rect;
     surface->header.ref   = 1;
@@ -4169,32 +4100,6 @@ failed:
     android_surface_destroy( &surface->header );
     return NULL;
 }
-
-/***********************************************************************
- *           set_surface_layered
- ???
-static void set_surface_layered( struct window_surface *window_surface, BYTE alpha, COLORREF color_key )
-{
-    struct android_window_surface *surface = get_android_surface( window_surface );
-    COLORREF prev_key;
-    BYTE prev_alpha;
-
-    if (window_surface->funcs != &android_surface_funcs) return;
-
-    window_surface->funcs->lock( window_surface );
-    prev_key = surface->color_key;
-    prev_alpha = surface->alpha;
-    surface->alpha = alpha;
-    set_color_key( surface, color_key );
-    if (alpha != prev_alpha || surface->color_key != prev_key)  // refresh
-        *window_surface->funcs->get_bounds( window_surface ) = surface->header.rect;
-    window_surface->funcs->unlock( window_surface );
-}
-*/
-
-
-//Window surface stuff??
-
 
 //Windows functions
 

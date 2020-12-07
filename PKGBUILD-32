@@ -10,12 +10,11 @@ makedepends+=(
     'lib32-gcc-libs' 
     'lib32-libdrm' 
     'lib32-libelf' 
-    'lib32-libjpeg-turbo' 
+    'lib32-libjpeg-turbo'
     'lib32-libpng'
-    'lib32-libxml2'
     'lib32-vulkan-icd-loader'
-    'lib32-wayland'
     'lib32-zlib'    
+    'automake'               
     'unzip'               
     'cmake'               
     'meson'               
@@ -27,14 +26,109 @@ makedepends+=(
 
 pkgname+=('lib32-wine-wayland')
 
+
+url_wayland="https://gitlab.freedesktop.org/wayland/wayland/-/archive/1.18.0/wayland-1.18.0.zip"
 url_mpg123="https://mpg123.de/download/mpg123-1.26.3.tar.bz2"
 url_openal="https://github.com/kcat/openal-soft/archive/openal-soft-1.21.0.zip"
 url_mesa="https://github.com/mesa3d/mesa/archive/b7793e39ee40727f21c58b72a4b4516b8b5cc948.zip"
 url_sdl2="https://github.com/spurious/SDL-mirror/archive/release-2.0.12.zip"
 url_freetype2="https://download.savannah.gnu.org/releases/freetype/freetype-2.10.1.tar.xz"
+url_libxml2="https://github.com/GNOME/libxml2/archive/v2.9.10.zip"
+
+
+
+build_wayland_32() {
+  cd "${srcdir}"
+  
+
+  rm -rf $(find . -maxdepth 1 -type d -name "*wayland-1*" | sed 1q)
+  
+  if [ ! -f wayland.zip ]; then
+    curl -L $url_wayland > wayland.zip
+  fi
+  
+  unzip -q wayland.zip
+  
+  export CC='gcc -m32'
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig:$pkgdir/usr/lib32/pkgconfig"
+  
+  cd $(find . -maxdepth 1 -type d -name "*wayland-1*"  | sed 1q)
+  
+  mkdir build
+  
+  arch-meson . build \
+    --libdir=/usr/lib32 \
+    -D scanner=false \
+    -D documentation=false \
+    -D dtd_validation=false
+
+  meson configure build
+  
+  ninja -C build
+  DESTDIR="$pkgdir" ninja -C build install
+  
+  cd $pkgdir/usr/lib32/pkgconfig
+  sed -i "s~\${prefix}/lib32~$pkgdir/usr/lib32~g" wayland-*.pc
+}
+
+
+build_libxml2_32() {
+  cd "${srcdir}"
+  
+  rm -rf $(find . -maxdepth 1 -type d -name "*libxml2*" | sed 1q)
+  
+  if [ ! -f libxml2.zip ]; then
+    curl -L $url_libxml2 > libxml2.zip
+  fi
+  
+  unzip -q libxml2.zip
+  
+  cd $(find . -maxdepth 1 -type d -name "*libxml2*"  | sed 1q)
+  
+  
+
+  export CC="gcc -m32"
+  export CXX="g++ -m32"
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig:$pkgdir/usr/lib32/pkgconfig"
+  
+  
+
+  mkdir -p build
+
+  NOCONFIGURE=1 ./autogen.sh
+
+
+  cd build
+  ../configure \
+    --prefix=/usr \
+    --libdir=/usr/lib32 \
+    --without-python \
+    --without-ftp \
+    --without-lzma \
+    --without-docbook \
+    --without-readline \
+    --without-debug \
+    --without-icu
+
+  sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0 /g' libtool
+  CPUS=$(getconf _NPROCESSORS_ONLN)
+  make -j $CPUS
+  make DESTDIR="$pkgdir" install
+  
+  cd $pkgdir/usr/lib32/pkgconfig
+  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libxml-2.0.pc
+  
+
+}
 
 
 build_mpg123_32() {
+  if [ -f $pkgdir/libmpg123.so ]; then
+    return 1
+  fi
+
+
+
   cd "${srcdir}"
   
   if [ ! -f mpg123.tar.bz2 ]; then
@@ -64,13 +158,17 @@ build_mpg123_32() {
 }
 
 build_openal_32() {
+  if [ -f $pkgdir/libopenal.so ]; then
+    return 1
+  fi
+
+
   cd "${srcdir}"
   
   rm -rf $(find . -maxdepth 1 -type d -name "*openal*" | sed 1q)
   
   if [ ! -f openal.zip ]; then
     curl -L $url_openal > openal.zip
-
   fi
   
   unzip -q openal.zip  
@@ -99,6 +197,14 @@ build_openal_32() {
 
 
 build_mesa_32() {
+  
+  if [ -d $srcdir/mesa/build ]; then
+    cd $srcdir/mesa
+    DESTDIR="$pkgdir" ninja -C build install
+    return 1
+  fi
+
+
   cd "${srcdir}"
 
   rm -rf $(find . -maxdepth 1 -type d -name "*mesa*" | sed 1q)
@@ -111,6 +217,7 @@ build_mesa_32() {
 
   unzip -q mesa.zip
 
+  mv $(find . -maxdepth 1 -type d -name "*mesa*" | sed 1q) mesa
   cd $(find . -maxdepth 1 -type d -name "*mesa*" | sed 1q)
   ls -la
   patch -Np1 < ../../lib32/mesa/disable-llvm-2.patch
@@ -297,7 +404,6 @@ build_32() {
     --without-cups \
     --disable-win16 \
     --without-gphoto \
-    --without-glu \
     --without-xcomposite \
     --without-xcursor \
     --without-hal \
@@ -314,7 +420,6 @@ build_32() {
     --with-vulkan \
     --with-mpg123 \
     --with-openal \
-    --without-curses \
     --without-faudio \
     --without-netapi \
     --without-ldap \
@@ -334,6 +439,8 @@ package_lib32-wine-wayland() {
   
   provides=('lib32-wine')
   
+  build_wayland_32
+  build_libxml2_32
   build_mpg123_32
   build_openal_32
   build_mesa_32
@@ -354,9 +461,10 @@ package_lib32-wine-wayland() {
   rm -rf  $pkgdir/usr/lib32/cmake
   rm -rf  $pkgdir/usr/lib32/*.a
   rm -rf  $pkgdir/usr/lib32/libasan*
+  rm -rf  $pkgdir/usr/lib32/libicu*
   rm -rf  $pkgdir/usr/lib32/libubsan*
   rm -rf  $pkgdir/usr/lib32/libgo*
-  rm -rf  $pkgdir/usr/lib32/libghobos*
+  rm -rf  $pkgdir/usr/lib32/libgphobos*
   rm -rf  $pkgdir/usr/lib32/libgdruntime*
   rm -rf  $pkgdir/usr/lib32/libgfortran*
   rm -rf  $pkgdir/usr/lib32/libfortran*

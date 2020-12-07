@@ -1,13 +1,13 @@
 # Created by: varmd
 
-RELEASE=5.22
+RELEASE=6.0-rc1
 pkgname=('wine-wayland')
 
 
 
-pkgver=$RELEASE
+pkgver=`echo $RELEASE | sed s~-~~`
 pkgrel=1
-_winesrcdir="wine-wine-$pkgver"
+_winesrcdir="wine-wine-$RELEASE"
 
 pkgdesc='Wine wayland'
 
@@ -41,20 +41,21 @@ depends=(
 )
 
 makedepends=(
-    'autoconf'
-    'ncurses'
-    'bison'
-    'perl'
-    'flex'
-    'gcc'
-    'vulkan-headers'
-    'gettext'
-    'zstd'
+  'autoconf'
+  'ncurses'
+  'bison'
+  'perl'
+  'flex'
+  'gcc'
+  'vulkan-headers'
+  'gettext'
+  'zstd'
 )
 
 
 source=(
-  "https://github.com/wine-mirror/wine/archive/wine-$pkgver.zip"
+  #"https://github.com/wine-mirror/wine/archive/wine-$pkgver.zip"
+  "https://github.com/wine-mirror/wine/archive/wine-6.0-rc1.zip"
   "https://github.com/civetweb/civetweb/archive/v1.12.zip"
 )
 
@@ -133,13 +134,14 @@ prepare() {
       patch -Np1 < ${_f}
     done
 
-    rm -rf programs/explorer
-    rm -rf programs/iexplore
+    #rm -rf programs/explorer
+    #rm -rf programs/iexplore
 
     # speed up
-    sed -i '/programs\/explorer/d' configure.ac
-    sed -i '/programs\/iexplore/d' configure.ac
-    #sed -i '/programs\/dxdiag/d' configure.ac
+    #sed -i '/programs\/explorer/d' configure.ac
+    #sed -i '/programs\/iexplore/d' configure.ac
+    sed -i '/programs\/dxdiag/d' configure.ac
+    
     sed -i '/programs\/hh/d' configure.ac
     sed -i '/programs\/powershell/d' configure.ac
     sed -i '/programs\/winemenubuilder/d' configure.ac
@@ -150,7 +152,8 @@ prepare() {
     sed -i '/\/tests/d' configure.ac
     #sed -i '/dlls\/d3d8/d' configure.ac
     sed -i '/dlls\/d3d12/d' configure.ac
-    sed -i '/dlls\/jscript/d' configure.ac
+    #sed -i '/dlls\/jscript/d' configure.ac
+    sed -i '/dlls\/hhctrl/d' configure.ac
 
 
     rm configure
@@ -230,7 +233,6 @@ build() {
   fi
 
   CPUS=$(getconf _NPROCESSORS_ONLN)
-
 	make -s -j $CPUS
 
 }

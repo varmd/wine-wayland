@@ -97,18 +97,22 @@ export WINE_VK_USE_CUSTOM_CURSORS
 export WINEPREFIX=$PWD_PATH/wine
 MANGO_PREFIX=$PWD_PATH/mangohud
 
+
+
+if [ ! -d $PWD_PATH/dxvk ]; then
+    mkdir dxvk
+    cd dxvk
+    curl  -L "https://github.com/doitsujin/dxvk/releases/download/v1.7.3/dxvk-1.7.3.tar.gz" > dxvk-1.7.3.tar.gz
+    tar xf dxvk-1.7.3.tar.gz
+    cd "$PWD_PATH"
+fi
+
 if [ ! -d $WINEPREFIX ]; then
   NEW_WINEPREFIX=1
   
   
   cd "$PWD_PATH"
-  if [ ! -d $PWD/dxvk ]; then
-    mkdir dxvk
-    cd dxvk
-    curl  -L "https://github.com/doitsujin/dxvk/releases/download/v1.7.1/dxvk-1.7.1.tar.gz" > dxvk-1.7.1.tar.gz
-    tar xf dxvk-1.7.1.tar.gz
-    cd "$PWD_PATH"
-  fi
+  
   
   if [[ -z "$IS_64_EXE" ]]; then
     echo "is 32bit"
@@ -118,15 +122,18 @@ if [ ! -d $WINEPREFIX ]; then
     WINE_VK_VULKAN_ONLY=1 wineboot -u
     sleep 4
     
-    cp -r dxvk/dxvk-1.7.1/x32/* wine/drive_c/windows/system32/
+    cp -r dxvk/dxvk-1.7.3/x32/* wine/drive_c/windows/system32/
   else
     echo "is 64bit"
     WINE_VK_VULKAN_ONLY=1 wineboot -u
     sleep 4  
-    cp -r dxvk/dxvk-1.7.1/x64/* wine/drive_c/windows/system32/
+    cp -r dxvk/dxvk-1.7.3/x64/* wine/drive_c/windows/system32/
   fi
   
 fi
+
+
+
 
 if [[ -z "$MANGOHUD" ]]; then
   echo ""
@@ -138,7 +145,7 @@ if [ ! -d $MANGO_PREFIX ]; then
   if [ ! -d $PWD/mangohud ]; then
     mkdir mangohud
     cd mangohud
-    curl  -L "https://github.com/flightlessmango/MangoHud/releases/download/v0.5.1/MangoHud-v0.5.1.tar.gz" > mangohud.tar.gz
+    curl  -L "https://github.com/flightlessmango/MangoHud/releases/download/v0.6.1/MangoHud-0.6.1.tar.gz" > mangohud.tar.gz
     tar xf mangohud.tar.gz
     tar xf MangoHud/MangoHud-package.tar
     cd "$PWD_PATH"
@@ -185,12 +192,6 @@ cd "$GAME_PATH"
 
 #sh setup_dxvk.sh install
 
-
-
-
-#set
-
-
 #export WINEDLLOVERRIDES="d3dcompiler_47,d3d10,d3d9,dxgi,d3d11=n,b;winedbg=d"  
 
 #mangohud
@@ -198,6 +199,5 @@ cd "$GAME_PATH"
 
 
 
-#echo $WINE_CMD
 
 $WINE_CMD $GAME_EXE $GAME_OPTIONS  &> $LOG_PATH
