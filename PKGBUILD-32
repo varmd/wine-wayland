@@ -7,6 +7,7 @@ depends+=(
 makedepends+=(
     'lib32-alsa-lib' 
     'lib32-expat' 
+    'lib32-libffi' 
     'lib32-gcc-libs' 
     'lib32-libdrm' 
     'lib32-libelf' 
