@@ -41,6 +41,7 @@ url_libxml2="https://github.com/GNOME/libxml2/archive/v2.9.10.zip"
 build_wayland_32() {
   cd "${srcdir}"
   
+  
 
   rm -rf $(find . -maxdepth 1 -type d -name "*wayland-1*" | sed 1q)
   
@@ -69,7 +70,8 @@ build_wayland_32() {
   DESTDIR="$pkgdir" ninja -C build install
   
   cd $pkgdir/usr/lib32/pkgconfig
-  sed -i "s~\${prefix}/lib32~$pkgdir/usr/lib32~g" wayland-*.pc
+  sed -i "s~\${prefix}/lib32~$pkgdir/usr/lib32~" wayland-*.pc
+  
 }
 
 
@@ -152,10 +154,7 @@ build_mpg123_32() {
   make -j $CPUS DESTDIR="${pkgdir}" install
   
   cd $pkgdir/usr/lib32/pkgconfig
-  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" *.pc
-  #pkgconfig needs to be changed for libdir to point to
-  
-  
+  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" *123.pc    
 }
 
 build_openal_32() {
