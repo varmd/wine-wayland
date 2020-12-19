@@ -482,7 +482,13 @@ build_sdl2_32() {
       -DJOYSTICK_HIDAPI=ON \
       -DPULSEAUDIO=OFF \
       -DPULSEAUDIO_SHARED=OFF \
-      -DVIDEO=OFF \
+      -DVIDEO_WAYLAND=OFF \
+      -DVIDEO_X11=OFF \
+      -DVIDEO_OPENGL=OFF \
+      -DVIDEO_VULKAN=OFF \
+      -DVIDEO_KMSDRM=OFF \
+      -DVIDEO_OPENGLES=OFF \
+      -DX11_SHARED=OFF \
       -DRPATH=OFF \
       -DCLOCK_GETTIME=ON
       
