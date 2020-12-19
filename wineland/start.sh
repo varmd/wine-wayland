@@ -75,8 +75,8 @@ IS_64_EXE=`file $GAME_EXE | grep PE32+`
 if [[ -z "$IS_64_EXE" ]]; then
   echo "is 32bit wine exe"
   WINE_CMD="wine"
-  export LD_LIBRARY_PATH="/usr/wineland/lib32:$LD_LIBRARY_PATH"
-  export VK_ICD_FILENAMES="/usr/wineland/vulkan/icd.d/intel_icd.i686.json:/usr/wineland/vulkan/icd.d/radeon_icd.i686.json:/usr/wineland/vulkan/icd.d/amd_icd.i686.json"
+  export LD_LIBRARY_PATH="/usr/lib/wineland/lib32:$LD_LIBRARY_PATH"
+  export VK_ICD_FILENAMES="/usr/lib/wineland/vulkan/icd.d/intel_icd.i686.json:/usr/lib/wineland/vulkan/icd.d/radeon_icd.i686.json:/usr/lib/wineland/vulkan/icd.d/amd_icd.i686.json"
 fi    
 
 cd "$PWD_PATH"

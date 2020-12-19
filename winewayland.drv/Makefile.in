@@ -29,10 +29,9 @@ EXTRACFLAGS += -std=c11 -Wno-declaration-after-statement
 #  opengl.c \
 # window.c \
 # event.c \
-# 
+# #  desktop.c \
 
 C_SRCS = \
-  desktop.c \
 	init.c \
 	settings.c \
 	vulkan.c \

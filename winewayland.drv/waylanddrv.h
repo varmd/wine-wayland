@@ -173,13 +173,10 @@ extern DWORD WAYLANDDRV_GetImage( PHYSDEV dev, BITMAPINFO *info,
                               struct gdi_image_bits *bits, struct bitblt_coords *src ) DECLSPEC_HIDDEN;
 extern COLORREF WAYLANDDRV_GetNearestColor( PHYSDEV dev, COLORREF color ) DECLSPEC_HIDDEN;
 extern UINT WAYLANDDRV_GetSystemPaletteEntries( PHYSDEV dev, UINT start, UINT count, LPPALETTEENTRY entries ) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_GradientFill( PHYSDEV dev, TRIVERTEX *vert_array, ULONG nvert,
-                                 void *grad_array, ULONG ngrad, ULONG mode ) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_LineTo( PHYSDEV dev, INT x, INT y) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_PaintRgn( PHYSDEV dev, HRGN hrgn ) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_PatBlt( PHYSDEV dev, struct bitblt_coords *dst, DWORD rop ) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_Pie( PHYSDEV dev, INT left, INT top, INT right,
-                        INT bottom, INT xstart, INT ystart, INT xend, INT yend ) DECLSPEC_HIDDEN;
+
+
+
+                        
 extern BOOL WAYLANDDRV_Polygon( PHYSDEV dev, const POINT* pt, INT count ) DECLSPEC_HIDDEN;
 extern BOOL WAYLANDDRV_PolyPolygon( PHYSDEV dev, const POINT* pt, const INT* counts, UINT polygons) DECLSPEC_HIDDEN;
 extern BOOL WAYLANDDRV_PolyPolyline( PHYSDEV dev, const POINT* pt, const DWORD* counts, DWORD polylines) DECLSPEC_HIDDEN;
@@ -248,16 +245,7 @@ extern BOOL shape_layered_windows DECLSPEC_HIDDEN;
 extern struct opengl_funcs *get_wgl_driver(UINT) DECLSPEC_HIDDEN;
 extern const struct vulkan_funcs *get_vulkan_driver(UINT) DECLSPEC_HIDDEN;
 
-/* IME support */
-extern void IME_SetOpenStatus(BOOL fOpen) DECLSPEC_HIDDEN;
-extern void IME_SetCompositionStatus(BOOL fOpen) DECLSPEC_HIDDEN;
-extern INT IME_GetCursorPos(void) DECLSPEC_HIDDEN;
-extern void IME_SetCursorPos(DWORD pos) DECLSPEC_HIDDEN;
-extern void IME_UpdateAssociation(HWND focus) DECLSPEC_HIDDEN;
-extern BOOL IME_SetCompositionString(DWORD dwIndex, LPCVOID lpComp,
-                                     DWORD dwCompLen, LPCVOID lpRead,
-                                     DWORD dwReadLen) DECLSPEC_HIDDEN;
-extern void IME_SetResultString(LPWSTR lpResult, DWORD dwResultlen) DECLSPEC_HIDDEN;
+
 
 
 /**************************************************************************
@@ -438,9 +426,7 @@ extern BOOL WAYLANDDRV_SelectionClear( HWND hWnd ) DECLSPEC_HIDDEN;
 extern BOOL WAYLANDDRV_MappingNotify( HWND hWnd ) DECLSPEC_HIDDEN;
 extern BOOL WAYLANDDRV_GenericEvent( HWND hwnd ) DECLSPEC_HIDDEN;
 
-//extern int xinput2_opcode DECLSPEC_HIDDEN;
 
-//extern DWORD EVENT_x11_time_to_win32_time(Time time) DECLSPEC_HIDDEN;
 
 /* X11 driver private messages, must be in the range 0x80001000..0x80001fff */
 enum waylanddrv_window_messages
@@ -510,8 +496,6 @@ extern void update_user_time( Time time ) DECLSPEC_HIDDEN;
 extern void make_window_embedded( struct waylanddrv_win_data *data ) DECLSPEC_HIDDEN;
 extern Window create_client_window( HWND hwnd, const XVisualInfo *visual ) DECLSPEC_HIDDEN;
 
-extern void change_systray_owner( Display *display, Window systray_window ) DECLSPEC_HIDDEN;
-extern void update_systray_balloon_position(void) DECLSPEC_HIDDEN;
 
 extern BOOL update_clipboard( HWND hwnd ) DECLSPEC_HIDDEN;
 
@@ -558,7 +542,6 @@ struct waylanddrv_mode_info
     unsigned int refresh_rate;
 };
 
-//extern void WAYLANDDRV_init_desktop( Window win, unsigned int width, unsigned int height ) DECLSPEC_HIDDEN;
 extern void WAYLANDDRV_init_desktop( unsigned int width, unsigned int height ) DECLSPEC_HIDDEN;
 extern void WAYLANDDRV_resize_desktop(unsigned int width, unsigned int height) DECLSPEC_HIDDEN;
 extern BOOL is_desktop_fullscreen(void) DECLSPEC_HIDDEN;

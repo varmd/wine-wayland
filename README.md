@@ -1,13 +1,14 @@
 ## What is wine-wayland
 
-Wine-wayland allows running DX9/DX11 and Vulkan games using pure wayland and Wine/DXVK.
+Wine-wayland allows running DX9/DX11 and Vulkan games using pure Wayland and Wine/DXVK.
 
 ## Why wine-wayland
 
  * You are tired of dealing with X11 and don't care about launchers
  * You want to remove X11 related packages from your PC
  * You want to experience potentially faster and smoother gaming on Wayland
- * You are concerned about insecure X11 games that can spy on other apps running on X11.
+ * You are concerned about insecure X11 games that can spy on other apps running on X11
+ * You want to replace all the lib32 packages with only one package, and still be able to play most 32-bit games
 
 ## Screenshot
 
@@ -17,20 +18,20 @@ Wine-wayland allows running DX9/DX11 and Vulkan games using pure wayland and Win
 ## Requirements
 
  * Archlinux or Manjaro
- * GPU with Vulkan and Wayland support
+ * GPU with Vulkan and Wayland support, 2GB+ VRAM, AMD or Intel, Nvidia not tested
  * Mesa 20.1 or later with Wayland and Vulkan support
- * weston based compositor (tested on wayward), wlroots based compositor (tested on sway)
+ * Weston based compositor (tested on wayward), wlroots based compositor (tested on sway)
  * SDL and Faudio
  
 ## Download
 
-You can download the 64bit only archlinux package from https://github.com/varmd/wine-wayland/releases. This version is automatically built via Github Actions. cd to download folder and install
+You can download the 64-bit only archlinux package from https://github.com/varmd/wine-wayland/releases. This version is automatically built via Github Actions. cd to download folder and install
     
     pacman -U wine-wayland*pkg*
     
-## Download of 32bit (optional, for 32bit games)
+## Download of 32-bit (optional, for 32-bit games)
 
-You can download the optional 32bit version from https://github.com/varmd/wine-wayland/releases. It is automatically built via Github Actions. First, download both the 64bit and 32bit archlinux packages, cd to download folder and install
+You can download the optional 32-bit version from https://github.com/varmd/wine-wayland/releases. It is automatically built via Github Actions. Download both the 64-bit and 32-bit archlinux packages, cd to download folder and install
     
     pacman -U *wine-wayland*pkg* 
 
@@ -42,7 +43,7 @@ download or clone from github, cd to zip directory
     pacman -U wine-wayland*pkg*
 
 
-#### Compile 32bit (optional, for 32bit games)
+#### Compile 32-bit (optional, for 32-bit games)
 
 In wine-wayland directory
 
@@ -56,7 +57,7 @@ From command line (or using file manager)
     mkdir -p ~/.local/share/wineland/your-game
     mv YourGameFolder ~/.local/share/wineland/your-game/
     
-Then, go to your app launcher, click on the blue joystick icon. In the browser tab, click Edit below the card for your-game. Enter name for your game, YourGameFolder/game.exe for exe path. And -EpicPortal for game options (for EGS games). Set mangohud, fsync/esync, and other options if needed. See below screenshot for example of options for Subnautica.
+"your-name" above should be lowercase, no spaces tag. For example, for Subnautica it would be subnautica. After, go to your launcher, click on the blue joystick icon. In the browser tab, click Edit below the card for your-game. Enter name for your game, YourGameFolder/game.exe for exe path. And -EpicPortal for game options (for EGS games). Set mangohud, fsync/esync, and other options if needed. See below screenshot for example of options for Subnautica.
 
 ![screenshot](https://raw.githubusercontent.com/varmd/wine-wayland/master/wineland/wineland-screenshot-2.png "Screenshot")
 
@@ -79,7 +80,7 @@ also run your games from the terminal.
     mkdir -p prefix/your-game
     cp -r YourGameFolder prefix/your-game/
    
-Copy relevant 64bit or 32bit dxvk dlls to YourGameFolder or use winetricks.
+Copy relevant 64-bit or 32-bit dxvk dlls to YourGameFolder or use winetricks.
 
 Copy start-example.sh to your-dir and modify it for your-game, change your-game and YourGameFolder at the top of the file.
 
@@ -87,6 +88,17 @@ Rename start-example.sh to start-your-game.sh
 
 Then in the terminal run sh start-your-game.sh
 
+### Environment variables when running games without the wineland launcher
+
+* Use `export LD_LIBRARY_PATH="/usr/lib/wineland/lib32:$LD_LIBRARY_PATH"` when running 32-bit wine outside of the wineland launcher
+* If a game is not starting, or there is no keyboard/mouse focus, try `export WINE_VK_VULKAN_ONLY=1` variable and start the game to see if there are any error popups
+* Use `export XCURSOR_SIZE="xx"` and `export XCURSOR_THEME=themename` to set cursor theme and increase cursor size 
+* Use `export WINE_VK_HIDE_CURSOR=1` to hide cursors, when games do not hide cursors - for example when using a controller
+* Use `export WINE_VK_USE_CUSTOM_CURSORS=1` to enable experimental custom game cursors. This will disable cursor size and theme
+* Use `export WINE_VK_NO_CLIP_CURSOR=1` to disable cursor locking for games that erroneously try to lock mouse cursor.
+* Use `export WINE_VK_FULLSCREEN_GRAB_CURSOR=1` to automatically enable cursor grab in fullscreen.
+* Use `export WINE_VK_ALWAYS_FULLSCREEN=1` to automatically set game to fullscreen without using F11.
+* For best performance use kernel with the fsync patch, and add `export WINEFSYNC=1` variable
 
 ## Keyboard shortcuts
 
@@ -97,26 +109,17 @@ Then in the terminal run sh start-your-game.sh
 
 ## Notes
 
-* Some Unity games require that game folder is executable
-* Some games may take a while to start
-* Some games may crash if fullscreen is enabled/disabled. After crashing, look in the game settings folder and see if you can enable/disable fullscreen manually.
-* If a game is not starting try to disable WINE\_VK\_VULKAN_ONLY variable and start the game to see if there are any error popups 
+* Some Unity games require the game folder to be executable
 * While launchers are not working many games do not require launchers to run
 * You can use https://github.com/derrod/legendary to download and run games from Epic Games Store
 * You can use https://github.com/ValvePython/steamctl to download games from Steam
-* GOG games can be extracted with innounp
-* If a game is not starting, try wineserver -k, and start again
-* Use export XCURSOR_SIZE="xx" and export XCURSOR_THEME=themename to set cursor theme and increase cursor size 
-* Use export WINE_VK_USE_CUSTOM_CURSORS=1 to enable experimental custom game cursors. Or click the "Enable custom game cursors" checkbox in the wineland launcher.
-* Use export WINE_VK_NO_CLIP_CURSOR=1 to disable cursor locking for games that erroneously try to lock mouse cursor.
-* Use export WINE_VK_FULLSCREEN_GRAB_CURSOR=1 to automatically enable cursor grab in fullscreen.
-* Use export WINE_VK_ALWAYS_FULLSCREEN=1 to automatically set game to fullscreen without using F11. The WINE_VK_WAYLAND_WIDTH and WINE_VK_WAYLAND_HEIGHT must be set to your monitor's current resolution width and height or the game will crash.
-* For best performance use kernel with the fsync patch, and add export WINEFSYNC=1 variable
+* GOG games can be extracted with innoextract
+* If a game is not starting, try wineserver -k, and start again, or click Launch again in the wineland launcher
+
 
 ## Caveats and issues
 
-* No controller support - though some are working
-* No GDI apps support
+* No GDI apps support - though popups and simple launchers may work
 * No OpenGL
 
 ## Games confirmed working
@@ -125,7 +128,7 @@ Then in the terminal run sh start-your-game.sh
 * Dirt 3
 * Subnautica
 * Rebel Galaxy
-* Endless Space
+* Endless Space (add -force-d3d11 in Exe options)
 * Age of Wonders 3
 * Stellaris
 * EU4
@@ -137,3 +140,7 @@ Then in the terminal run sh start-your-game.sh
 * Wasteland 2
 * Torchlight 1
 * Dungeons 3
+* Seven
+* Pillars of Eternity
+* Ziggurat 1 (add -force-d3d11 in Exe options)
+* Warframe (see #25)

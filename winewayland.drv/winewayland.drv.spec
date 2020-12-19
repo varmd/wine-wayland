@@ -81,4 +81,4 @@
 # @ cdecl ThreadDetach() WAYLANDDRV_ThreadDetach
 
 # Desktop
-@ cdecl wine_create_desktop(long long) WAYLANDDRV_create_desktop
+#@ cdecl wine_create_desktop(long long) WAYLANDDRV_create_desktop

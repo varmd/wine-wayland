@@ -3,7 +3,7 @@
 @@ -1467,6 +1468,12 @@
      void *entry = (char *)peb->ImageBaseAddress + nt->OptionalHeader.AddressOfEntryPoint;
      NTSTATUS status;
-     int suspend;
+     int suspend, needs_close, unixdir;
 +  
 +    TRACE("Begin unix esync load hack\n");  
 +    //Hack hack hack

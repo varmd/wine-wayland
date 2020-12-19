@@ -23,6 +23,7 @@ makedepends+=(
     'python-mako'
     'glslang'
     'dbus'
+    'gperf'
 )
 
 pkgname+=('lib32-wine-wayland')
@@ -35,7 +36,183 @@ url_mesa="https://github.com/mesa3d/mesa/archive/b7793e39ee40727f21c58b72a4b4516
 url_sdl2="https://github.com/spurious/SDL-mirror/archive/release-2.0.12.zip"
 url_freetype2="https://download.savannah.gnu.org/releases/freetype/freetype-2.10.1.tar.xz"
 url_libxml2="https://github.com/GNOME/libxml2/archive/v2.9.10.zip"
+url_libsystemd32="https://github.com/systemd/systemd-stable/archive/v247.2.zip"
 
+
+
+build_systemd_32() {
+  cd "${srcdir}"
+  
+  
+
+  rm -rf $(find . -maxdepth 1 -type d -name "*systemd*" | sed 1q)
+  
+  if [ ! -f systemd.zip ]; then
+    curl -L $url_libsystemd32 > systemd.zip
+  fi
+  
+  unzip -q systemd.zip
+  
+  export CC='gcc -m32'
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig:$pkgdir/usr/lib32/pkgconfig"
+  
+  cd $(find . -maxdepth 1 -type d -name "*systemd*"  | sed 1q)
+  
+  export CC="gcc -m32"
+  export CXX="g++ -m32"
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"  
+  export CFLAGS=" -O1 -I/usr/include/libmount/ "  
+  
+  mkdir build
+  
+  sed -i "s~'crypt'~'m'~" meson.build
+  sed -i "s~'cap'~'m'~" meson.build
+  sed -i "s~'libcap'~'m'~" meson.build
+  #sed -i "s~libmount =~libmount = libcap#'~" meson.build
+  #sed -i "/2\.30/d" meson.build
+  
+  
+  sed -i "s~crypt_r(p~NULL;//~" src/shared/libcrypt-util.c
+  
+  cp ../../lib32/systemd/meson.build .  
+  cp ../../lib32/systemd/shared/mount-util.c src/shared/
+  #cp ../../lib32/systemd/udev/meson.build src/udev/
+  #cp ../../lib32/systemd/shared/meson.build src/shared/
+  #echo "" > src/shared/libmount-util.h
+  echo "" > src/basic/capability-util.c
+  echo '#include "capability-util.h"' >> src/basic/capability-util.c
+  echo "unsigned cap_last_cap(void) { return 0; }" >> src/basic/capability-util.c
+  
+  
+  #echo "" > src/shared/mount-util.c
+  #echo "" > src/shared/mount-util.h
+  
+  #echo "static inline int mount_nofollow_verbose(int error_log_level, const char *what, const char *where, const char *type, unsigned long flags, const char *options) { return 0; } " > src/shared/mount-util.c
+  
+  #echo "int umount_recursive(const char *target, int flags) { return 0; } " >> src/shared/mount-util.c
+  
+  #echo "include <libmount.h>" > src/shared/libmount-util.h
+  #echo "static inline int libmount_parse(const char *path, FILE *source,    struct libmnt_table **ret_table, struct libmnt_iter **ret_iter) { return 1; }" >> src/shared/libmount-util.h
+  
+  
+  local _meson_options=(
+    --libexecdir	/usr/lib32
+    --libdir		/usr/lib32
+    -Dpam=false
+    -Dtimedated=false
+    -Defi=false
+    -Dtpm=false
+    -Dutmp=false
+    -Dmemory-accounting-default=false
+    -Dquotacheck=false
+    -Dnss-myhostname=false
+    -Dnss-systemd=false
+    -Dnss-mymachines=false
+    -Dnss-resolve=false
+    -Dhibernate=false
+    -Dcoredump=false
+    -Dnetworkd=false
+    -Dpstore=false
+    -Drepart=false
+    -Dhostnamed=false
+    -Dimportd=false
+    -Dportabled=false
+    -Dremote=false
+    -Dbacklight=false
+    -Dvconsole=false
+    -Dman=false
+    -Dhtml=false
+    -Dmicrohttpd=false
+    -Dopenssl=false
+    -Dlibcryptsetup=false
+    -Dimportd=false
+    -Dima=false
+    -Dlibidn2=false
+    -Dlibidn=false
+    -Dlibiptc=false
+    -Didn=false
+    -Dp11kit=false
+    -Dlz4=false
+    -Dbzip2=false
+    -Dlibcurl=false
+    -Dmicrohttpd=false
+    -Daudit=false
+    -Dxkbcommon=false
+    -Dtimesyncd=false
+    -Dresolve=false
+    -Dpolkit=false
+    -Dbinfmt=false
+    -Dfirstboot=false
+    -Dnss-resolve=false
+    -Drfkill=false
+    -Dselinux=false    
+    -Dglib=false
+    -Ddbus=false
+    -Dbashcompletiondir=no    
+    -Dtests=false
+    -Ddbuspolicydir=/usr/share/dbus-1/system.d
+    -Ddefault-kill-user-processes=false
+    -Dfallback-hostname='archlinux'
+    -Drpmmacrosdir=no
+    -Dsysvinit-path=
+    -Dsysvrcnd-path=
+    -Ddns-over-tls=false
+    -Dsmack=false
+    -Dgnutls=false
+    -Dkernel-install=false
+    -Dgcrypt=false
+    -Dseccomp=false
+    -Doomd=false
+    -Dlocaled=false
+    -Dlibfido2=false
+    -Dldconfig=false
+    -Delfutils=false
+    -Dlz4=false
+    -Dmachined=false
+    -Drandomseed=false
+    -Dzstd=false
+    -Dxz=false
+    -Dzlib=false
+    -Dblkid=false
+    -Dinitrd=false
+    -Dgshadow=false
+    -Dkmod=false
+    -Dpwquality=false
+    -Drepart=false
+    -Dseccomp=false
+    -Dima=false
+    -Dkmod=false
+    -Dlibcryptsetup=false
+    -Dlibidn2=true
+    -Dlibiptc=false
+    -Dlz4=false
+    -Dman=false
+    -Dmanpages=false
+    -Dmicrohttpd=false
+    -Dnetworkd=false
+    -Dpam=false
+    -Dpython=false
+    -Drepart=false
+    -Dseccomp=false
+    -Dnologin-path=/usr/bin/nologin
+  )
+
+  arch-meson . build "${_meson_options[@]}"
+  
+  
+
+  meson configure build
+  
+  ninja -C build
+  DESTDIR="$pkgdir" ninja -C build install
+  
+  cd $pkgdir/usr/lib32/pkgconfig
+  sed -i "s~\${prefix}/lib32~$pkgdir/usr/lib32~" libudev.pc
+  rm -rf  $pkgdir/etc/
+  rm -rf  $pkgdir/var
+  rm -rf  $pkgdir/usr/lib
+
+}
 
 
 build_wayland_32() {
@@ -198,11 +375,11 @@ build_openal_32() {
 
 build_mesa_32() {
   
-  if [ -d $srcdir/mesa/build ]; then
-    cd $srcdir/mesa
-    DESTDIR="$pkgdir" ninja -C build install
-    return 1
-  fi
+  #if [ -d $srcdir/mesa/build ]; then
+  #  cd $srcdir/mesa
+  #  DESTDIR="$pkgdir" ninja -C build install
+  #  return 1
+  #fi
 
 
   cd "${srcdir}"
@@ -300,13 +477,12 @@ build_sdl2_32() {
       -DALSA=ON \
       -DJACK=OFF \
       -DDBUS=OFF \
+      -DHAPTIC=ON \
+      -DJOYSTICK=ON \
+      -DJOYSTICK_HIDAPI=ON \
       -DPULSEAUDIO=OFF \
       -DPULSEAUDIO_SHARED=OFF \
-      -DVIDEO=ON \
-      -DVIDEO_WAYLAND=ON \
-      -DVIDEO_X11=OFF \
-      -DVIDEO_OPENGLES=ON \
-      -DVIDEO_EGL=ON \
+      -DVIDEO=OFF \
       -DRPATH=OFF \
       -DCLOCK_GETTIME=ON
       
@@ -418,6 +594,7 @@ build_32() {
     --without-usb \
     --with-freetype \
     --with-vulkan \
+    --with-sdl \
     --with-mpg123 \
     --with-openal \
     --without-faudio \
@@ -439,19 +616,21 @@ package_lib32-wine-wayland() {
   
   provides=('lib32-wine')
   
+  build_systemd_32
   build_wayland_32
+  build_sdl2_32
   build_libxml2_32
   build_mpg123_32
   build_openal_32
   build_mesa_32
-  build_sdl2_32
+  
   build_freetype2_32
   build_32
   
-  mkdir -p $pkgdir/usr/wineland/
-  mkdir -p $pkgdir/usr/wineland/vulkan/icd.d
+  mkdir -p $pkgdir/usr/lib/wineland/
+  mkdir -p $pkgdir/usr/lib/wineland/vulkan/icd.d
   
-  cp $pkgdir/usr/share/vulkan/icd.d/*i686* $pkgdir/usr/wineland/vulkan/icd.d/
+  cp $pkgdir/usr/share/vulkan/icd.d/*i686* $pkgdir/usr/lib/wineland/vulkan/icd.d/
   
   rm -rf $pkgdir/usr/share
   rm -rf $pkgdir/usr/include
@@ -470,12 +649,14 @@ package_lib32-wine-wayland() {
   rm -rf  $pkgdir/usr/lib32/libfortran*
   rm -rf  $pkgdir/usr/lib32/libxcb*
   rm -rf  $pkgdir/usr/lib32/libX*
+  rm -rf  $pkgdir/etc/
+  rm -rf  $pkgdir/var/
   
-  mkdir -p $pkgdir/usr/wineland
-  mv $pkgdir/usr/lib32 $pkgdir/usr/wineland/lib32
+  mkdir -p $pkgdir/usr/lib/wineland
+  mv $pkgdir/usr/lib32 $pkgdir/usr/lib/wineland/lib32
   
-  cd $pkgdir/usr/wineland/vulkan/icd.d
-  sed -i "s~/usr/lib32~/usr/wineland/lib32~g" *
+  cd $pkgdir/usr/lib/wineland/vulkan/icd.d
+  sed -i "s~/usr/lib32~/usr/lib/wineland/lib32~g" *
   
   cd "${srcdir}"/wine-wayland-32-build
 	make -s	prefix="${pkgdir}/usr" \

@@ -102,6 +102,19 @@ unsigned int global_wayland_full = 0;
 
 unsigned long global_sx;
 unsigned long global_sy;
+
+int global_cursor_set = 0;
+int global_cursor_gdi_fd = 0;
+int global_cursor_last_change = 0;
+int global_cursor_height = 0;
+int global_cursor_width = 0;
+int global_custom_cursors = 0;
+HCURSOR global_last_cursor_handle = NULL;
+void *global_cursor_shm_data = NULL;
+struct wl_shm_pool *global_cursor_pool = NULL;
+struct cursor_cache *global_cursor_cache[32768] = {0};
+
+
 //Wayland
 
 /*
@@ -256,7 +269,6 @@ static const UINT keycode_to_vkey[] =
     VK_OEM_2,                 /* KEY_SLASH		53 */
     VK_RSHIFT,                 /* KEY_RIGHTSHIFT		54 */
     VK_MULTIPLY,        /* KEY_KPASTERISK		55 */ //??
-
     VK_LMENU,       /* KEY_LEFTALT		56 */
     VK_SPACE,            /* KEY_SPACE		57 */
     VK_CAPITAL,            /* KEY_CAPSLOCK		58 */
@@ -298,10 +310,10 @@ static const UINT keycode_to_vkey[] =
     0,                   /* #define KEY_KATAKANAHIRAGANA	93 */
     0,                   /* #define KEY_MUHENKAN		94 */
     0,                   /* #define KEY_KPJPCOMMA		95 */
-    0,            /* #define KEY_KPENTER		96 */
+    VK_RETURN,            /* #define KEY_KPENTER		96 */
     VK_RCONTROL,             /* #define KEY_RIGHTCTRL		97 */
-    0,                   /* #define KEY_KPSLASH		98 */
-    0,                   /* #define KEY_SYSRQ		99 */
+    VK_DIVIDE,                   /* #define KEY_KPSLASH		98 */
+    VK_SNAPSHOT,                   /* #define KEY_SYSRQ		99 */
     VK_RMENU,                   /* #define KEY_RIGHTALT		100 */
     0,                   /* #define KEY_LINEFEED		101 */ //???
     VK_HOME,                   /* #define KEY_HOME		102 */
@@ -315,9 +327,6 @@ static const UINT keycode_to_vkey[] =
     VK_INSERT,                            //#define KEY_INSERT		110
     VK_DELETE,                          //#define KEY_DELETE		111
     0,                          //#define KEY_MACRO		112
-
-
-
     0,           /* AKEYCODE_FORWARD_DEL */
     0,         /* AKEYCODE_CTRL_LEFT */
     0,         /* AKEYCODE_CTRL_RIGHT */
@@ -1340,9 +1349,8 @@ struct wl_shm_pool *global_wl_pool = NULL;
 HWND global_vulkan_hwnd;
 HWND global_update_hwnd = NULL;
 HWND global_update_hwnd_last = NULL;
-//struct wine_vk_surface *global_wine_surface;
 
-//static struct wl_shell *wayland_shell = NULL;
+
 struct xdg_wm_base *wm_base = NULL;
 static struct wl_seat *wayland_seat = NULL;
 static struct wl_pointer *wayland_pointer = NULL;
@@ -1376,9 +1384,8 @@ struct wayland_window {
 	struct wl_surface *surface;
 	struct xdg_surface *xdg_surface;
 	struct xdg_toplevel *xdg_toplevel;
-
-
-	HWND pointer_to_hwnd;
+  
+  HWND pointer_to_hwnd;
 	int test;
 };
 
@@ -1473,16 +1480,7 @@ struct cursor_cache
 };
 
 
-int global_cursor_set = 0;
-int global_cursor_gdi_fd = 0;
-int global_cursor_last_change = 0;
-int global_cursor_height = 0;
-int global_cursor_width = 0;
-int global_custom_cursors = 0;
-HCURSOR global_last_cursor_handle = NULL;
-void *global_cursor_shm_data = NULL;
-struct wl_shm_pool *global_cursor_pool = NULL;
-struct cursor_cache *global_cursor_cache[32768] = {0};
+
 
 static inline int cursor_idx( HCURSOR handle  )
 {
@@ -1543,6 +1541,22 @@ void wayland_pointer_enter_cb(void *data,
   if(temp) {
     TRACE("Current hwnd is %p and surface %p \n", temp, surface);
     global_update_hwnd = temp;
+    
+    if(temp == global_vulkan_hwnd) {
+      
+      SetActiveWindow( global_vulkan_hwnd );
+      SetForegroundWindow( global_vulkan_hwnd );
+      ShowWindow( global_vulkan_hwnd, SW_SHOW );
+      SetFocus(global_vulkan_hwnd);
+      SERVER_START_REQ( set_focus_window )
+      {
+        req->handle = wine_server_user_handle( global_vulkan_hwnd );
+      }
+      SERVER_END_REQ;
+      UpdateWindow(global_vulkan_hwnd);
+
+    }
+    
   }
   global_last_cursor_change = 0;
 
@@ -1592,10 +1606,6 @@ DWORD EVENT_wayland_time_to_win32_time(uint32_t time)
 
 
 INPUT global_input;
-
-
-
-
 
 
 
@@ -1654,59 +1664,20 @@ void wayland_pointer_motion_cb(void *data,
     return wayland_pointer_motion_cb_vulkan(data, pointer, time, sx, sy);
   }
 
-
-  //struct wayland_window *window = data;
-
+  global_input.u.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE ;
 
 
-    global_input.u.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE ;
+  global_input.u.mi.dx = wl_fixed_to_int(sx);
+  global_input.u.mi.dy = wl_fixed_to_int(sy);
 
+  global_sx = global_input.u.mi.dx;
+  global_sy = global_input.u.mi.dy;
 
-    global_input.u.mi.dx = wl_fixed_to_int(sx);
-    global_input.u.mi.dy = wl_fixed_to_int(sy);
+  //TRACE("Motion x y %d %d \n", global_sx, global_sy);
+  HWND hwnd;
+  RECT rect;
 
-    global_sx = global_input.u.mi.dx;
-    global_sy = global_input.u.mi.dy;
-
-    #if 0
-    global_input.u.mi.dwFlags     = MOUSEEVENTF_MOVE;
-    int x,y = 0;
-
-    if(!global_sx_last) {
-      global_sx_last = global_input.u.mi.dx;
-      global_sy_last = global_input.u.mi.dy;
-      x = global_sx_last;
-      y = global_sy_last;
-    } else {
-      x = global_input.u.mi.dx - global_sx_last;
-      y = global_input.u.mi.dy - global_sy_last;
-      global_sx_last = global_input.u.mi.dx;
-      global_sy_last = global_input.u.mi.dy;
-    }
-    #endif
-
-
-
-    //TRACE("Motion x y %d %d \n", global_sx, global_sy);
-
-    HWND hwnd;
-    RECT rect;
-
-    hwnd = global_update_hwnd;
-
-
-
-    /*
-    RECT rect;
-    SetRect( &rect, global_input.u.mi.dx, global_input.u.mi.dy,
-             global_input.u.mi.dx + 1, global_input.u.mi.dy + 1 );
-    MapWindowPoints( 0, hwnd, (POINT *)&rect, 2 );
-
-
-
-
-
-    */
+  hwnd = global_update_hwnd;
 
 
   GetWindowRect(hwnd, &rect);
@@ -1909,7 +1880,6 @@ void wayland_pointer_button_cb(void *data,
 
 
 
-  hwnd = global_hwnd_clicked;
   hwnd = global_update_hwnd;
   RECT rect;
 
@@ -2161,10 +2131,10 @@ void wayland_keyboard_key_cb (void *data, struct wl_keyboard *keyboard,
 
 
 
-  if ((unsigned int)keycode >= sizeof(keycode_to_vkey)/sizeof(keycode_to_vkey[0]) || !keycode_to_vkey[keycode]) {
+  //if ((unsigned int)keycode >= sizeof(keycode_to_vkey)/sizeof(keycode_to_vkey[0]) || !keycode_to_vkey[keycode]) {
         //TRACE( "keyboard_event: code %u unmapped key, ignoring \n",  keycode );
 
-  }
+  //}
 
 
     /*
@@ -2186,15 +2156,15 @@ void wayland_keyboard_key_cb (void *data, struct wl_keyboard *keyboard,
 
     */
 
-    input.type             = INPUT_KEYBOARD;
-    input.u.ki.wVk         = keycode_to_vkey[(unsigned int)keycode];
-    if(!input.u.ki.wVk) {
-      return;
-    }
-    input.u.ki.wScan       = vkey_to_scancode[(int)input.u.ki.wVk];
-    input.u.ki.time        = 0;
-    input.u.ki.dwExtraInfo = 0;
-    input.u.ki.dwFlags     = (input.u.ki.wScan & 0x100) ? KEYEVENTF_EXTENDEDKEY : 0;
+  input.type             = INPUT_KEYBOARD;
+  input.u.ki.wVk         = keycode_to_vkey[(unsigned int)keycode];
+  if(!input.u.ki.wVk) {
+    return;
+  }
+  input.u.ki.wScan       = vkey_to_scancode[(int)input.u.ki.wVk];
+  input.u.ki.time        = 0;
+  input.u.ki.dwExtraInfo = 0;
+  input.u.ki.dwFlags     = (input.u.ki.wScan & 0x100) ? KEYEVENTF_EXTENDEDKEY : 0;
 
 
 
@@ -2524,9 +2494,6 @@ static void registry_add_object (void *data, struct wl_registry *registry, uint3
 		wayland_subcompositor = wl_registry_bind(registry,
 					 name, &wl_subcompositor_interface, 1);
 	}
-	//else if (!strcmp(interface,"wl_shell")) {
-		//wayland_shell = wl_registry_bind (registry, name, &wl_shell_interface, 1);
-	//}
   else if (strcmp(wl_interface, "xdg_wm_base") == 0) {
 		wm_base = wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
 		xdg_wm_base_add_listener(wm_base, &xdg_wm_base_listener, NULL);
@@ -2846,9 +2813,6 @@ static void draw_wayland_window (struct wayland_window *window) {
     wl_surface_attach(window->surface, buffer, 0, 0);
 
 
-
-
-    //unsigned int *src, *dst;
     int x, y, width;
 
 
@@ -3151,11 +3115,11 @@ void set_custom_cursor( HCURSOR handle ) {
       xhotspot = global_cursor_cache[cursor_idx( handle )]->xhotspot;
       yhotspot = global_cursor_cache[cursor_idx( handle )]->yhotspot;
       
-      TRACE("Cache hit w h %d %d %d \n", width, height, cursor_idx(handle));      
+      TRACE("Cursor cache hit w h %d %d %d \n", width, height, cursor_idx(handle));      
       
     } else {
       
-      TRACE("Cache miss w h %p %d \n", handle, cursor_idx(handle));
+      TRACE("Cursor cache miss w h %p %d \n", handle, cursor_idx(handle));
       
       info.cbSize = sizeof(info);
       if (!GetIconInfoExW( handle, &info )) 
@@ -3600,33 +3564,7 @@ static void CDECL android_surface_set_region( struct window_surface *window_surf
 }
 
 
-#if 0
 
-void paint_pixels(uint32_t *pixel) {
-
-  int WIDTH = 320;
-  int HEIGHT = 320;
-
-    for (int y = 0; y < HEIGHT; y++) {
-        for (int x = 0; x < WIDTH; x++) {
-            int mx = x / 20;
-            int my = y / 20;
-            uint32_t color = 0;
-            if (mx % 2 == 0 && my % 2 == 0) {
-                uint32_t code = (mx / 2) % 8; // X axis determines a color code from 0 to 7.
-                uint32_t red = code & 1 ? 0xff0000 : 0;
-                uint32_t green = code & 2 ? 0x00ff00 : 0;
-                uint32_t blue = code & 4 ? 0x0000ff : 0;
-                uint32_t alpha = (my / 2) % 8 * 32 << 24; // Y axis determines alpha value from 0 to 0xf0
-	            color = alpha + red + green + blue;
-            }
-            pixel[x + (y * WIDTH)] = color;
-        }
-    }
-}
-
-
-#endif
 
 
 
@@ -3643,6 +3581,9 @@ static void CDECL android_surface_flush( struct window_surface *window_surface )
 {
 
 
+    int x, y, width;
+    uint32_t *src_pixels;
+    uint32_t *dest_pixels;
 
     if(global_is_vulkan) {
       return;
@@ -3657,8 +3598,8 @@ static void CDECL android_surface_flush( struct window_surface *window_surface )
     }
 
     if(is_buffer_busy) {
-      //TRACE("buffer is busy  \n" );
-      return;
+      TRACE("buffer is busy  \n" );
+      //return;
     }
 
 
@@ -3711,8 +3652,8 @@ static void CDECL android_surface_flush( struct window_surface *window_surface )
 
     int HEIGHT = 0;
     int WIDTH = 0;
-    WIDTH = client_rect.right - client_rect.left + 1;
-    HEIGHT = client_rect.bottom - client_rect.top  + 1;
+    WIDTH = client_rect.right - client_rect.left;
+    HEIGHT = client_rect.bottom - client_rect.top;
     int stride = WIDTH * 4; // 4 bytes per pixel
     int size = stride * HEIGHT;
 
@@ -3738,11 +3679,7 @@ static void CDECL android_surface_flush( struct window_surface *window_surface )
     }
 
     //unsigned int *src, *dst;
-    int x, y, width;
-
-
-    uint32_t *src_pixels;
-    uint32_t *dest_pixels;
+    
 
 
 
@@ -3851,7 +3788,6 @@ static void CDECL android_surface_flush( struct window_surface *window_surface )
         wl_subsurface_place_above(hwnd_data->wayland_subsurface, second_window->surface);
       }
 
-
       //alloc_wl_win_data(hwnd_data->wayland_subsurface, surface->hwnd);
 
       wl_surface_set_user_data(hwnd_data->wayland_surface, surface->hwnd);
@@ -3899,7 +3835,7 @@ static void CDECL android_surface_flush( struct window_surface *window_surface )
 
 
     //for (y = rect.top; y < min( HEIGHT, rect.bottom); y++)
-    for (y = rect.top; y < min( HEIGHT, rect.bottom - 1); y++)
+    for (y = rect.top; y < min( HEIGHT, rect.bottom); y++)
     {
 
         /*
@@ -4407,64 +4343,6 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
 
     return;
 
-    ////////////////////////
-
-    #if 0
-    RECT surface_rect;
-    DWORD flags;
-
-    BOOL layered = GetWindowLongW( hwnd, GWL_EXSTYLE ) & WS_EX_LAYERED;
-    BYTE alpha;
-
-
-    *visible_rect = *window_rect;
-
-    if (swp_flags & SWP_HIDEWINDOW) goto done;
-    //}
-    if (!get_surface_rect( visible_rect, &surface_rect )) goto done;
-
-    if (*surface) window_surface_release( *surface );
-    *surface = NULL;  /* indicate that we want to draw directly to the window */
-
-
-    if (!client_side_graphics && !layered) goto done;
-
-    if (data->surface)
-    {
-        if (EqualRect( &data->surface->rect, &surface_rect ))
-        {
-            // existing surface is good enough
-            window_surface_add_ref( data->surface );
-            *surface = data->surface;
-            goto done;
-        }
-    }
-    else if (!(swp_flags & SWP_SHOWWINDOW) && !(GetWindowLongW( hwnd, GWL_STYLE ) & WS_VISIBLE)) goto done;
-
-    if (!layered || !GetLayeredWindowAttributes( hwnd, &key, NULL, &flags ) || !(flags & LWA_COLORKEY))
-        key = CLR_INVALID;
-
-
-
-
-
-
-
-    parent = GetParent(hwnd);
-
-    //Shows only child windows ??
-    //if (!parent || global_hwnd_clicked) {
-    if ( (!parent || parent == GetDesktopWindow() ) ) {
-      if (*surface) window_surface_release( *surface );
-      *surface = create_surface( data->hwnd, &surface_rect, alpha, key, FALSE );
-      if (data->surface) window_surface_release( data->surface );
-      data->surface = surface;
-
-    }
-
-
-
-    #endif
 }
 
 
@@ -4474,11 +4352,8 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
 BOOL CDECL WAYLANDDRV_CreateWindow( HWND hwnd )
 {
 
-    TRACE("Created window %p \n", hwnd);
-
     WCHAR class_name[64];
-
-
+    
     #if 0
     static const WCHAR menu_class[] = {'#', '3', '2', '7', '6', '8', 0};
     static const WCHAR ole_class[] = {'O','l','e','M','a','i','n','T','h','r','e','a','d','W','n','d','C','l','a','s','s', 0};
@@ -4957,12 +4832,9 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
     create_wayland_display();
 	}
 
-  //TODO disable fullscreen if HWND height/width does not match fullscreen width/height
   global_is_vulkan = 1;
 	vulkan_window = create_wayland_window (create_info->hwnd, 1920, 1080);
 
-
-  
   while (!count) {
     sleep(0.5);
 		wl_display_dispatch_pending (wayland_display);

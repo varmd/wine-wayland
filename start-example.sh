@@ -38,9 +38,6 @@ export WINE_VK_WAYLAND_HEIGHT=1080
 
 #dxvk options here
 export DXVK_LOG_LEVEL=none
-#export DXVK_LOG_LEVEL=error
-#export DXVK_HUD=fps
-
 
 #enable/disable dxvk_hud
 export DXVK_HUD=1

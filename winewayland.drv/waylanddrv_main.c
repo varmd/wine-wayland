@@ -105,93 +105,8 @@ static inline DWORD get_config_key( HKEY defkey, HKEY appkey, const char *name,
 
 
 
-static void init_visuals( int screen )
-{
-    int count;
 
 
-
-
-}
-#if 0
-/* Registry key and value names */
-static const WCHAR ComputerW[] = {'\\','R','e','g','i','s','t','r','y','\\',
-                                  'M','a','c','h','i','n','e','\\',
-                                  'S','y','s','t','e','m','\\',
-                                  'C','u','r','r','e','n','t','C','o','n','t','r','o','l','S','e','t','\\',
-                                  'C','o','n','t','r','o','l','\\',
-                                  'C','o','m','p','u','t','e','r','N','a','m','e',0};
-static const WCHAR ActiveComputerNameW[] =   {'A','c','t','i','v','e','C','o','m','p','u','t','e','r','N','a','m','e',0};
-static const WCHAR ComputerNameW[] = {'C','o','m','p','u','t','e','r','N','a','m','e',0};
-
-static const WCHAR default_ComputerName[] = {'W','I','N','E',0};
-
-
-/*********************************************************************** 
- *                      COMPUTERNAME_Init    (INTERNAL)
- */
-void fix_computername_init (void)
-{
-    HANDLE hkey = INVALID_HANDLE_VALUE, hsubkey = INVALID_HANDLE_VALUE;
-    OBJECT_ATTRIBUTES attr;
-    UNICODE_STRING nameW;
-    char buf[offsetof( KEY_VALUE_PARTIAL_INFORMATION, Data ) + (MAX_COMPUTERNAME_LENGTH + 1) * sizeof( WCHAR )];
-    DWORD len = sizeof( buf );
-    const WCHAR *computer_name = (WCHAR *)(buf + offsetof( KEY_VALUE_PARTIAL_INFORMATION, Data ));
-    NTSTATUS st = STATUS_INTERNAL_ERROR;
-    char hbuf[256];
-    WCHAR *dot, bufW[256];
-
- 
-
-    TRACE("(void)\n");
-    InitializeObjectAttributes( &attr, &nameW, 0, 0, NULL );
-    RtlInitUnicodeString( &nameW, ComputerW );
-    if ( ( st = NtCreateKey( &hkey, KEY_ALL_ACCESS, &attr, 0, NULL, 0, NULL ) ) != STATUS_SUCCESS )
-        goto out;
-
-    attr.RootDirectory = hkey;
-    RtlInitUnicodeString( &nameW, ComputerNameW );
-    if ( (st = NtCreateKey( &hsubkey, KEY_ALL_ACCESS, &attr, 0, NULL, 0, NULL ) ) != STATUS_SUCCESS )
-        goto out;
-
-    st = NtQueryValueKey( hsubkey, &nameW, KeyValuePartialInformation, buf, len, &len );
-
-    if ( st != STATUS_SUCCESS)
-    {
-        computer_name = default_ComputerName;
-        len = sizeof(default_ComputerName);
-    }
-    else
-    {
-        len = (len - offsetof( KEY_VALUE_PARTIAL_INFORMATION, Data ));
-    }
-
-    NtClose( hsubkey );
-    TRACE(" ComputerName: %s (%u)\n", debugstr_w (computer_name), len);
-
-    RtlInitUnicodeString( &nameW, ActiveComputerNameW );
-    if ( ( st = NtCreateKey( &hsubkey, KEY_ALL_ACCESS, &attr, 0, NULL, REG_OPTION_VOLATILE, NULL ) )
-         != STATUS_SUCCESS )
-        goto out;
-
-    RtlInitUnicodeString( &nameW, ComputerNameW );
-    st = NtSetValueKey( hsubkey, &nameW, 0, REG_SZ, computer_name, len );
-
-out:
-    NtClose( hsubkey );
-    NtClose( hkey );
-
-    if ( st == STATUS_SUCCESS )
-        TRACE( "success\n" );
-    else
-    {
-        WARN( "status trying to set ComputerName: %x\n", st );
-        SetLastError ( RtlNtStatusToDosError ( st ) );
-    }
-}
-
-#endif
 
 void manage_desktop(  )
 {
@@ -272,7 +187,6 @@ static BOOL process_attach(void)
       screen_height = atoi(env_height);
     }
     
-    init_visuals( 0);
     //screen_bpp = pixmap_formats[default_visual.depth]->bits_per_pixel;
     screen_bpp = 32;
     

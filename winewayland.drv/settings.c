@@ -46,7 +46,7 @@ static struct screen_size {
     //{ 400,  300},
     //{ 512,  384},
     //{ 640,  480},
-    { 768,  576},
+    //{ 768,  576},
     { 800,  600},
     {1024,  768},
     {1152,  864},
@@ -89,7 +89,7 @@ static void make_modes(void)
 
     /* original specified desktop size */
     WAYLANDDRV_Settings_AddOneMode(screen_width, screen_height, 32, 60);
-    WAYLANDDRV_Settings_AddOneMode(screen_width, screen_height, 24, 60);    
+    //WAYLANDDRV_Settings_AddOneMode(screen_width, screen_height, 24, 60);    
     for (i=0; i<ARRAY_SIZE(screen_sizes); i++)
     {
         
@@ -100,7 +100,7 @@ static void make_modes(void)
                 //32bit
                 WAYLANDDRV_Settings_AddOneMode(screen_sizes[i].width, screen_sizes[i].height, 32, 60);
                 //24bit
-                WAYLANDDRV_Settings_AddOneMode(screen_sizes[i].width, screen_sizes[i].height, 24, 60);
+                //WAYLANDDRV_Settings_AddOneMode(screen_sizes[i].width, screen_sizes[i].height, 24, 60);
                 
             //}
         
@@ -180,7 +180,8 @@ void WAYLANDDRV_Settings_AddDepthModes(void)
     int i, j;
     int existing_modes = dd_mode_count;
     DWORD dwBpp = screen_bpp;
-    const DWORD *depths = screen_bpp == 32 ? depths_32 : depths_24;
+    //const DWORD *depths = screen_bpp == 32 ? depths_32 : depths_24;
+    const DWORD *depths = depths_32;
 
     for (j=0; j<3; j++)
     {

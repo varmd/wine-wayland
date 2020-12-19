@@ -1,6 +1,6 @@
 # Created by: varmd
 
-RELEASE=6.0-rc1
+RELEASE=6.0-rc3
 pkgname=('wine-wayland')
 
 
@@ -55,7 +55,7 @@ makedepends=(
 
 source=(
   #"https://github.com/wine-mirror/wine/archive/wine-$pkgver.zip"
-  "https://github.com/wine-mirror/wine/archive/wine-6.0-rc1.zip"
+  "https://github.com/wine-mirror/wine/archive/wine-6.0-rc3.zip"
   "https://github.com/civetweb/civetweb/archive/v1.12.zip"
 )
 
@@ -138,8 +138,8 @@ prepare() {
     #rm -rf programs/iexplore
 
     # speed up
-    #sed -i '/programs\/explorer/d' configure.ac
-    #sed -i '/programs\/iexplore/d' configure.ac
+    sed -i '/programs\/explorer/d' configure.ac
+    sed -i '/programs\/iexplore/d' configure.ac
     sed -i '/programs\/dxdiag/d' configure.ac
     
     sed -i '/programs\/hh/d' configure.ac
@@ -150,9 +150,9 @@ prepare() {
     sed -i '/programs\/winedbg/d' configure.ac
     
     sed -i '/\/tests/d' configure.ac
-    #sed -i '/dlls\/d3d8/d' configure.ac
+    sed -i '/dlls\/d3d8/d' configure.ac
     sed -i '/dlls\/d3d12/d' configure.ac
-    #sed -i '/dlls\/jscript/d' configure.ac
+    sed -i '/dlls\/jscript/d' configure.ac
     sed -i '/dlls\/hhctrl/d' configure.ac
 
 
@@ -212,7 +212,6 @@ build() {
     --without-cups \
     --disable-win16 \
     --without-gphoto \
-    --without-glu \
     --without-xcomposite \
     --without-xcursor \
     --without-xfixes \
@@ -227,6 +226,7 @@ build() {
     --without-usb \
     --with-vulkan \
     --with-faudio \
+    --with-sdl \
     --disable-win16 \
 		--enable-win64 \
 		--disable-tests

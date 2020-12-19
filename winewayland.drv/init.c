@@ -202,26 +202,6 @@ static INT CDECL WAYLANDDRV_GetDeviceCaps( PHYSDEV dev, INT cap )
 }
 
 
-/***********************************************************************
- *           SelectFont
- */
-static HFONT CDECL WAYLANDDRV_SelectFont( PHYSDEV dev, HFONT hfont, UINT *aa_flags )
-{
-    //if (default_visual.depth <= 8) *aa_flags = GGO_BITMAP;  /* no anti-aliasing on <= 8bpp */
-    dev = GET_NEXT_PHYSDEV( dev, pSelectFont );
-    return dev->funcs->pSelectFont( dev, hfont, aa_flags );
-}
-
-/**********************************************************************
- *           ExtEscape  (WAYLANDDRV.@)
- */
-static INT CDECL WAYLANDDRV_ExtEscape( PHYSDEV dev, INT escape, INT in_count, LPCVOID in_data,
-                      INT out_count, LPVOID out_data )
-{
-   
-    return 0;
-}
-
 /**********************************************************************
  *           WAYLANDDRV_wine_get_wgl_driver
 */ 
@@ -345,25 +325,21 @@ static const struct gdi_dc_funcs waylanddrv_funcs =
     NULL,                     /* pPolygon */
     NULL,                               /* pPolyline */
     NULL,                               /* pPolylineTo */
-    //WAYLANDDRV_PutImage,                    /* pPutImage */
     NULL,                    /* pPutImage */
     NULL,       /* pRealizeDefaultPalette */
     NULL,              /* pRealizePalette */
     NULL,                   /* pRectangle */
     NULL,                               /* pResetDC */
     NULL,                               /* pRestoreDC */
-    //WAYLANDDRV_RoundRect,                   /* pRoundRect */
     NULL,                   /* pRoundRect */
     NULL,                               /* pSaveDC */
     NULL,                               /* pScaleViewportExt */
     NULL,                               /* pScaleWindowExt */
     NULL,                               /* pSelectBitmap */
-    //WAYLANDDRV_SelectBrush,                 /* pSelectBrush */
     NULL,                 /* pSelectBrush */
     NULL,                               /* pSelectClipPath */
     NULL,                  /* pSelectFont */  //NULLED
     NULL,                               /* pSelectPalette */
-    //WAYLANDDRV_SelectPen,                   /* pSelectPen */
     NULL,                   /* pSelectPen */
     NULL,                               /* pSetArcDirection */
     NULL,                               /* pSetBkColor */
@@ -403,7 +379,6 @@ static const struct gdi_dc_funcs waylanddrv_funcs =
     NULL,                               /* pStretchDIBits */
     NULL,           /* pStrokeAndFillPath */ //WAYLANDDRV_StrokeAndFillPath
     NULL,                  /* pStrokePath */   
-    //WAYLANDDRV_UnrealizePalette,            /* pUnrealizePalette */
     NULL,            /* pUnrealizePalette */
     NULL,                               /* pWidenPath */
     NULL,                                // D3D ??
