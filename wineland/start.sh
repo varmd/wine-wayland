@@ -54,6 +54,7 @@ export XCURSOR_THEME=Adwaita
 
 source $1/options.conf
 
+GAME_PATHNAME=$GAME_PATH
 GAME_PATH="$PWD/$1/$GAME_PATH"
 
 ALREADY_LAUNCHED=`ps -aux | grep $GAME_EXE | grep -v grep`
@@ -189,16 +190,18 @@ mkdir -p $PWD_PATH/wine/drive_c/users/$USER/"My Documents"
 
 
 
-cd "$GAME_PATH"
+#cd "$GAME_PATH"
+cd "$PWD_PATH"
 
-#sh setup_dxvk.sh install
+#remove z: for better security
+rm -r $PWD_PATH/wine/dosdevices/z:
 
-#export WINEDLLOVERRIDES="d3dcompiler_47,d3d10,d3d9,dxgi,d3d11=n,b;winedbg=d"  
+echo $PWD_PATH/"$GAME_PATHNAME"
+echo $PWD_PATH/wine/drive_c/"$GAME_PATHNAME"
 
-#mangohud
+#link to c:
+ln -s $PWD_PATH/"$GAME_PATHNAME" $PWD_PATH/wine/drive_c/ 2> /dev/null
 
-
-
-
+cd $PWD_PATH/wine/drive_c/"$GAME_PATHNAME"
 
 $WINE_CMD $GAME_EXE $GAME_OPTIONS  &> $LOG_PATH

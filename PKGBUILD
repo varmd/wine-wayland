@@ -1,6 +1,6 @@
 # Created by: varmd
 
-RELEASE=6.0-rc3
+RELEASE=6.0-rc4
 pkgname=('wine-wayland')
 
 
@@ -55,7 +55,7 @@ makedepends=(
 
 source=(
   #"https://github.com/wine-mirror/wine/archive/wine-$pkgver.zip"
-  "https://github.com/wine-mirror/wine/archive/wine-6.0-rc3.zip"
+  "https://github.com/wine-mirror/wine/archive/wine-$RELEASE.zip"
   "https://github.com/civetweb/civetweb/archive/v1.12.zip"
 )
 

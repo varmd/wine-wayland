@@ -381,11 +381,12 @@ function load_ui(type, data) {
   
   
   if(!db.get('games').value() || db.get('games').value().length < 1) {
-    db.defaults({ "games": [] });
+    db.defaults({ "games": [] }).write();
   }  
     
   console.log("inserting data");
   console.log(global_existing_games);
+  console.log("inserting data 22");
   var games = [];
   for(var i in global_existing_games) {
     console.log(  global_existing_games[i] );
@@ -406,8 +407,8 @@ function load_ui(type, data) {
   
   }
   
-  db.get('games').remove().value();
-  console.log( db.get('games').assign(games).value() );
+  //db.get('games').remove().value();
+  db.get('games').assign(games).value();
   
   db.write();
   
@@ -529,7 +530,13 @@ function load_docs(){
         
         options.game_exe = basename(options.exepath);
         options.game_path = options.exepath.replace(options.game_exe,"");
-        console.log(options);
+        let game_paths = options.game_path.split("/");
+        game_paths = options.game_path.split("/");
+        options.game_path = game_paths.shift();
+        if(game_paths.length && game_paths[0] != "") {
+          options.game_exe = game_paths.join("/") + options.game_exe;
+        }
+        
         let str = ConfFile(options);
           
         db.write();

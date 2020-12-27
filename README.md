@@ -90,7 +90,7 @@ Then in the terminal run sh start-your-game.sh
 
 ### Environment variables when running games without the wineland launcher
 
-* Use `export LD_LIBRARY_PATH="/usr/lib/wineland/lib32:$LD_LIBRARY_PATH"` when running 32-bit wine outside of the wineland launcher
+* Use `export LD_LIBRARY_PATH="/usr/lib/wineland/lib32:$LD_LIBRARY_PATH"` and `export VK_ICD_FILENAMES="/usr/lib/wineland/vulkan/icd.d/intel_icd.i686.json:/usr/lib/wineland/vulkan/icd.d/radeon_icd.i686.json"` when running 32-bit wine apps outside of the wineland launcher
 * If a game is not starting, or there is no keyboard/mouse focus, try `export WINE_VK_VULKAN_ONLY=1` variable and start the game to see if there are any error popups
 * Use `export XCURSOR_SIZE="xx"` and `export XCURSOR_THEME=themename` to set cursor theme and increase cursor size 
 * Use `export WINE_VK_HIDE_CURSOR=1` to hide cursors, when games do not hide cursors - for example when using a controller
@@ -99,12 +99,13 @@ Then in the terminal run sh start-your-game.sh
 * Use `export WINE_VK_FULLSCREEN_GRAB_CURSOR=1` to automatically enable cursor grab in fullscreen.
 * Use `export WINE_VK_ALWAYS_FULLSCREEN=1` to automatically set game to fullscreen without using F11.
 * For best performance use kernel with the fsync patch, and add `export WINEFSYNC=1` variable
+* Use `export WINE_VK_HIDE_CURSOR=1` to hide mouse cursor - for example, when only using a controller
 
 ## Keyboard shortcuts
 
 * F11 - Enter fullscreen mode
 * F10 - some games may not restrict cursor properly, manually restricts cursor to the game surface. 
-* F9 - some games (such as NMS) that draw their own cursor may need this to lock the cursor pointer. Also enable export WINE_VK_HIDE_CURSOR=1 in the start-game.sh. After alt-tabbing, press F9 two times to reset cursor state
+* F9 - some games (such as NMS) that draw their own cursor may need this to lock the cursor pointer.
 
 
 ## Notes

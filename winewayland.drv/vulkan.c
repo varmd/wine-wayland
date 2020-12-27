@@ -1546,14 +1546,12 @@ void wayland_pointer_enter_cb(void *data,
       
       SetActiveWindow( global_vulkan_hwnd );
       SetForegroundWindow( global_vulkan_hwnd );
-      ShowWindow( global_vulkan_hwnd, SW_SHOW );
       SetFocus(global_vulkan_hwnd);
       SERVER_START_REQ( set_focus_window )
       {
         req->handle = wine_server_user_handle( global_vulkan_hwnd );
       }
       SERVER_END_REQ;
-      UpdateWindow(global_vulkan_hwnd);
 
     }
     
@@ -1574,34 +1572,6 @@ void wayland_pointer_leave_cb(void *data,
 
 }
 
-DWORD EVENT_wayland_time_to_win32_time(uint32_t time)
-{
-  static DWORD adjust = 0;
-  DWORD now = GetTickCount();
-  DWORD ret;
-
-  if (! adjust && time != 0)
-  {
-    ret = now;
-    adjust = time - now;
-  }
-  else
-  {
-      /* If we got an event in the 'future', then our clock is clearly wrong.
-         If we got it more than 10000 ms in the future, then it's most likely
-         that the clock has wrapped.  */
-
-      ret = time - adjust;
-      if (ret > now && ((ret - now) < 10000) && time != 0)
-      {
-        adjust += ret - now;
-        ret    -= ret - now;
-      }
-  }
-
-  return ret;
-
-}
 
 
 
@@ -1689,23 +1659,20 @@ void wayland_pointer_motion_cb(void *data,
   global_input.u.mi.dy = global_input.u.mi.dy + rect.top;
 
   SERVER_START_REQ( send_hardware_message )
-    {
-        req->win        = wine_server_user_handle( hwnd );
-        req->flags      = 0;
-        req->input.type = INPUT_MOUSE;
+  {
+    req->win        = wine_server_user_handle( hwnd );
+    req->flags      = 0;
+    req->input.type = INPUT_MOUSE;
 
-        req->input.mouse.x     = global_input.u.mi.dx;
-        req->input.mouse.y     = global_input.u.mi.dy;
-        req->input.mouse.data  = 0;
-        req->input.mouse.flags = global_input.u.mi.dwFlags;
-        req->input.mouse.time  = 0;
-        req->input.mouse.info  = 0;
+    req->input.mouse.x     = global_input.u.mi.dx;
+    req->input.mouse.y     = global_input.u.mi.dy;
+    req->input.mouse.data  = 0;
+    req->input.mouse.flags = global_input.u.mi.dwFlags;
+    req->input.mouse.time  = 0;
+    req->input.mouse.info  = 0;
 
-        wine_server_call( req );
-
-
-
-    }
+    wine_server_call( req );
+  }
   SERVER_END_REQ;
 
 
@@ -1898,23 +1865,22 @@ void wayland_pointer_button_cb(void *data,
 
 
   SERVER_START_REQ( send_hardware_message )
-    {
-        req->win        = wine_server_user_handle( hwnd );
-        req->flags      = 0;
-        req->input.type = input.type;
+  {
+    req->win        = wine_server_user_handle( hwnd );
+    req->flags      = 0;
+    req->input.type = input.type;
+    req->input.mouse.x     = input.u.mi.dx;
+    req->input.mouse.y     = input.u.mi.dy;
+    req->input.mouse.data  = 0;
+    req->input.mouse.flags = input.u.mi.dwFlags;
+    req->input.mouse.time  = 0;
+    req->input.mouse.info  = 0;
 
-            req->input.mouse.x     = input.u.mi.dx;
-            req->input.mouse.y     = input.u.mi.dy;
-            req->input.mouse.data  = 0;
-            req->input.mouse.flags = input.u.mi.dwFlags;
-            req->input.mouse.time  = 0;
-            req->input.mouse.info  = 0;
-
-        wine_server_call( req );
-
+    wine_server_call( req );
 
 
-    }
+
+  }
   SERVER_END_REQ;
 
 
@@ -4717,16 +4683,6 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
 
     int no_flag = 1;
     int count = 0;
-
-    //do not show hidden vulkan windows
-    if(! (GetWindowLongW( create_info->hwnd, GWL_STYLE ) & WS_VISIBLE) ) {
-      no_flag = 1;
-      //return VK_SUCCESS; <- causes crash in some games
-    }
-
-
-
-
 
     //#if 0
     //Hack
