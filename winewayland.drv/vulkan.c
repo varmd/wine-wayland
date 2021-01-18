@@ -114,6 +114,32 @@ void *global_cursor_shm_data = NULL;
 struct wl_shm_pool *global_cursor_pool = NULL;
 struct cursor_cache *global_cursor_cache[32768] = {0};
 
+int global_wait_for_configure = 0;
+int global_is_vulkan = 0;
+int global_is_opengl = 0;
+int global_hide_cursor = 0;
+int global_disable_clip_cursor = 0;
+int global_fullscreen_grab_cursor = 0;
+int global_last_cursor_change = 0;
+int global_is_cursor_visible = 1;
+int global_is_always_fullscreen = 0;
+
+int global_gdi_fd = 0;
+void *global_shm_data = NULL;
+struct wl_buffer *global_wl_buffer = NULL;
+struct wl_shm_pool *global_wl_pool = NULL;
+
+HWND global_vulkan_hwnd;
+HWND global_update_hwnd = NULL;
+HWND global_update_hwnd_last = NULL;
+
+//wl_output
+struct wl_output *global_first_wl_output = NULL;
+int global_output_width = 0;
+int global_output_height = 0;
+
+
+
 
 //Wayland
 
@@ -1331,24 +1357,7 @@ fail:
 
 
 
-int global_wait_for_configure = 0;
-int global_is_vulkan = 0;
-int global_is_opengl = 0;
-int global_hide_cursor = 0;
-int global_disable_clip_cursor = 0;
-int global_fullscreen_grab_cursor = 0;
-int global_last_cursor_change = 0;
-int global_is_cursor_visible = 1;
-int global_is_always_fullscreen = 0;
 
-int global_gdi_fd = 0;
-void *global_shm_data = NULL;
-struct wl_buffer *global_wl_buffer = NULL;
-struct wl_shm_pool *global_wl_pool = NULL;
-
-HWND global_vulkan_hwnd;
-HWND global_update_hwnd = NULL;
-HWND global_update_hwnd_last = NULL;
 
 
 struct xdg_wm_base *wm_base = NULL;
@@ -2443,6 +2452,50 @@ static const struct xdg_wm_base_listener xdg_wm_base_listener = {
     xdg_wm_base_ping,
 };
 
+
+//wl output
+
+
+
+static void
+display_handle_geometry(void *data,
+			struct wl_output *wl_output,
+			int x,
+			int y,
+			int physical_width,
+			int physical_height,
+			int subpixel,
+			const char *make,
+			const char *model,
+			int transform)
+{
+	//Do nothing
+}
+
+static void
+display_handle_mode(void *data,
+		    struct wl_output *wl_output,
+		    uint32_t flags,
+		    int width,
+		    int height,
+		    int refresh)
+{
+
+
+	if (global_first_wl_output && wl_output == global_first_wl_output && (flags & WL_OUTPUT_MODE_CURRENT)) {
+		global_output_width = width;
+		global_output_height = height;
+    TRACE("Found output with WxH %d %d \n", global_output_width, global_output_height);
+    
+	}
+}
+
+static const struct wl_output_listener output_listener = {
+	display_handle_geometry,
+	display_handle_mode
+};
+
+
 static void registry_add_object (void *data, struct wl_registry *registry, uint32_t name, const char *wl_interface, uint32_t version) {
 
 
@@ -2500,7 +2553,10 @@ static void registry_add_object (void *data, struct wl_registry *registry, uint3
       if(wayland_compositor && !wayland_cursor_surface)
         wayland_cursor_surface = wl_compositor_create_surface(wayland_compositor);
 
-    }
+    } else if (strcmp(wl_interface, "wl_output") == 0) {
+		  global_first_wl_output = wl_registry_bind(registry, name, &wl_output_interface, 1);
+		  wl_output_add_listener(global_first_wl_output, &output_listener, NULL);
+	} 
 }
 
 static void registry_remove_object (void *data, struct wl_registry *registry, uint32_t name) {
@@ -2629,6 +2685,7 @@ static void create_wayland_display () {
   struct wl_registry *registry = wl_display_get_registry (wayland_display);
   wl_registry_add_listener (registry, &registry_listener, NULL);
   wl_display_roundtrip (wayland_display);
+  wl_display_roundtrip (wayland_display);
   fd = wl_display_get_fd(wayland_display);
   if(fd) {
     #ifdef HAS_ESYNC
@@ -2642,13 +2699,14 @@ static void create_wayland_display () {
 static struct wayland_window *create_wayland_window (HWND hwnd, int32_t width, int32_t height) {
 
 
-  TRACE("Creating wayland window \n");
+  
 
   struct wl_region *region;
-
+  struct wayland_window *window = malloc(sizeof(struct wayland_window));
+  
   global_wait_for_configure = 1;
 
-	struct wayland_window *window = malloc(sizeof(struct wayland_window));
+	TRACE("Creating wayland window \n");
 
 	window->surface = wl_compositor_create_surface (wayland_compositor);
 
@@ -2952,6 +3010,7 @@ static uint32_t *get_bitmap_argb( HDC hdc, HBITMAP color, HBITMAP mask, unsigned
     int i, j;
     BOOL has_alpha = FALSE;
     int red, green, blue, alpha;
+    int cClrBits = 0;
 
     if (!color) return NULL;
 
@@ -2969,7 +3028,7 @@ static uint32_t *get_bitmap_argb( HDC hdc, HBITMAP color, HBITMAP mask, unsigned
     info->bmiHeader.biClrImportant = 0;
     
     
-    int cClrBits = 0;
+    
     // Convert the color format to a count of bits.  
     cClrBits = (WORD)(bm.bmPlanes * bm.bmBitsPixel); 
     if (cClrBits == 1) 
@@ -3768,10 +3827,6 @@ static void CDECL android_surface_flush( struct window_surface *window_surface )
       }
     }
 
-
-
-    //dest_pixels = (unsigned int *)surface->shm_data + (client_rect.top + rect.top) * WIDTH + (client_rect.left + rect.left) ;
-    //src_pixels = (unsigned int *)surface->bits  + (client_rect.left) * surface->info.bmiHeader.biWidth + (surface->header.rect.left) ;
     src_pixels = (unsigned int *)surface->bits + (rect.top - surface->header.rect.top) * surface->info.bmiHeader.biWidth + (rect.left - surface->header.rect.left);
 
     dest_pixels = (unsigned int *)hwnd_data->shm_data;
@@ -4723,6 +4778,11 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
 
       int screen_width = 1920;
       int screen_height = 1080;
+      
+      if(global_output_width > 0 && global_output_height > 0) {
+        screen_width = global_output_width;
+        screen_height = global_output_height;        
+      }
 
       if(env_width) {
         screen_width = atoi(env_width);
