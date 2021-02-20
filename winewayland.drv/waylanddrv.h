@@ -152,6 +152,7 @@ static inline void add_bounds_rect( RECT *bounds, const RECT *rect )
     bounds->bottom = max( bounds->bottom, rect->bottom );
 }
 
+void create_desktop();
 
 void *fail_on_null(void *p, size_t size, char *file, int32_t line);
 

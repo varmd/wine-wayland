@@ -91,6 +91,84 @@ WINE_DEFAULT_DEBUG_CHANNEL(waylanddrv);
 #endif
 
 #define HAS_ESYNC 1
+//#define OPENGL_TEST 0
+
+#ifdef OPENGL_TEST
+#define GLAPIENTRY /* nothing */
+#include "wine/wgl.h"
+#undef GLAPIENTRY
+#include "wine/wgl_driver.h"
+
+#include "wine/debug.h"
+
+#define EGL_NO_X11 1
+#include <EGL/egl.h>
+#include <wayland-egl.h>
+EGLConfig global_egl_config;
+static EGLDisplay egl_display;
+
+
+
+#endif
+
+
+//OpenGL vars
+#ifdef OPENGL_TEST
+#define DECL_FUNCPTR(f) typeof(f) * p_##f = NULL
+DECL_FUNCPTR( eglCreateContext );
+DECL_FUNCPTR( eglCreateWindowSurface );
+DECL_FUNCPTR( eglCreatePbufferSurface );
+DECL_FUNCPTR( eglDestroyContext );
+DECL_FUNCPTR( eglDestroySurface );
+DECL_FUNCPTR( eglGetConfigAttrib );
+DECL_FUNCPTR( eglGetConfigs );
+DECL_FUNCPTR( eglGetDisplay );
+DECL_FUNCPTR( eglGetProcAddress );
+DECL_FUNCPTR( eglInitialize );
+DECL_FUNCPTR( eglMakeCurrent );
+DECL_FUNCPTR( eglSwapBuffers );
+DECL_FUNCPTR( eglSwapInterval );
+#undef DECL_FUNCPTR
+
+static const int egl_client_version = 2;
+
+struct wgl_pixel_format
+{
+    EGLConfig config;
+};
+
+struct wgl_context
+{
+    struct list entry;
+    EGLConfig  config;
+    EGLContext context;
+    EGLSurface surface;
+    HWND       hwnd;
+    BOOL       refresh;
+};
+
+struct gl_drawable
+{
+    struct list     entry;
+    HWND            hwnd;
+    HDC             hdc;
+    int             format;
+    struct wl_egl_window *window;
+    EGLSurface      surface;
+    EGLSurface      pbuffer;
+};
+
+static void *egl_handle;
+static void *opengl_handle;
+static struct wgl_pixel_format *pixel_formats;
+static int nb_pixel_formats, nb_onscreen_formats;
+static EGLDisplay display;
+static int swap_interval;
+static char wgl_extensions[4096];
+//struct opengl_funcs egl_funcs;
+static struct opengl_funcs egl_funcs;
+//OpenGL vars
+#endif
 
 //esync
 #if HAS_ESYNC
@@ -129,7 +207,7 @@ void *global_shm_data = NULL;
 struct wl_buffer *global_wl_buffer = NULL;
 struct wl_shm_pool *global_wl_pool = NULL;
 
-HWND global_vulkan_hwnd;
+HWND global_vulkan_hwnd = NULL;
 HWND global_update_hwnd = NULL;
 HWND global_update_hwnd_last = NULL;
 
@@ -1393,15 +1471,26 @@ struct wayland_window {
 	struct wl_surface *surface;
 	struct xdg_surface *xdg_surface;
 	struct xdg_toplevel *xdg_toplevel;
-  
+
   HWND pointer_to_hwnd;
 	int test;
+	int height;
+	int width;
+
+  #ifdef OPENGL_TEST
+  EGLSurface egl_surface;
+	EGLContext egl_context;
+  struct wl_egl_window *egl_window;
+  #endif
 };
 
 struct wayland_window *vulkan_window = NULL;
 
 struct wayland_window *second_window = NULL;
 
+#ifdef OPENGL_TEST
+struct wayland_window *egl_window = NULL;
+#endif
 
 
 
@@ -1480,11 +1569,11 @@ static struct wl_surface_win_data *get_wl_win_data( struct wl_surface *surface )
 struct cursor_cache
 {
     HCURSOR handle;           /* cursor that this cache belongs to */
-    uint32_t *cached_pixels;    
-    int width;    
+    uint32_t *cached_pixels;
+    int width;
     int height;
-    int xhotspot;  
-    int yhotspot;  
+    int xhotspot;
+    int yhotspot;
 
 };
 
@@ -1550,20 +1639,22 @@ void wayland_pointer_enter_cb(void *data,
   if(temp) {
     TRACE("Current hwnd is %p and surface %p \n", temp, surface);
     global_update_hwnd = temp;
-    
-    if(temp == global_vulkan_hwnd) {
-      
+  } else if (vulkan_window != NULL && vulkan_window->surface == surface && global_vulkan_hwnd != NULL) {
+      TRACE("Current vulkan hwnd is %p and surface %p \n", global_vulkan_hwnd, surface);
+      SetWindowPos( global_vulkan_hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOSIZE);
       SetActiveWindow( global_vulkan_hwnd );
       SetForegroundWindow( global_vulkan_hwnd );
+      ShowWindow( global_vulkan_hwnd, SW_SHOW );
       SetFocus(global_vulkan_hwnd);
-      SERVER_START_REQ( set_focus_window )
-      {
-        req->handle = wine_server_user_handle( global_vulkan_hwnd );
-      }
-      SERVER_END_REQ;
+      SetActiveWindow( global_vulkan_hwnd );
+      SetFocus(global_vulkan_hwnd);
 
-    }
-    
+
+      SetCapture(global_vulkan_hwnd);
+
+      UpdateWindow(global_vulkan_hwnd);
+
+
   }
   global_last_cursor_change = 0;
 
@@ -2352,7 +2443,7 @@ static void seat_caps_cb(void *data, struct wl_seat *seat, enum wl_seat_capabili
 
     //Some games need ClipCursor disabled
     env_no_clip_cursor = getenv( "WINE_VK_NO_CLIP_CURSOR" );
-    
+
     //Some games use custom cursors
     env_use_custom_cursors = getenv( "WINE_VK_USE_CUSTOM_CURSORS" );
 
@@ -2367,7 +2458,7 @@ static void seat_caps_cb(void *data, struct wl_seat *seat, enum wl_seat_capabili
     if(env_fullscreen_grab_cursor) {
       global_fullscreen_grab_cursor = 1;
     }
-    
+
     if(env_use_custom_cursors) {
       global_custom_cursors = 1;
     }
@@ -2486,7 +2577,7 @@ display_handle_mode(void *data,
 		global_output_width = width;
 		global_output_height = height;
     TRACE("Found output with WxH %d %d \n", global_output_width, global_output_height);
-    
+
 	}
 }
 
@@ -2556,7 +2647,7 @@ static void registry_add_object (void *data, struct wl_registry *registry, uint3
     } else if (strcmp(wl_interface, "wl_output") == 0) {
 		  global_first_wl_output = wl_registry_bind(registry, name, &wl_output_interface, 1);
 		  wl_output_add_listener(global_first_wl_output, &output_listener, NULL);
-	} 
+	}
 }
 
 static void registry_remove_object (void *data, struct wl_registry *registry, uint32_t name) {
@@ -2698,19 +2789,14 @@ static void create_wayland_display () {
 //todo add delete
 static struct wayland_window *create_wayland_window (HWND hwnd, int32_t width, int32_t height) {
 
-
-  
-
   struct wl_region *region;
   struct wayland_window *window = malloc(sizeof(struct wayland_window));
-  
+
   global_wait_for_configure = 1;
 
 	TRACE("Creating wayland window \n");
 
 	window->surface = wl_compositor_create_surface (wayland_compositor);
-
-
   window->xdg_surface = xdg_wm_base_get_xdg_surface(wm_base, window->surface);
 	xdg_surface_add_listener(window->xdg_surface, &xdg_surface_listener, window);
 
@@ -2722,6 +2808,11 @@ static struct wayland_window *create_wayland_window (HWND hwnd, int32_t width, i
   wl_surface_set_opaque_region(window->surface, region);
 
   window->pointer_to_hwnd = hwnd;
+
+  window->width = width;
+  window->height = height;
+
+
 
 
   if(global_is_always_fullscreen)
@@ -2778,10 +2869,11 @@ static void draw_wayland_window (struct wayland_window *window) {
 
     TRACE( "Creating/Resetting main wayland surface \n" );
 
-    int stride = 1440 * 4; // 4 bytes per pixel
-    int size = stride * 900;
-    int HEIGHT = 900;
-    int WIDTH = 1440;
+    int stride = window->width * 4; // 4 bytes per pixel
+    int size = stride * window->height;
+    int WIDTH = window->width;
+    int HEIGHT = window->height;
+
 
     if(!global_gdi_fd) {
 
@@ -2859,24 +2951,17 @@ static void draw_wayland_window (struct wayland_window *window) {
 
 
 
-    width = min( 1440, stride );
+    width = min( WIDTH, stride );
 
 
     //for (y = rect.top; y < min( HEIGHT, rect.bottom); y++)
-    for (y = 0; y < min( 900, 900 - 1); y++)
+    for (y = 0; y < min( HEIGHT, HEIGHT - 1); y++)
     {
-
-
-
         for (x = 0; x < width; x++) {
           dest_pixels[x] = 0x00000000;
         }
-
-
         dest_pixels += WIDTH;
     }
-
-
 
     wl_surface_damage(window->surface, 0, 0, WIDTH, HEIGHT);
     wl_surface_commit(window->surface);
@@ -3026,30 +3111,30 @@ static uint32_t *get_bitmap_argb( HDC hdc, HBITMAP color, HBITMAP mask, unsigned
     info->bmiHeader.biYPelsPerMeter = 0;
     info->bmiHeader.biClrUsed = 0;
     info->bmiHeader.biClrImportant = 0;
-    
-    
-    
-    // Convert the color format to a count of bits.  
-    cClrBits = (WORD)(bm.bmPlanes * bm.bmBitsPixel); 
-    if (cClrBits == 1) 
-        cClrBits = 1; 
-    else if (cClrBits <= 4) 
-        cClrBits = 4; 
-    else if (cClrBits <= 8) 
-        cClrBits = 8; 
-    else if (cClrBits <= 16) 
-        cClrBits = 16; 
-    else if (cClrBits <= 24) 
-        cClrBits = 24; 
+
+
+
+    // Convert the color format to a count of bits.
+    cClrBits = (WORD)(bm.bmPlanes * bm.bmBitsPixel);
+    if (cClrBits == 1)
+        cClrBits = 1;
+    else if (cClrBits <= 4)
+        cClrBits = 4;
+    else if (cClrBits <= 8)
+        cClrBits = 8;
+    else if (cClrBits <= 16)
+        cClrBits = 16;
+    else if (cClrBits <= 24)
+        cClrBits = 24;
     else cClrBits = 32;
-    
+
     TRACE("Got %d format for cursor \n", cClrBits);
-    
-    
-   
-    
+
+
+
+
     int size = bm.bmWidth * bm.bmHeight;
-    
+
     if (!(bits = HeapAlloc( GetProcessHeap(), 0, bm.bmWidth * bm.bmHeight * sizeof(unsigned int) )))
         goto failed;
     if (!GetDIBits( hdc, color, 0, bm.bmHeight, bits, info, DIB_RGB_COLORS )) goto failed;
@@ -3059,55 +3144,55 @@ static uint32_t *get_bitmap_argb( HDC hdc, HBITMAP color, HBITMAP mask, unsigned
 
     for (i = 0; i < bm.bmWidth * bm.bmHeight; i++)
         if ((has_alpha = (bits[i] & 0xff000000) != 0)) break;
-    
+
     ptr = bits;
 
     if (!has_alpha)
     {
-        TRACE("No alpha channel for cursor \n");    
+        TRACE("No alpha channel for cursor \n");
         unsigned int width_bytes = (bm.bmWidth + 31) / 32 * 4;
         /* generate alpha channel from the mask */
         info->bmiHeader.biBitCount = 1;
         info->bmiHeader.biSizeImage = width_bytes * bm.bmHeight;
         if (!(mask_bits = HeapAlloc( GetProcessHeap(), 0, info->bmiHeader.biSizeImage ))) goto failed;
         if (!GetDIBits( hdc, mask, 0, bm.bmHeight, mask_bits, info, DIB_RGB_COLORS )) goto failed;
-      
-        
-        
+
+
+
         for (i = 0; i < bm.bmHeight; i++) {
             for (j = 0; j < bm.bmWidth; j++, ptr++) {
                   if (!((mask_bits[i * width_bytes + j / 8] << (j % 8)) & 0x80)) *ptr |= 0xff000000;
-                
-            }  
-        }    
-        
+
+            }
+        }
+
         HeapFree( GetProcessHeap(), 0, mask_bits );
     }
-    
-    
-    
+
+
+
     ptr = bits;
     for (i = 0; i < bm.bmWidth * bm.bmHeight; i++, ptr++) {
       red   = (*ptr >> 16) & 0xff;
       green = (*ptr >> 8) & 0xff;
       blue  = (*ptr >> 0) & 0xff;
       alpha   = (*ptr >> 24);
-    
-      
+
+
       if(!alpha || alpha < 26) {
         *ptr = 0x00000000;
       } else if ( (red + green + blue < 0x40) && alpha < 26 ) {
         *ptr = 0x00000000;
       } else if(*ptr) {
-        //*ptr |= 0x50000000;  
+        //*ptr |= 0x50000000;
         //*ptr = blue | green << 8 | red << 16 | alpha << 24;
       }
-      
-      
+
+
     }
-    
-    
-    
+
+
+
 
     return bits;
 
@@ -3119,8 +3204,8 @@ failed:
 }
 
 void set_custom_cursor( HCURSOR handle ) {
-  
-  
+
+
     unsigned int width = 0, height = 0;
     unsigned int xhotspot = 0, yhotspot = 0;
     ICONINFOEXW info;
@@ -3128,53 +3213,53 @@ void set_custom_cursor( HCURSOR handle ) {
     uint32_t *dest_pixels  = NULL;
     uint32_t *src_pixels  = NULL;
     uint32_t *bits = NULL;
-    
+
     char sprint_buffer[200];
     struct cursor_cache *cached_cursor;
 
     if ((cached_cursor = global_cursor_cache[cursor_idx(handle)])) {
-      
+
       bits = global_cursor_cache[cursor_idx( handle )]->cached_pixels;
       width = global_cursor_cache[cursor_idx( handle )]->width;
       height = global_cursor_cache[cursor_idx( handle )]->height;
       xhotspot = global_cursor_cache[cursor_idx( handle )]->xhotspot;
       yhotspot = global_cursor_cache[cursor_idx( handle )]->yhotspot;
-      
-      TRACE("Cursor cache hit w h %d %d %d \n", width, height, cursor_idx(handle));      
-      
+
+      TRACE("Cursor cache hit w h %d %d %d \n", width, height, cursor_idx(handle));
+
     } else {
-      
+
       TRACE("Cursor cache miss w h %p %d \n", handle, cursor_idx(handle));
-      
+
       info.cbSize = sizeof(info);
-      if (!GetIconInfoExW( handle, &info )) 
+      if (!GetIconInfoExW( handle, &info ))
         return;
-      
-      
+
+
       HDC hdc = CreateCompatibleDC( 0 );
-      
+
       bits = get_bitmap_argb( hdc, info.hbmColor, info.hbmMask, &width, &height);
-      
+
       if(!bits) {
-        return;  
-      }  
-      if(width < 1) {
-        return;  
+        return;
       }
-      
-      
-      
+      if(width < 1) {
+        return;
+      }
+
+
+
       /* make sure hotspot is valid */
       if (info.xHotspot >= width || info.yHotspot >= height)
       {
           info.xHotspot = width / 2;
           info.yHotspot = height / 2;
       }
-      
+
       TRACE("Cache set w h %p %d \n", handle, cursor_idx(handle));
       alloc_cursor_cache(handle);
-      
-      
+
+
       global_cursor_cache[cursor_idx( handle )]->cached_pixels = bits;
       global_cursor_cache[cursor_idx( handle )]->handle = handle;
       global_cursor_cache[cursor_idx( handle )]->width = width;
@@ -3183,24 +3268,24 @@ void set_custom_cursor( HCURSOR handle ) {
       global_cursor_cache[cursor_idx( handle )]->yhotspot = info.yHotspot;
       xhotspot = info.xHotspot;
       yhotspot = info.yHotspot;
-      
+
       DeleteDC( hdc );
     }
-    
-    
+
+
   TRACE("Cursor width is %d %d\n", width, height);
-  
-  
-  
+
+
+
   int stride = width * 4; // 4 bytes per pixel
   int size = stride * height;
-  
+
   if(width != global_cursor_width || height != global_cursor_height) {
-    
+
     if(global_cursor_gdi_fd) {
       close(global_cursor_gdi_fd);
-    }  
-      
+    }
+
     sprintf(sprint_buffer, "wine-shared-cursor-%d", width);
 
     TRACE( "creating gdi fd %s \n", sprint_buffer);
@@ -3209,68 +3294,68 @@ void set_custom_cursor( HCURSOR handle ) {
     if (global_cursor_gdi_fd >= 0) {
       fcntl(global_cursor_gdi_fd, F_ADD_SEALS, F_SEAL_SHRINK);
     } else {
-      exit(1);  
+      exit(1);
     }
     posix_fallocate(global_cursor_gdi_fd, 0, size);
-    
 
-    
-    
+
+
+
     if(global_cursor_shm_data) {
       munmap(global_cursor_shm_data, global_cursor_width * 4 * global_cursor_height);
     }
-    
+
     global_cursor_width = width;
     global_cursor_height = height;
-    
+
     //MAP_SHARED
-    
-    
-      
-    global_cursor_shm_data = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, global_cursor_gdi_fd, 0);          
-    
+
+
+
+    global_cursor_shm_data = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, global_cursor_gdi_fd, 0);
+
     if (global_cursor_shm_data == MAP_FAILED) {
       fprintf(stderr, "mmap failed: %m\n");
-      close(global_cursor_gdi_fd);      
+      close(global_cursor_gdi_fd);
       exit(1);
-    } 
-    
+    }
+
     TRACE( "creating cursor wl_shm_data \n" );
-    
-    
-    
-    
+
+
+
+
 
     if(global_cursor_pool) {
       wl_shm_pool_destroy(global_cursor_pool);
     }
     global_cursor_pool = wl_shm_create_pool(global_shm, global_cursor_gdi_fd, size);
-    
-  
+
+
   }
-  
-  
+
+
   dest_pixels = (uint32_t *)global_cursor_shm_data;
   src_pixels = bits;
-    
+
   is_buffer_busy = 1;
 
   buffer = wl_shm_pool_create_buffer(global_cursor_pool, 0, width, height, stride, WL_SHM_FORMAT_ARGB8888);
   wl_buffer_add_listener(buffer, &buffer_listener, NULL);
-        
+
   wl_surface_attach(wayland_cursor_surface, buffer, 0, 0);
-      
+
   int y,x;
   int alpha,red, green, blue = 0;
-  
-  for (y = 0; y < height ; y++) {        
-    for (x = 0; x < width; x++) { 
+
+  for (y = 0; y < height ; y++) {
+    for (x = 0; x < width; x++) {
         dest_pixels[x] = src_pixels[x];
-    } 
+    }
     src_pixels += width;
     dest_pixels += width;
   }
-      
+
   wl_surface_damage(wayland_cursor_surface, 0, 0, width, height);
   wl_surface_commit(wayland_cursor_surface);
   wl_pointer_set_cursor(wayland_pointer, wayland_serial_id,
@@ -3298,8 +3383,8 @@ void CDECL WAYLANDDRV_SetCursor( HCURSOR handle )
       struct wl_buffer *buffer;
 
       //show mouse
-      if( !global_is_cursor_visible || !global_last_cursor_change || 
-        ( global_custom_cursors && handle != global_last_cursor_handle)   
+      if( !global_is_cursor_visible || !global_last_cursor_change ||
+        ( global_custom_cursors && handle != global_last_cursor_handle)
       ) {
 
         TRACE("Showing cursor \n");
@@ -3623,7 +3708,7 @@ static void CDECL android_surface_flush( struct window_surface *window_surface )
     }
 
     if(is_buffer_busy) {
-      TRACE("buffer is busy  \n" );
+      //TRACE("buffer is busy  \n" );
       //return;
     }
 
@@ -3660,7 +3745,7 @@ static void CDECL android_surface_flush( struct window_surface *window_surface )
     HWND owner;
     parent = GetParent( surface->hwnd );
 
-    
+
     owner = GetWindow( surface->hwnd, GW_OWNER );
 
     if ( parent && parent != GetDesktopWindow() ) {
@@ -3690,7 +3775,7 @@ static void CDECL android_surface_flush( struct window_surface *window_surface )
              surface->header.rect.bottom - surface->header.rect.top );
 
 
-    
+
     //Checks and reduces rect to changed areas
 
     needs_flush = IntersectRect( &rect, &rect, &surface->bounds );
@@ -3704,7 +3789,7 @@ static void CDECL android_surface_flush( struct window_surface *window_surface )
     }
 
     //unsigned int *src, *dst;
-    
+
 
 
 
@@ -4152,11 +4237,9 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
                                      struct window_surface **surface )
 {
 
+  const char *is_vulkan_only = getenv( "WINE_VK_VULKAN_ONLY" );
 
-
-  const char *is_vulkan = getenv( "WINE_VK_VULKAN_ONLY" );
-
-  if(is_vulkan || hwnd == global_vulkan_hwnd) {
+  if(is_vulkan_only || hwnd == global_vulkan_hwnd) {
     return;
   }
 
@@ -4270,9 +4353,29 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
   if(!wayland_display) {
       create_wayland_display();
   }
-  if(wayland_display && !second_window) {
-      second_window = create_wayland_window (hwnd, 1440, 900);
 
+  //Get window width/height
+  RECT window_client_rect;
+
+
+  GetWindowRect(hwnd, &window_client_rect);
+  TRACE("Window Rect is %s \n", wine_dbgstr_rect( &window_client_rect ));
+  TRACE("Window Rect2 is %s \n", wine_dbgstr_rect( &window_rect ));
+
+
+   int HEIGHT = 0;
+   int WIDTH = 0;
+   WIDTH = window_client_rect.right - window_client_rect.left;
+   HEIGHT = window_client_rect.bottom - window_client_rect.top;
+   if(WIDTH < 1)
+     WIDTH = 1440;
+   if(HEIGHT < 1)
+     HEIGHT = 900;
+
+   TRACE("WXH is %d %d \n", WIDTH, HEIGHT);
+
+  if(wayland_display && !second_window) {
+      second_window = create_wayland_window (hwnd, WIDTH, HEIGHT);
 
       int count = 0;
       while (!count) {
@@ -4308,61 +4411,27 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
       return;
     } else {
 
-
       RECT rect = get_virtual_screen_rect();
-
-      /*
-      if(hwnd == global_vulkan_hwnd) {
-
-        if (*surface) window_surface_release( *surface );
-        *surface = create_surface( data->hwnd, &rect, 255, key, FALSE );
-        ShowWindow(hwnd, SW_SHOW | SW_RESTORE);
-
-        if (*surface) {
-          window_surface_add_ref( surface );
-          data->surface = *surface;
-        }
-
-        return;
-      }
-
-      return;
-      */
 
 
       if ( (!parent || parent == GetDesktopWindow()) ) {
+
         if (*surface) {
           window_surface_release( *surface );
         }
         *surface = NULL;
         *surface = create_surface( data->hwnd, &rect, 255, key, FALSE );
 
-
-        //if (data->surface) {
-        //  window_surface_release( data->surface );
-        //}
         if (*surface) {
           window_surface_add_ref( *surface );
           data->surface = *surface;
         }
-
-        if(hwnd != global_update_hwnd && hwnd != global_update_hwnd_last) {
-          global_update_hwnd_last = global_update_hwnd;
-        }
-
-
-
-
-        global_update_hwnd = hwnd;
-
 
       }
 
 
 
     }
-
-    return;
 
 }
 
@@ -4374,16 +4443,28 @@ BOOL CDECL WAYLANDDRV_CreateWindow( HWND hwnd )
 {
 
     WCHAR class_name[64];
-    
-    #if 0
+
     static const WCHAR menu_class[] = {'#', '3', '2', '7', '6', '8', 0};
     static const WCHAR ole_class[] = {'O','l','e','M','a','i','n','T','h','r','e','a','d','W','n','d','C','l','a','s','s', 0};
     static const WCHAR msg_class[] = {'M','e','s','s','a','g','e', 0};
     static const WCHAR ime_class[] = {'I','M','E', 0};
-    #endif
+
+    //static const WCHAR chrome_class[] = {'C','h','r','o','m','e','_','W','i','d','g','e','t','W','i','n','_','0', 0};
 
     if(RealGetWindowClassW(hwnd, class_name, ARRAY_SIZE(class_name))) {
       TRACE("%s \n", debugstr_w(class_name));
+      #if 0
+      if(!lstrcmpiW(class_name, chrome_class)) {
+        TRACE("Destroyed chrome window \n");
+        //if(global_vulkan_hwnd) {
+          //SetActiveWindow( global_vulkan_hwnd );
+          //SetForegroundWindow( global_vulkan_hwnd );
+          //ShowWindow( global_vulkan_hwnd, SW_SHOW );
+          //SetFocus(global_vulkan_hwnd);
+        //}
+        return TRUE;
+      }
+      #endif
     }
 
     return TRUE;
@@ -4482,7 +4563,7 @@ void CDECL WAYLANDDRV_DestroyWindow( HWND hwnd )
 
     struct android_win_data *hwnd_data;
     hwnd_data = get_win_data( hwnd );
-    TRACE("hwnd_data %p for %p", hwnd_data, hwnd);
+    TRACE("hwnd_data %p for %p \n", hwnd_data, hwnd);
     if (hwnd_data && hwnd_data->wayland_surface ) {
       TRACE("hwnd_data %p for %p", hwnd_data, hwnd);
       wl_subsurface_destroy(hwnd_data->wayland_subsurface);
@@ -4502,11 +4583,13 @@ void CDECL WAYLANDDRV_DestroyWindow( HWND hwnd )
 
     if (global_update_hwnd == hwnd) {
       global_update_hwnd = NULL;
-      global_update_hwnd = GetForegroundWindow();
 
-      SetFocus(global_update_hwnd);
-      UpdateWindow(global_update_hwnd);
-      RedrawWindow(global_update_hwnd, 0, 0, RDW_INVALIDATE | RDW_ALLCHILDREN);
+      global_update_hwnd = GetForegroundWindow();
+      if(global_update_hwnd) {
+        SetFocus(global_update_hwnd);
+        UpdateWindow(global_update_hwnd);
+        RedrawWindow(global_update_hwnd, 0, 0, RDW_INVALIDATE | RDW_ALLCHILDREN);
+      }
     }
     return;
 
@@ -4599,7 +4682,1349 @@ DWORD CDECL WAYLANDDRV_MsgWaitForMultipleObjectsEx( DWORD count, const HANDLE *h
 
 //Windows functions
 
+//EGL/Opengl
+#ifdef OPENGL_TEST
+//OpenGL funcs
+//OpenGL is not working
 
+static void create_egl_wayland_display () {
+  desktop_tid = GetCurrentThreadId();
+  int fd = NULL;
+  if(!wayland_display) {
+    create_wayland_display();
+  }
+
+  if(!wayland_display) {
+    printf("wayland display is not working \n");
+    exit(1);
+    return;
+  }
+
+  struct wl_registry *registry = wl_display_get_registry (wayland_display);
+  wl_registry_add_listener (registry, &registry_listener, NULL);
+  wl_display_roundtrip (wayland_display);
+  egl_display = eglGetDisplay (wayland_display);
+  eglInitialize (egl_display, NULL, NULL);
+
+
+  TRACE("Created wayland display %p \n");
+}
+
+static void create_egl_wayland_window (struct wayland_window *window, int32_t width, int32_t height) {
+
+
+  if(!wayland_display) {
+    create_egl_wayland_display();
+  }
+
+	eglBindAPI (EGL_OPENGL_API);
+	EGLint attributes[] = {
+		EGL_RED_SIZE, 8,
+		EGL_GREEN_SIZE, 8,
+		EGL_BLUE_SIZE, 8,
+    EGL_ALPHA_SIZE, 8,
+		EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+		EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
+		//EGL_CONTEXT_MAJOR_VERSION, 4,
+		//EGL_CONTEXT_MINOR_VERSION, 1,
+	EGL_NONE};
+	EGLConfig config;
+	EGLint num_config;
+  struct wl_region *region;
+
+  global_wait_for_configure = 1;
+
+	eglChooseConfig (egl_display, attributes, &global_egl_config, 1, &num_config);
+  config = global_egl_config;
+	window->egl_context = eglCreateContext (egl_display, config, EGL_NO_CONTEXT, NULL);
+
+	window->surface = wl_compositor_create_surface (wayland_compositor);
+
+
+  window->xdg_surface = xdg_wm_base_get_xdg_surface(wm_base, window->surface);
+	xdg_surface_add_listener(window->xdg_surface, &xdg_surface_listener, window);
+
+	window->xdg_toplevel = xdg_surface_get_toplevel(window->xdg_surface);
+	xdg_toplevel_add_listener(window->xdg_toplevel, &xdg_toplevel_listener, window);
+
+  region = wl_compositor_create_region(wayland_compositor);
+  wl_region_add(region, 0, 0, width, height);
+  wl_surface_set_opaque_region(window->surface, region);
+
+
+  window->test = 222;
+	//wl_shell_surface_set_toplevel (window->shell_surface);
+	//window->egl_window = wl_egl_window_create (window->surface, width, height);
+	//window->egl_surface = eglCreateWindowSurface (egl_display, config, window->egl_window, NULL);
+
+  wl_surface_commit(window->surface);
+  wl_display_flush (wayland_display);
+  while(global_wait_for_configure) {
+    sleep(0.3);
+    wl_display_dispatch(wayland_display);
+  }
+
+	eglMakeCurrent (egl_display, window->egl_surface, window->egl_surface, window->egl_context);
+}
+
+
+static void delete_egl_wayland_window (struct wayland_window *window) {
+	eglDestroySurface (egl_display, window->egl_surface);
+	wl_egl_window_destroy (window->egl_window);
+	//wl_shell_surface_destroy (window->shell_surface);
+
+  if (window->xdg_toplevel)
+		xdg_toplevel_destroy(window->xdg_toplevel);
+	if (window->xdg_surface)
+		xdg_surface_destroy(window->xdg_surface);
+
+	wl_surface_destroy (window->surface);
+	eglDestroyContext (egl_display, window->egl_context);
+}
+
+
+static void draw_egl_wayland_window (struct wayland_window *window) {
+	eglSwapBuffers (egl_display, window->egl_surface);
+}
+
+
+
+static struct list gl_contexts = LIST_INIT( gl_contexts );
+static struct list gl_drawables = LIST_INIT( gl_drawables );
+
+static void (*pglFinish)(void);
+static void (*pglFlush)(void);
+
+
+
+
+
+static inline BOOL is_onscreen_pixel_format( int format )
+{
+    return format > 0 && format <= nb_onscreen_formats;
+}
+
+static struct gl_drawable *create_gl_drawable( HWND hwnd, HDC hdc, int format )
+{
+    //static const int attribs[] = { EGL_WIDTH, 1, EGL_HEIGHT, 1, EGL_NONE };
+    //static const int pbuffer_attribs[] = { EGL_WIDTH, 1, EGL_HEIGHT, 1, EGL_SURFACE_TYPE, 0, EGL_NONE };
+
+    struct gl_drawable *gl = HeapAlloc( GetProcessHeap(), 0, sizeof(*gl) );
+    gl->pbuffer = 0;
+
+    gl->hwnd   = hwnd;
+    gl->hdc    = hdc;
+    gl->format = format;
+
+
+
+    TRACE( "Creating drawable \n" );
+
+    if(!egl_window) {
+
+
+        create_egl_wayland_window (&egl_window, 1440, 900);
+
+        TRACE( "Creating egl 1 \n" );
+        int count = 0;
+        while (!count) {
+          sleep(0.1);
+          TRACE( "Creating egl 2 \n" );
+          wl_display_dispatch_pending (wayland_display);
+          draw_wayland_window (&egl_window);
+          sleep(0.1);
+          count = 1;
+        }
+
+
+
+
+
+        //example working
+
+        int d = 1;
+
+        while(1) {
+          if(d) {
+            glClearColor(0.5, 0.3, 0.0, 1.0);
+          } else {
+            d = 0;
+            glClearColor(0.1, 0.1, 0.1, 1.0);
+          }
+          glClear(GL_COLOR_BUFFER_BIT);
+          eglSwapBuffers(egl_display, egl_window->egl_surface);
+          sleep(0.5);
+          wl_display_flush (wayland_display);
+          wl_display_dispatch(wayland_display);
+        }
+
+
+    }
+    #if 0
+    else if(!vulkan_window.surface) {
+      create_wayland_window (&vulkan_window, 1440, 900);
+      //draw_wayland_window (&wayland_window);
+
+      int count = 0;
+      while (!count) {
+        sleep(0.1);
+        wl_display_dispatch_pending (wayland_display);
+        draw_wayland_window (&vulkan_window);
+        sleep(0.1);
+        count = 1;
+      }
+    }
+    #endif
+
+    gl->surface = egl_window->egl_surface;
+
+
+    //EnterCriticalSection( &drawable_section );
+    list_add_head( &gl_drawables, &gl->entry );
+    return gl;
+}
+
+static struct gl_drawable *get_gl_drawable( HWND hwnd, HDC hdc )
+{
+    struct gl_drawable *gl;
+
+    //EnterCriticalSection( &drawable_section );
+    LIST_FOR_EACH_ENTRY( gl, &gl_drawables, struct gl_drawable, entry )
+    {
+        if (hwnd && gl->hwnd == hwnd) return gl;
+        if (hdc && gl->hdc == hdc) return gl;
+    }
+    ///LeaveCriticalSection( &drawable_section );
+    return NULL;
+}
+
+static void release_gl_drawable( struct gl_drawable *gl )
+{
+    //if (gl) LeaveCriticalSection( &drawable_section );
+}
+
+void destroy_gl_drawable( HWND hwnd )
+{
+    struct gl_drawable *gl;
+
+    //EnterCriticalSection( &drawable_section );
+    LIST_FOR_EACH_ENTRY( gl, &gl_drawables, struct gl_drawable, entry )
+    {
+        if (gl->hwnd != hwnd) continue;
+        list_remove( &gl->entry );
+        if (gl->surface) p_eglDestroySurface( display, gl->surface );
+
+        //release_ioctl_window( gl->window );
+        HeapFree( GetProcessHeap(), 0, gl );
+        break;
+    }
+    //LeaveCriticalSection( &drawable_section );
+}
+
+static BOOL refresh_context( struct wgl_context *ctx )
+{
+    TRACE( "refresh context \n" );
+    return;
+
+    BOOL ret = InterlockedExchange( &ctx->refresh, FALSE );
+
+    if (ret)
+    {
+        TRACE( "refreshing hwnd %p context %p surface %p\n", ctx->hwnd, ctx->context, ctx->surface );
+        p_eglMakeCurrent( display, ctx->surface, ctx->surface, ctx->context );
+        RedrawWindow( ctx->hwnd, NULL, 0, RDW_INVALIDATE | RDW_ERASE );
+    }
+    return ret;
+}
+
+void update_gl_drawable( HWND hwnd )
+{
+
+    TRACE( "update gl drawable \n" );
+    return;
+
+    struct gl_drawable *gl;
+    struct wgl_context *ctx;
+
+    if ((gl = get_gl_drawable( hwnd, 0 )))
+    {
+        if (!gl->surface &&
+            (gl->surface = p_eglCreateWindowSurface( display, pixel_formats[gl->format - 1].config, gl->window, NULL )))
+        {
+            LIST_FOR_EACH_ENTRY( ctx, &gl_contexts, struct wgl_context, entry )
+            {
+                if (ctx->hwnd != hwnd) continue;
+                TRACE( "hwnd %p refreshing %p %scurrent\n", hwnd, ctx, NtCurrentTeb()->glContext == ctx ? "" : "not " );
+                ctx->surface = gl->surface;
+                if (NtCurrentTeb()->glContext == ctx)
+                    p_eglMakeCurrent( display, ctx->surface, ctx->surface, ctx->context );
+                else
+                    InterlockedExchange( &ctx->refresh, TRUE );
+            }
+        }
+        release_gl_drawable( gl );
+        RedrawWindow( hwnd, NULL, 0, RDW_INVALIDATE | RDW_ERASE );
+    }
+}
+
+static BOOL set_pixel_format( HDC hdc, int format, BOOL allow_change )
+{
+
+
+
+
+
+    struct gl_drawable *gl;
+    HWND hwnd = WindowFromDC( hdc );
+
+    create_gl_drawable( hwnd, 0, format );
+    return TRUE;
+
+
+    int prev = 0;
+
+    if (!hwnd || hwnd == GetDesktopWindow())
+    {
+        WARN( "not a proper window DC %p/%p\n", hdc, hwnd );
+        return FALSE;
+    }
+    if (!is_onscreen_pixel_format( format ))
+    {
+        WARN( "Invalid format %d\n", format );
+        return FALSE;
+    }
+    TRACE( "%p/%p format %d\n", hdc, hwnd, format );
+
+    if ((gl = get_gl_drawable( hwnd, 0 )))
+    {
+        prev = gl->format;
+        if (allow_change)
+        {
+            EGLint pf;
+            p_eglGetConfigAttrib( display, pixel_formats[format - 1].config, EGL_NATIVE_VISUAL_ID, &pf );
+            //gl->window->perform( gl->window, NATIVE_WINDOW_SET_BUFFERS_FORMAT, pf );
+            gl->format = format;
+        }
+    }
+    else gl = create_gl_drawable( hwnd, 0, format );
+
+    release_gl_drawable( gl );
+
+    if (prev && prev != format && !allow_change) return FALSE;
+    if (__wine_set_pixel_format( hwnd, format )) return TRUE;
+    destroy_gl_drawable( hwnd );
+    return FALSE;
+}
+
+struct wgl_context *global_wgl_context = NULL;
+
+static struct wgl_context *create_context( HDC hdc, struct wgl_context *share, const int *attribs )
+{
+
+
+    if(global_wgl_context) {
+      TRACE( "Returning global ctx %p\n", global_wgl_context );
+      return global_wgl_context;
+    }
+
+
+
+    //struct gl_drawable *gl;
+    struct wgl_context *ctx;
+
+    HWND hwnd = WindowFromDC( hdc );
+
+    TRACE( "Creating Context 222 for hwnd %p \n", hwnd );
+
+    if(!egl_window)
+      create_gl_drawable( hwnd, 0, 0 );
+
+    //if (!(gl = get_gl_drawable( hwnd, hdc ))) return NULL;
+
+    ctx = HeapAlloc( GetProcessHeap(), 0, sizeof(*ctx) );
+
+    #if 0
+    EGLint attributes[] = {
+      EGL_RED_SIZE, 8,
+      EGL_GREEN_SIZE, 8,
+      EGL_BLUE_SIZE, 8,
+    EGL_NONE};
+    EGLConfig config;
+    EGLint num_config;
+    eglChooseConfig (display, attributes, &config, 1, &num_config);
+
+    #endif
+    //???
+
+    //ctx->config  = pixel_formats[gl->format - 1].config;
+    ctx->config  = global_egl_config;
+    //ctx->config  = config;
+    ctx->surface = egl_window->egl_surface;
+    ctx->refresh = FALSE;
+    /*
+    ctx->context = p_eglCreateContext( display, ctx->config,
+                                       share ? share->context : EGL_NO_CONTEXT, NULL );
+    */
+    ctx->context = egl_window->egl_context;
+
+    global_wgl_context = ctx;
+    TRACE( "Context created %p ctx %p %p \n", hwnd, ctx, global_wgl_context );
+    list_add_head( &gl_contexts, &ctx->entry );
+    //release_gl_drawable( gl );
+    return ctx;
+}
+
+/***********************************************************************
+ *		WAYLANDDRV_wglGetExtensionsStringARB
+ */
+static const char *WAYLANDDRV_wglGetExtensionsStringARB( HDC hdc )
+{
+    TRACE( "() returning \"%s\"\n", wgl_extensions );
+    return wgl_extensions;
+}
+
+/***********************************************************************
+ *		WAYLANDDRV_wglGetExtensionsStringEXT
+ */
+static const char *WAYLANDDRV_wglGetExtensionsStringEXT(void)
+{
+    TRACE( "() returning \"%s\"\n", wgl_extensions );
+    return wgl_extensions;
+}
+
+/***********************************************************************
+ *		WAYLANDDRV_wglCreateContextAttribsARB
+ */
+static struct wgl_context *WAYLANDDRV_wglCreateContextAttribsARB( HDC hdc, struct wgl_context *share,
+                                                               const int *attribs )
+{
+
+    TRACE("Creating context ARB \n");
+
+    int count = 0, egl_attribs[3];
+    BOOL opengl_es = FALSE;
+
+    while (attribs && *attribs && count < 2)
+    {
+        switch (*attribs)
+        {
+        case WGL_CONTEXT_PROFILE_MASK_ARB:
+            if (attribs[1] == WGL_CONTEXT_ES2_PROFILE_BIT_EXT)
+                opengl_es = TRUE;
+            break;
+        case WGL_CONTEXT_MAJOR_VERSION_ARB:
+            egl_attribs[count++] = EGL_CONTEXT_CLIENT_VERSION;
+            egl_attribs[count++] = attribs[1];
+            break;
+        default:
+            FIXME("Unhandled attributes: %#x %#x\n", attribs[0], attribs[1]);
+        }
+        attribs += 2;
+    }
+
+    if (!count)  /* FIXME: force version if not specified */
+    {
+        egl_attribs[count++] = EGL_CONTEXT_CLIENT_VERSION;
+        egl_attribs[count++] = egl_client_version;
+    }
+    egl_attribs[count] = EGL_NONE;
+
+    return create_context( hdc, share, egl_attribs );
+}
+
+/***********************************************************************
+ *		WAYLANDDRV_wglMakeContextCurrentARB
+ */
+static BOOL WAYLANDDRV_wglMakeContextCurrentARB( HDC draw_hdc, HDC read_hdc, struct wgl_context *ctx )
+{
+    BOOL ret = FALSE;
+    struct gl_drawable *draw_gl, *read_gl = NULL;
+    EGLSurface draw_surface, read_surface;
+    HWND draw_hwnd;
+
+    TRACE( "%p %p %p\n", draw_hdc, read_hdc, ctx );
+    return TRUE;
+
+
+    if (!ctx)
+    {
+        p_eglMakeCurrent( display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT );
+        NtCurrentTeb()->glContext = NULL;
+        return TRUE;
+    }
+
+    draw_hwnd = WindowFromDC( draw_hdc );
+    if ((draw_gl = get_gl_drawable( draw_hwnd, draw_hdc )))
+    {
+        read_gl = get_gl_drawable( WindowFromDC( read_hdc ), read_hdc );
+        draw_surface = draw_gl->surface;
+        read_surface = read_gl->surface;
+        TRACE( "%p/%p context %p surface %p/%p\n",
+               draw_hdc, read_hdc, ctx->context, draw_surface, read_surface );
+        ret = p_eglMakeCurrent( display, draw_surface, read_surface, ctx->context );
+        if (ret)
+        {
+            ctx->surface = draw_gl->surface;
+            ctx->hwnd    = draw_hwnd;
+            ctx->refresh = FALSE;
+            NtCurrentTeb()->glContext = ctx;
+            goto done;
+        }
+    }
+    SetLastError( ERROR_INVALID_HANDLE );
+
+done:
+    release_gl_drawable( read_gl );
+    release_gl_drawable( draw_gl );
+    return ret;
+}
+
+/***********************************************************************
+ *		WAYLANDDRV_wglSwapIntervalEXT
+ */
+static BOOL WAYLANDDRV_wglSwapIntervalEXT( int interval )
+{
+    BOOL ret = TRUE;
+
+    TRACE("(%d)\n", interval);
+
+    if (interval < 0)
+    {
+        SetLastError(ERROR_INVALID_DATA);
+        return FALSE;
+    }
+
+    ret = p_eglSwapInterval( display, interval );
+
+    if (ret)
+        swap_interval = interval;
+    else
+        SetLastError( ERROR_DC_NOT_FOUND );
+
+    return ret;
+}
+
+/***********************************************************************
+ *		WAYLANDDRV_wglGetSwapIntervalEXT
+ */
+static int WAYLANDDRV_wglGetSwapIntervalEXT(void)
+{
+    return swap_interval;
+}
+
+/***********************************************************************
+ *		WAYLANDDRV_wglSetPixelFormatWINE
+ */
+static BOOL WAYLANDDRV_wglSetPixelFormatWINE( HDC hdc, int format )
+{
+    return set_pixel_format( hdc, format, TRUE );
+}
+
+/***********************************************************************
+ *		WAYLANDDRV_wglCopyContext
+ */
+static BOOL WINAPI WAYLANDDRV_wglCopyContext( struct wgl_context *src, struct wgl_context *dst, UINT mask )
+{
+    FIXME( "%p -> %p mask %#x unsupported\n", src, dst, mask );
+    return FALSE;
+}
+
+/***********************************************************************
+ *		WAYLANDDRV_wglCreateContext
+ */
+static  struct wgl_context *  WINAPI WAYLANDDRV_wglCreateContext( HDC hdc )
+{
+    TRACE("wglCreateContext calling \n");
+    int egl_attribs[3] = { EGL_CONTEXT_CLIENT_VERSION, egl_client_version, EGL_NONE };
+
+    return create_context( hdc, NULL, egl_attribs );
+}
+
+/***********************************************************************
+ *		WAYLANDDRV_wglDeleteContext
+ */
+static BOOL WINAPI WAYLANDDRV_wglDeleteContext( struct wgl_context *ctx )
+{
+    //EnterCriticalSection( &drawable_section );
+    //list_remove( &ctx->entry );
+    //LeaveCriticalSection( &drawable_section );
+    //p_eglDestroyContext( display, ctx->context );
+    //global_wgl_context = NULL;
+    //delete_wayland_window(&vulkan_window);
+    //return HeapFree( GetProcessHeap(), 0, ctx );
+  global_update_hwnd = NULL;
+}
+
+/***********************************************************************
+ *		WAYLANDDRV_wglDescribePixelFormat
+ */
+static int WINAPI WAYLANDDRV_wglDescribePixelFormat( HDC hdc, int fmt, UINT size, PIXELFORMATDESCRIPTOR *pfd )
+{
+
+
+
+
+
+    EGLint val;
+    EGLConfig config;
+
+    if (!pfd) return nb_onscreen_formats;
+    if (!is_onscreen_pixel_format( fmt )) return 0;
+    if (size < sizeof(*pfd)) return 0;
+    config = pixel_formats[fmt - 1].config;
+
+    memset( pfd, 0, sizeof(*pfd) );
+    pfd->nSize = sizeof(*pfd);
+    pfd->nVersion = 1;
+    pfd->dwFlags = PFD_SUPPORT_OPENGL | PFD_DRAW_TO_WINDOW | PFD_DOUBLEBUFFER;
+    pfd->iPixelType = PFD_TYPE_RGBA;
+    pfd->iLayerType = PFD_MAIN_PLANE;
+
+    p_eglGetConfigAttrib( display, config, EGL_BUFFER_SIZE, &val );
+    pfd->cColorBits = val;
+    p_eglGetConfigAttrib( display, config, EGL_RED_SIZE, &val );
+    pfd->cRedBits = val;
+    p_eglGetConfigAttrib( display, config, EGL_GREEN_SIZE, &val );
+    pfd->cGreenBits = val;
+    p_eglGetConfigAttrib( display, config, EGL_BLUE_SIZE, &val );
+    pfd->cBlueBits = val;
+    p_eglGetConfigAttrib( display, config, EGL_ALPHA_SIZE, &val );
+    pfd->cAlphaBits = val;
+    p_eglGetConfigAttrib( display, config, EGL_DEPTH_SIZE, &val );
+    pfd->cDepthBits = val;
+    p_eglGetConfigAttrib( display, config, EGL_STENCIL_SIZE, &val );
+    pfd->cStencilBits = val;
+
+    pfd->cAlphaShift = 0;
+    pfd->cBlueShift = pfd->cAlphaShift + pfd->cAlphaBits;
+    pfd->cGreenShift = pfd->cBlueShift + pfd->cBlueBits;
+    pfd->cRedShift = pfd->cGreenShift + pfd->cGreenBits;
+
+
+    TRACE( "fmt %u color %u %u/%u/%u/%u depth %u stencil %u\n",
+           fmt, pfd->cColorBits, pfd->cRedBits, pfd->cGreenBits, pfd->cBlueBits,
+           pfd->cAlphaBits, pfd->cDepthBits, pfd->cStencilBits );
+
+
+    return nb_onscreen_formats;
+
+}
+
+/***********************************************************************
+ *		WAYLANDDRV_wglGetPixelFormat
+ */
+static int WINAPI WAYLANDDRV_wglGetPixelFormat( HDC hdc )
+{
+    struct gl_drawable *gl;
+    int ret = 0;
+
+    if ((gl = get_gl_drawable( WindowFromDC( hdc ), hdc )))
+    {
+        ret = gl->format;
+        /* offscreen formats can't be used with traditional WGL calls */
+        if (!is_onscreen_pixel_format( ret )) ret = 1;
+        release_gl_drawable( gl );
+    }
+    return ret;
+}
+
+/***********************************************************************
+ *		WAYLANDDRV_wglGetProcAddress
+ */
+static PROC WINAPI WAYLANDDRV_wglGetProcAddress( LPCSTR name )
+{
+    eglBindAPI (EGL_OPENGL_API);
+    //const char *gl_ext_string = NULL;
+    //gl_ext_string = (const char*)glGetString(GL_EXTENSIONS);
+
+     TRACE( "got %s -> %p\n", name );
+
+    //printf("Checking for extensions '%s'\n", gl_ext_string);
+    //TRACE("Checking for extensions '%s'\n", debugstr(gl_ext_string));
+    //exit(1);
+    PROC ret;
+    if (!strncmp( name, "wgl", 3 )) return NULL;
+    ret = (PROC)p_eglGetProcAddress( name );
+
+    TRACE( "%s -> %p\n", name, ret );
+    return ret;
+}
+
+/***********************************************************************
+ *		WAYLANDDRV_wglMakeCurrent
+ */
+static BOOL WINAPI WAYLANDDRV_wglMakeCurrent( HDC hdc, struct wgl_context *ctx )
+{
+    BOOL ret = FALSE;
+    struct gl_drawable *gl;
+    HWND hwnd;
+    hwnd = WindowFromDC( hdc );
+
+    TRACE( "hwnd %p and global_update_hwnd is ctx %p\n", hwnd, ctx );
+
+    if(hwnd && !global_update_hwnd) {
+      global_update_hwnd = hwnd;
+
+      SetActiveWindow( global_update_hwnd );
+      SetForegroundWindow( global_update_hwnd );
+      ShowWindow( global_update_hwnd, SW_SHOW );
+      SetFocus(global_update_hwnd);
+      SERVER_START_REQ( set_focus_window )
+      {
+        req->handle = wine_server_user_handle( global_update_hwnd );
+      }
+      SERVER_END_REQ;
+      SetWindowPos( global_update_hwnd, HWND_TOP, 0, 0, 1440, 900,
+                  SWP_NOZORDER | SWP_NOSIZE);
+      UpdateWindow(global_update_hwnd);
+      RedrawWindow(global_update_hwnd, 0, 0, RDW_INVALIDATE | RDW_ALLCHILDREN);
+
+
+
+
+    } else if( hwnd && global_update_hwnd && global_update_hwnd != hwnd ) {
+      //addl. windows not supported
+      //DestroyWindow(hwnd);
+      ctx->hwnd    = hwnd;
+      ctx->refresh = FALSE;
+      return TRUE;
+    }
+
+
+    draw_wayland_window (&vulkan_window);
+
+    if (!ctx) {
+      return TRUE;
+    }
+
+
+
+    if(hwnd) {
+      ctx->hwnd    = hwnd;
+      ctx->refresh = FALSE;
+      return TRUE;
+    }
+
+    return TRUE;
+
+    if (!ctx)
+    {
+        p_eglMakeCurrent( display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT );
+        NtCurrentTeb()->glContext = NULL;
+        return TRUE;
+    }
+
+
+
+
+    if ((gl = get_gl_drawable( hwnd, hdc )))
+    {
+        EGLSurface surface = gl->surface ? gl->surface : gl->pbuffer;
+        TRACE( "%p hwnd %p context %p surface %p\n", hdc, gl->hwnd, ctx->context, surface );
+        ret = p_eglMakeCurrent( display, surface, surface, ctx->context );
+        if (ret)
+        {
+            ctx->surface = gl->surface;
+            ctx->hwnd    = hwnd;
+            ctx->refresh = FALSE;
+            NtCurrentTeb()->glContext = ctx;
+            goto done;
+        }
+    }
+    SetLastError( ERROR_INVALID_HANDLE );
+
+done:
+    release_gl_drawable( gl );
+    return ret;
+}
+
+/***********************************************************************
+ *		WAYLANDDRV_wglSetPixelFormat
+ */
+static BOOL WINAPI  WAYLANDDRV_wglSetPixelFormat( HDC hdc, int format, const PIXELFORMATDESCRIPTOR *pfd )
+{
+    return set_pixel_format( hdc, format, FALSE );
+}
+
+/***********************************************************************
+ *		WAYLANDDRV_wglShareLists
+ */
+static BOOL WINAPI WAYLANDDRV_wglShareLists( struct wgl_context *org, struct wgl_context *dest )
+{
+    FIXME( "%p %p\n", org, dest );
+    return FALSE;
+}
+
+/***********************************************************************
+ *		WAYLANDDRV_wglSwapBuffers
+ */
+static BOOL WINAPI WAYLANDDRV_wglSwapBuffers( HDC hdc )
+{
+    struct wgl_context *ctx = NtCurrentTeb()->glContext;
+
+    if (!ctx) return FALSE;
+
+    TRACE( "%p hwnd %p context %p surface %p\n", hdc, ctx->hwnd, ctx->context, ctx->surface );
+
+    if (refresh_context( ctx )) return TRUE;
+    if (ctx->surface) p_eglSwapBuffers( display, ctx->surface );
+    return TRUE;
+}
+
+static void wglFinish(void)
+{
+    struct wgl_context *ctx = NtCurrentTeb()->glContext;
+
+    if (!ctx) return;
+    TRACE( "hwnd %p context %p\n", ctx->hwnd, ctx->context );
+    refresh_context( ctx );
+    pglFinish();
+}
+
+static void wglFlush(void)
+{
+    struct wgl_context *ctx = NtCurrentTeb()->glContext;
+
+    if (!ctx) return;
+    TRACE( "hwnd %p context %p\n", ctx->hwnd, ctx->context );
+    refresh_context( ctx );
+    pglFlush();
+}
+
+static void register_extension( const char *ext )
+{
+    if (wgl_extensions[0]) strcat( wgl_extensions, " " );
+    strcat( wgl_extensions, ext );
+    TRACE( "%s\n", ext );
+}
+
+static void test_call(void) {
+  TRACE("GOT CALL \n");
+}
+
+static void init_extensions(void)
+{
+    void *ptr;
+
+    register_extension("WGL_ARB_create_context");
+    register_extension("WGL_ARB_create_context_profile");
+    egl_funcs.ext.p_wglCreateContextAttribsARB = WAYLANDDRV_wglCreateContextAttribsARB;
+
+    register_extension("WGL_ARB_extensions_string");
+    egl_funcs.ext.p_wglGetExtensionsStringARB = WAYLANDDRV_wglGetExtensionsStringARB;
+
+    register_extension("WGL_ARB_make_current_read");
+    egl_funcs.ext.p_wglGetCurrentReadDCARB   = (void *)1;  /* never called */
+    egl_funcs.ext.p_wglMakeContextCurrentARB = WAYLANDDRV_wglMakeContextCurrentARB;
+
+    register_extension("WGL_EXT_extensions_string");
+    egl_funcs.ext.p_wglGetExtensionsStringEXT = WAYLANDDRV_wglGetExtensionsStringEXT;
+
+    register_extension("WGL_EXT_swap_control");
+    egl_funcs.ext.p_wglSwapIntervalEXT = WAYLANDDRV_wglSwapIntervalEXT;
+    egl_funcs.ext.p_wglGetSwapIntervalEXT = WAYLANDDRV_wglGetSwapIntervalEXT;
+
+    register_extension("WGL_EXT_framebuffer_sRGB");
+
+
+
+    /* In WineD3D we need the ability to set the pixel format more than once (e.g. after a device reset).
+     * The default wglSetPixelFormat doesn't allow this, so add our own which allows it.
+     */
+    register_extension("WGL_WINE_pixel_format_passthrough");
+    egl_funcs.ext.p_wglSetPixelFormatWINE = WAYLANDDRV_wglSetPixelFormatWINE;
+
+
+
+    /* load standard functions and extensions exported from the OpenGL library */
+
+#define USE_GL_FUNC(func) if ((ptr = dlsym( opengl_handle, #func ))) egl_funcs.gl.p_##func = ptr;
+    ALL_WGL_FUNCS
+#undef USE_GL_FUNC
+
+
+//if( !(egl_funcs.ext.p_##func = wine_dlsym( opengl_handle, #func, NULL, 0) ) ) { TRACE("NOT FOUND GL FUNC %s \n", #func);exit(1); }
+#define LOAD_FUNCPTR(func)  TRACE("GOT GL FUNC %s \n", #func); \
+  if( !(egl_funcs.ext.p_##func = dlsym( opengl_handle, #func ) ) ) { TRACE("NOT FOUND GL FUNC %s \n", #func); }
+//#define LOAD_FUNCPTR(func)  TRACE("GOT GL FUNC %s \n", #func); if( !(egl_funcs.ext.p_##func = test_call ) ) { TRACE("NOT FOUND GL FUNC %s \n", #func); }
+    LOAD_FUNCPTR( glActiveShaderProgram );
+    LOAD_FUNCPTR( glActiveTexture );
+    LOAD_FUNCPTR( glAttachShader );
+    LOAD_FUNCPTR( glBeginQuery );
+    LOAD_FUNCPTR( glBeginTransformFeedback );
+    LOAD_FUNCPTR( glBindAttribLocation );
+    LOAD_FUNCPTR( glBindBuffer );
+    LOAD_FUNCPTR( glBindBufferBase );
+    LOAD_FUNCPTR( glBindBufferRange );
+    LOAD_FUNCPTR( glBindFramebuffer );
+    LOAD_FUNCPTR( glBindImageTexture );
+    LOAD_FUNCPTR( glBindProgramPipeline );
+    LOAD_FUNCPTR( glBindRenderbuffer );
+    LOAD_FUNCPTR( glBindSampler );
+    LOAD_FUNCPTR( glBindTransformFeedback );
+    LOAD_FUNCPTR( glBindVertexArray );
+    LOAD_FUNCPTR( glBindVertexBuffer );
+    //LOAD_FUNCPTR( glBlendBarrierKHR );
+    LOAD_FUNCPTR( glBlendColor );
+    LOAD_FUNCPTR( glBlendEquation );
+    LOAD_FUNCPTR( glBlendEquationSeparate );
+    LOAD_FUNCPTR( glBlendFuncSeparate );
+    LOAD_FUNCPTR( glBlitFramebuffer );
+    LOAD_FUNCPTR( glBufferData );
+    LOAD_FUNCPTR( glBufferSubData );
+    LOAD_FUNCPTR( glCheckFramebufferStatus );
+    LOAD_FUNCPTR( glClearBufferfi );
+    LOAD_FUNCPTR( glClearBufferfv );
+    LOAD_FUNCPTR( glClearBufferiv );
+    LOAD_FUNCPTR( glClearBufferuiv );
+    LOAD_FUNCPTR( glClearDepthf );
+    LOAD_FUNCPTR( glClientWaitSync );
+    LOAD_FUNCPTR( glCompileShader );
+    LOAD_FUNCPTR( glCompressedTexImage2D );
+    LOAD_FUNCPTR( glCompressedTexImage3D );
+    LOAD_FUNCPTR( glCompressedTexSubImage2D );
+    LOAD_FUNCPTR( glCompressedTexSubImage3D );
+    LOAD_FUNCPTR( glCopyBufferSubData );
+    LOAD_FUNCPTR( glCopyTexSubImage3D );
+    LOAD_FUNCPTR( glCreateProgram );
+    LOAD_FUNCPTR( glCreateShader );
+    LOAD_FUNCPTR( glCreateShaderProgramv );
+    LOAD_FUNCPTR( glDeleteBuffers );
+    LOAD_FUNCPTR( glDeleteFramebuffers );
+    LOAD_FUNCPTR( glDeleteProgram );
+    LOAD_FUNCPTR( glDeleteProgramPipelines );
+    LOAD_FUNCPTR( glDeleteQueries );
+    LOAD_FUNCPTR( glDeleteRenderbuffers );
+    LOAD_FUNCPTR( glDeleteSamplers );
+    LOAD_FUNCPTR( glDeleteShader );
+    LOAD_FUNCPTR( glDeleteSync );
+    LOAD_FUNCPTR( glDeleteTransformFeedbacks );
+    LOAD_FUNCPTR( glDeleteVertexArrays );
+    LOAD_FUNCPTR( glDepthRangef );
+    LOAD_FUNCPTR( glDetachShader );
+    LOAD_FUNCPTR( glDisableVertexAttribArray );
+    LOAD_FUNCPTR( glDispatchCompute );
+    LOAD_FUNCPTR( glDispatchComputeIndirect );
+    LOAD_FUNCPTR( glDrawArraysIndirect );
+    LOAD_FUNCPTR( glDrawArraysInstanced );
+    LOAD_FUNCPTR( glDrawBuffers );
+    LOAD_FUNCPTR( glDrawElementsIndirect );
+    LOAD_FUNCPTR( glDrawElementsInstanced );
+    LOAD_FUNCPTR( glDrawRangeElements );
+    LOAD_FUNCPTR( glEnableVertexAttribArray );
+    LOAD_FUNCPTR( glEndQuery );
+    LOAD_FUNCPTR( glEndTransformFeedback );
+    LOAD_FUNCPTR( glFenceSync );
+    LOAD_FUNCPTR( glFlushMappedBufferRange );
+    LOAD_FUNCPTR( glFramebufferParameteri );
+    LOAD_FUNCPTR( glFramebufferRenderbuffer );
+    LOAD_FUNCPTR( glFramebufferTexture2D );
+    //LOAD_FUNCPTR( glFramebufferTextureEXT );
+    LOAD_FUNCPTR( glFramebufferTextureLayer );
+    LOAD_FUNCPTR( glGenBuffers );
+    LOAD_FUNCPTR( glGenFramebuffers );
+    LOAD_FUNCPTR( glGenProgramPipelines );
+    LOAD_FUNCPTR( glGenQueries );
+    LOAD_FUNCPTR( glGenRenderbuffers );
+    LOAD_FUNCPTR( glGenSamplers );
+    LOAD_FUNCPTR( glGenTransformFeedbacks );
+    LOAD_FUNCPTR( glGenVertexArrays );
+    LOAD_FUNCPTR( glGenerateMipmap );
+    LOAD_FUNCPTR( glGetActiveAttrib );
+    LOAD_FUNCPTR( glGetActiveUniform );
+    LOAD_FUNCPTR( glGetActiveUniformBlockName );
+    LOAD_FUNCPTR( glGetActiveUniformBlockiv );
+    LOAD_FUNCPTR( glGetActiveUniformsiv );
+    LOAD_FUNCPTR( glGetAttachedShaders );
+    LOAD_FUNCPTR( glGetAttribLocation );
+    LOAD_FUNCPTR( glGetBooleani_v );
+    LOAD_FUNCPTR( glGetBufferParameteri64v );
+    LOAD_FUNCPTR( glGetBufferParameteriv );
+    LOAD_FUNCPTR( glGetBufferPointerv );
+    LOAD_FUNCPTR( glGetFragDataLocation );
+    LOAD_FUNCPTR( glGetFramebufferAttachmentParameteriv );
+    LOAD_FUNCPTR( glGetFramebufferParameteriv );
+    LOAD_FUNCPTR( glGetInteger64i_v );
+    LOAD_FUNCPTR( glGetInteger64v );
+    LOAD_FUNCPTR( glGetIntegeri_v );
+    LOAD_FUNCPTR( glGetInternalformativ );
+    LOAD_FUNCPTR( glGetMultisamplefv );
+    LOAD_FUNCPTR( glGetProgramBinary );
+    LOAD_FUNCPTR( glGetProgramInfoLog );
+    LOAD_FUNCPTR( glGetProgramInterfaceiv );
+    LOAD_FUNCPTR( glGetProgramPipelineInfoLog );
+    LOAD_FUNCPTR( glGetProgramPipelineiv );
+    LOAD_FUNCPTR( glGetProgramResourceIndex );
+    LOAD_FUNCPTR( glGetProgramResourceLocation );
+    LOAD_FUNCPTR( glGetProgramResourceName );
+    LOAD_FUNCPTR( glGetProgramResourceiv );
+    LOAD_FUNCPTR( glGetProgramiv );
+    LOAD_FUNCPTR( glGetQueryObjectuiv );
+    LOAD_FUNCPTR( glGetQueryiv );
+    LOAD_FUNCPTR( glGetRenderbufferParameteriv );
+    LOAD_FUNCPTR( glGetSamplerParameterfv );
+    LOAD_FUNCPTR( glGetSamplerParameteriv );
+    LOAD_FUNCPTR( glGetShaderInfoLog );
+    LOAD_FUNCPTR( glGetShaderPrecisionFormat );
+    LOAD_FUNCPTR( glGetShaderSource );
+    LOAD_FUNCPTR( glGetShaderiv );
+    LOAD_FUNCPTR( glGetStringi );
+    LOAD_FUNCPTR( glGetSynciv );
+    //LOAD_FUNCPTR( glGetTexParameterIivEXT );
+    //LOAD_FUNCPTR( glGetTexParameterIuivEXT );
+    LOAD_FUNCPTR( glGetTransformFeedbackVarying );
+    LOAD_FUNCPTR( glGetUniformBlockIndex );
+    LOAD_FUNCPTR( glGetUniformIndices );
+    LOAD_FUNCPTR( glGetUniformLocation );
+    LOAD_FUNCPTR( glGetUniformfv );
+    LOAD_FUNCPTR( glGetUniformiv );
+    LOAD_FUNCPTR( glGetUniformuiv );
+    LOAD_FUNCPTR( glGetVertexAttribIiv );
+    LOAD_FUNCPTR( glGetVertexAttribIuiv );
+    LOAD_FUNCPTR( glGetVertexAttribPointerv );
+    LOAD_FUNCPTR( glGetVertexAttribfv );
+    LOAD_FUNCPTR( glGetVertexAttribiv );
+    LOAD_FUNCPTR( glInvalidateFramebuffer );
+    LOAD_FUNCPTR( glInvalidateSubFramebuffer );
+    LOAD_FUNCPTR( glIsBuffer );
+    LOAD_FUNCPTR( glIsFramebuffer );
+    LOAD_FUNCPTR( glIsProgram );
+    LOAD_FUNCPTR( glIsProgramPipeline );
+    LOAD_FUNCPTR( glIsQuery );
+    LOAD_FUNCPTR( glIsRenderbuffer );
+    LOAD_FUNCPTR( glIsSampler );
+    LOAD_FUNCPTR( glIsShader );
+    LOAD_FUNCPTR( glIsSync );
+    LOAD_FUNCPTR( glIsTransformFeedback );
+    LOAD_FUNCPTR( glIsVertexArray );
+    LOAD_FUNCPTR( glLinkProgram );
+    LOAD_FUNCPTR( glMapBufferRange );
+    LOAD_FUNCPTR( glMemoryBarrier );
+    LOAD_FUNCPTR( glMemoryBarrierByRegion );
+    LOAD_FUNCPTR( glPauseTransformFeedback );
+    LOAD_FUNCPTR( glProgramBinary );
+    LOAD_FUNCPTR( glProgramParameteri );
+    LOAD_FUNCPTR( glProgramUniform1f );
+    LOAD_FUNCPTR( glProgramUniform1fv );
+    LOAD_FUNCPTR( glProgramUniform1i );
+    LOAD_FUNCPTR( glProgramUniform1iv );
+    LOAD_FUNCPTR( glProgramUniform1ui );
+    LOAD_FUNCPTR( glProgramUniform1uiv );
+    LOAD_FUNCPTR( glProgramUniform2f );
+    LOAD_FUNCPTR( glProgramUniform2fv );
+    LOAD_FUNCPTR( glProgramUniform2i );
+    LOAD_FUNCPTR( glProgramUniform2iv );
+    LOAD_FUNCPTR( glProgramUniform2ui );
+    LOAD_FUNCPTR( glProgramUniform2uiv );
+    LOAD_FUNCPTR( glProgramUniform3f );
+    LOAD_FUNCPTR( glProgramUniform3fv );
+    LOAD_FUNCPTR( glProgramUniform3i );
+    LOAD_FUNCPTR( glProgramUniform3iv );
+    LOAD_FUNCPTR( glProgramUniform3ui );
+    LOAD_FUNCPTR( glProgramUniform3uiv );
+    LOAD_FUNCPTR( glProgramUniform4f );
+    LOAD_FUNCPTR( glProgramUniform4fv );
+    LOAD_FUNCPTR( glProgramUniform4i );
+    LOAD_FUNCPTR( glProgramUniform4iv );
+    LOAD_FUNCPTR( glProgramUniform4ui );
+    LOAD_FUNCPTR( glProgramUniform4uiv );
+    LOAD_FUNCPTR( glProgramUniformMatrix2fv );
+    LOAD_FUNCPTR( glProgramUniformMatrix2x3fv );
+    LOAD_FUNCPTR( glProgramUniformMatrix2x4fv );
+    LOAD_FUNCPTR( glProgramUniformMatrix3fv );
+    LOAD_FUNCPTR( glProgramUniformMatrix3x2fv );
+    LOAD_FUNCPTR( glProgramUniformMatrix3x4fv );
+    LOAD_FUNCPTR( glProgramUniformMatrix4fv );
+    LOAD_FUNCPTR( glProgramUniformMatrix4x2fv );
+    LOAD_FUNCPTR( glProgramUniformMatrix4x3fv );
+    LOAD_FUNCPTR( glReleaseShaderCompiler );
+    LOAD_FUNCPTR( glRenderbufferStorage );
+    LOAD_FUNCPTR( glRenderbufferStorageMultisample );
+    LOAD_FUNCPTR( glResumeTransformFeedback );
+    LOAD_FUNCPTR( glSampleCoverage );
+    LOAD_FUNCPTR( glSampleMaski );
+    LOAD_FUNCPTR( glSamplerParameterf );
+    LOAD_FUNCPTR( glSamplerParameterfv );
+    LOAD_FUNCPTR( glSamplerParameteri );
+    LOAD_FUNCPTR( glSamplerParameteriv );
+    LOAD_FUNCPTR( glShaderBinary );
+    LOAD_FUNCPTR( glShaderSource );
+    LOAD_FUNCPTR( glStencilFuncSeparate );
+    LOAD_FUNCPTR( glStencilMaskSeparate );
+    LOAD_FUNCPTR( glStencilOpSeparate );
+    //LOAD_FUNCPTR( glTexBufferEXT );
+    LOAD_FUNCPTR( glTexImage3D );
+
+    //LOAD_FUNCPTR( glTexParameterIivEXT );
+    //LOAD_FUNCPTR( glTexParameterIuivEXT );
+    LOAD_FUNCPTR( glTexStorage2D );
+    LOAD_FUNCPTR( glTexStorage2DMultisample );
+    LOAD_FUNCPTR( glTexStorage3D );
+    LOAD_FUNCPTR( glTexSubImage3D );
+    LOAD_FUNCPTR( glTransformFeedbackVaryings );
+    LOAD_FUNCPTR( glUniform1f );
+    LOAD_FUNCPTR( glUniform1fv );
+    LOAD_FUNCPTR( glUniform1i );
+    LOAD_FUNCPTR( glUniform1iv );
+    LOAD_FUNCPTR( glUniform1ui );
+    LOAD_FUNCPTR( glUniform1uiv );
+    LOAD_FUNCPTR( glUniform2f );
+    LOAD_FUNCPTR( glUniform2fv );
+    LOAD_FUNCPTR( glUniform2i );
+    LOAD_FUNCPTR( glUniform2iv );
+    LOAD_FUNCPTR( glUniform2ui );
+    LOAD_FUNCPTR( glUniform2uiv );
+    LOAD_FUNCPTR( glUniform3f );
+    LOAD_FUNCPTR( glUniform3fv );
+    LOAD_FUNCPTR( glUniform3i );
+    LOAD_FUNCPTR( glUniform3iv );
+    LOAD_FUNCPTR( glUniform3ui );
+    LOAD_FUNCPTR( glUniform3uiv );
+    LOAD_FUNCPTR( glUniform4f );
+    LOAD_FUNCPTR( glUniform4fv );
+    LOAD_FUNCPTR( glUniform4i );
+    LOAD_FUNCPTR( glUniform4iv );
+    LOAD_FUNCPTR( glUniform4ui );
+    LOAD_FUNCPTR( glUniform4uiv );
+    LOAD_FUNCPTR( glUniformBlockBinding );
+    LOAD_FUNCPTR( glUniformMatrix2fv );
+    LOAD_FUNCPTR( glUniformMatrix2x3fv );
+    LOAD_FUNCPTR( glUniformMatrix2x4fv );
+    LOAD_FUNCPTR( glUniformMatrix3fv );
+    LOAD_FUNCPTR( glUniformMatrix3x2fv );
+    LOAD_FUNCPTR( glUniformMatrix3x4fv );
+    LOAD_FUNCPTR( glUniformMatrix4fv );
+    LOAD_FUNCPTR( glUniformMatrix4x2fv );
+    LOAD_FUNCPTR( glUniformMatrix4x3fv );
+    LOAD_FUNCPTR( glUnmapBuffer );
+    LOAD_FUNCPTR( glUseProgram );
+    LOAD_FUNCPTR( glUseProgramStages );
+    LOAD_FUNCPTR( glValidateProgram );
+    LOAD_FUNCPTR( glValidateProgramPipeline );
+    LOAD_FUNCPTR( glVertexAttrib1f );
+    LOAD_FUNCPTR( glVertexAttrib1fv );
+    LOAD_FUNCPTR( glVertexAttrib2f );
+    LOAD_FUNCPTR( glVertexAttrib2fv );
+    LOAD_FUNCPTR( glVertexAttrib3f );
+    LOAD_FUNCPTR( glVertexAttrib3fv );
+    LOAD_FUNCPTR( glVertexAttrib4f );
+    LOAD_FUNCPTR( glVertexAttrib4fv );
+    LOAD_FUNCPTR( glVertexAttribBinding );
+    LOAD_FUNCPTR( glVertexAttribDivisor );
+    LOAD_FUNCPTR( glVertexAttribFormat );
+    LOAD_FUNCPTR( glVertexAttribI4i );
+    LOAD_FUNCPTR( glVertexAttribI4iv );
+    LOAD_FUNCPTR( glVertexAttribI4ui );
+    LOAD_FUNCPTR( glVertexAttribI4uiv );
+    LOAD_FUNCPTR( glVertexAttribIFormat );
+    LOAD_FUNCPTR( glVertexAttribIPointer );
+    LOAD_FUNCPTR( glVertexAttribPointer );
+    LOAD_FUNCPTR( glVertexBindingDivisor );
+    LOAD_FUNCPTR( glWaitSync );
+#undef LOAD_FUNCPTR
+
+    /* redirect some standard OpenGL functions */
+
+/*
+#define REDIRECT(func) \
+    do { p##func = egl_funcs.gl.p_##func; egl_funcs.gl.p_##func = w##func; } while(0)
+    REDIRECT(glFinish);
+    REDIRECT(glFlush);
+#undef REDIRECT
+*/
+
+
+
+}
+
+static BOOL egl_init(void)
+{
+
+    eglBindAPI (EGL_OPENGL_API);
+    //eglBindAPI (EGL_OPENGL_ES_API);
+    EGLint attributes[] = {
+		  EGL_RED_SIZE, 8,
+		  EGL_GREEN_SIZE, 8,
+		  EGL_BLUE_SIZE, 8,
+		  EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
+      EGL_NONE
+    };
+
+    global_is_opengl = 1;
+
+    static int retval = -1;
+    EGLConfig *configs;
+    EGLint major, minor, count, i, pass;
+    char buffer[200];
+
+    if (retval != -1) return retval;
+    retval = 0;
+
+    if (!(egl_handle = dlopen( "libEGL.so", RTLD_NOW )) )
+    {
+        ERR( "failed to load %s: %s\n", "libEGL.so", buffer );
+        return FALSE;
+    }
+    if (!(opengl_handle = dlopen( "libGLESv2.so", RTLD_NOW )) )
+    {
+        ERR( "failed to load %s: %s\n", "libGLESv2.so", buffer );
+        return FALSE;
+    }
+
+#define LOAD_FUNCPTR(func) do { \
+      if (!(p_##func = dlsym( egl_handle, #func ))) \
+        { ERR( "can't find symbol %s\n", #func); return FALSE; }    \
+    } while(0)
+    LOAD_FUNCPTR( eglCreateContext );
+    LOAD_FUNCPTR( eglCreateWindowSurface );
+    LOAD_FUNCPTR( eglDestroyContext );
+    LOAD_FUNCPTR( eglDestroySurface );
+    LOAD_FUNCPTR( eglGetConfigAttrib );
+    LOAD_FUNCPTR( eglGetConfigs );
+    LOAD_FUNCPTR( eglGetDisplay );
+    LOAD_FUNCPTR( eglGetProcAddress );
+    LOAD_FUNCPTR( eglInitialize );
+    LOAD_FUNCPTR( eglMakeCurrent );
+    LOAD_FUNCPTR( eglSwapBuffers );
+    LOAD_FUNCPTR( eglSwapInterval );
+#undef LOAD_FUNCPTR
+
+    display = p_eglGetDisplay( EGL_DEFAULT_DISPLAY );
+    if (!p_eglInitialize( display, &major, &minor )) return 0;
+    TRACE( "display %p version %u.%u\n", display, major, minor );
+
+    p_eglGetConfigs( display, NULL, 0, &count );
+    configs = HeapAlloc( GetProcessHeap(), 0, count * sizeof(*configs) );
+    pixel_formats = HeapAlloc( GetProcessHeap(), 0, count * sizeof(*pixel_formats) );
+    p_eglGetConfigs( display, configs, count, &count );
+    if (!count || !configs || !pixel_formats)
+    {
+        HeapFree( GetProcessHeap(), 0, configs );
+        HeapFree( GetProcessHeap(), 0, pixel_formats );
+        ERR( "eglGetConfigs returned no configs\n" );
+        return 0;
+    }
+
+    for (pass = 0; pass < 1; pass++)
+    {
+        for (i = 0; i < count; i++)
+        {
+            EGLint id, type, visual_id, native, render, color, red, g, b, d, s;
+
+
+            p_eglGetConfigAttrib( display, configs[i], EGL_SURFACE_TYPE, &type );
+            if (!(type & EGL_WINDOW_BIT)) {
+              TRACE("type %d %d \n", type, EGL_WINDOW_BIT);
+              //continue;
+            }
+            p_eglGetConfigAttrib( display, configs[i], EGL_RENDERABLE_TYPE, &render );
+
+            if ( !(render & EGL_OPENGL_BIT)) {
+              TRACE("render %d %d \n", render, EGL_OPENGL_BIT);
+         //continue;
+            }
+
+
+
+            p_eglGetConfigAttrib( display, configs[i], EGL_CONFIG_ID, &id );
+            p_eglGetConfigAttrib( display, configs[i], EGL_NATIVE_VISUAL_ID, &visual_id );
+            p_eglGetConfigAttrib( display, configs[i], EGL_NATIVE_RENDERABLE, &native );
+            p_eglGetConfigAttrib( display, configs[i], EGL_COLOR_BUFFER_TYPE, &color );
+            p_eglGetConfigAttrib( display, configs[i], EGL_RED_SIZE, &red );
+            p_eglGetConfigAttrib( display, configs[i], EGL_GREEN_SIZE, &g );
+            p_eglGetConfigAttrib( display, configs[i], EGL_BLUE_SIZE, &b );
+            p_eglGetConfigAttrib( display, configs[i], EGL_DEPTH_SIZE, &d );
+            p_eglGetConfigAttrib( display, configs[i], EGL_STENCIL_SIZE, &s );
+
+            if( red != 8 ) {
+              continue;
+            }
+
+            pixel_formats[nb_pixel_formats++].config = configs[i];
+
+            TRACE( "%u: config %u id %u type %x visual %u native %u render %x colortype %u rgb %u,%u,%u depth %u stencil %u\n",
+                   nb_pixel_formats, i, id, type, visual_id, native, render, color, red, g, b, d, s );
+        }
+        if (!pass) nb_onscreen_formats = nb_pixel_formats;
+    }
+
+    init_extensions();
+    retval = 1;
+
+    return TRUE;
+}
+
+
+/* generate stubs for GL functions that are not exported on Android */
+
+//TRACE( #name " called\n" );
+
+#define USE_GL_FUNC(name) \
+static void glstub_##name(void) \
+{ \
+    return; \
+}
+
+ALL_WGL_FUNCS
+#undef USE_GL_FUNC
+
+//struct opengl_funcs egl_funcs =
+static struct opengl_funcs egl_funcs =
+{
+
+    //https://github.com/wine-mirror/wine/blob/6d801377055911d914226a3c6af8d8637a63fa13/include/wine/wgl_driver.h
+    #if 0
+      struct
+    {
+        BOOL       (WINE_GLAPI *p_wglCopyContext)( struct wgl_context * hglrcSrc, struct wgl_context * hglrcDst, UINT mask );
+        struct wgl_context * (WINE_GLAPI *p_wglCreateContext)( HDC hDc );
+        BOOL       (WINE_GLAPI *p_wglDeleteContext)( struct wgl_context * oldContext );
+        int        (WINE_GLAPI *p_wglDescribePixelFormat)( HDC hdc, int ipfd, UINT cjpfd, PIXELFORMATDESCRIPTOR *ppfd );
+        int        (WINE_GLAPI *p_wglGetPixelFormat)( HDC hdc );
+        PROC       (WINE_GLAPI *p_wglGetProcAddress)( LPCSTR lpszProc );
+        BOOL       (WINE_GLAPI *p_wglMakeCurrent)( HDC hDc, struct wgl_context * newContext );
+        BOOL       (WINE_GLAPI *p_wglSetPixelFormat)( HDC hdc, int ipfd, const PIXELFORMATDESCRIPTOR *ppfd );
+        BOOL       (WINE_GLAPI *p_wglShareLists)( struct wgl_context * hrcSrvShare, struct wgl_context * hrcSrvSource );
+        BOOL       (WINE_GLAPI *p_wglSwapBuffers)( HDC hdc );
+    } wgl;
+    #endif
+
+    {
+        WAYLANDDRV_wglCopyContext,
+        WAYLANDDRV_wglCreateContext,
+        WAYLANDDRV_wglDeleteContext,
+        WAYLANDDRV_wglDescribePixelFormat,
+        WAYLANDDRV_wglGetPixelFormat,
+        WAYLANDDRV_wglGetProcAddress,
+        WAYLANDDRV_wglMakeCurrent,
+        WAYLANDDRV_wglSetPixelFormat,
+        WAYLANDDRV_wglShareLists,
+        WAYLANDDRV_wglSwapBuffers,
+    },
+
+#define USE_GL_FUNC(name) (void *)glstub_##name,
+    { ALL_WGL_FUNCS }
+#undef USE_GL_FUNC
+};
+
+
+struct opengl_funcs *get_wgl_driver( UINT version )
+{
+
+
+
+    if (!egl_init()) {
+      return NULL;
+    }
+
+    return &egl_funcs;
+}
+
+
+//End OpenGL funcs - not working
+//OpenGL
+#endif
+//EGL/Opengl
 
 /* Helper function for converting between win32 and X11 compatible VkInstanceCreateInfo.
  * Caller is responsible for allocation and cleanup of 'dst'.
@@ -4681,6 +6106,15 @@ void wine_vk_surface_destroy(HWND hwnd)
     }
     LeaveCriticalSection(&context_section);
     #endif
+}
+
+static VkSurfaceKHR WAYLANDDRV_wine_get_native_surface(VkSurfaceKHR surface)
+{
+    struct wine_vk_surface *x11_surface = surface_from_handle(surface);
+
+    TRACE("0x%s\n", wine_dbgstr_longlong(surface));
+
+    return x11_surface->surface;
 }
 
 static VkResult WAYLANDDRV_vkCreateInstance(const VkInstanceCreateInfo *create_info,
@@ -4768,20 +6202,34 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
     }
     #endif
 
+    
+    const char *is_vulkan_desktop_only = getenv( "WINE_VK_VULKAN_DESKTOP_ONLY" );
+
+    if(is_vulkan_desktop_only) {
+      //Hack for GenshinImpact, prevents loss of mouse/keyboard input due
+      //to Chromium windows
+      create_desktop();
+    }
+
 
 
     if(no_flag) {
 
+      //create wayland display early to get screen width/height
+      if(!wayland_display) {
+        TRACE("Creating wayland display \n");
+        create_wayland_display();
+    	}
 
       char *env_width = getenv( "WINE_VK_WAYLAND_WIDTH" );
       char *env_height = getenv( "WINE_VK_WAYLAND_HEIGHT" );
 
       int screen_width = 1920;
       int screen_height = 1080;
-      
+
       if(global_output_width > 0 && global_output_height > 0) {
         screen_width = global_output_width;
-        screen_height = global_output_height;        
+        screen_height = global_output_height;
       }
 
       if(env_width) {
@@ -4843,10 +6291,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
 
 
 
-  if(!wayland_display) {
-    TRACE("Creating wayland display \n");
-    create_wayland_display();
-	}
+
 
   global_is_vulkan = 1;
 	vulkan_window = create_wayland_window (create_info->hwnd, 1920, 1080);
@@ -5206,6 +6651,7 @@ static const struct vulkan_funcs vulkan_funcs =
     WAYLANDDRV_vkGetPhysicalDeviceWin32PresentationSupportKHR,
     WAYLANDDRV_vkGetSwapchainImagesKHR,
     WAYLANDDRV_vkQueuePresentKHR,
+    WAYLANDDRV_wine_get_native_surface,
 };
 
 static void *WAYLANDDRV_get_vk_device_proc_addr(const char *name)

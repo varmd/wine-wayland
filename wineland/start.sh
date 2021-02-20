@@ -19,9 +19,6 @@ export WINE_VK_WAYLAND_WIDTH=1920
 export WINE_VK_WAYLAND_HEIGHT=1080
 export WAYLAND_DISPLAY=wayland-0
 
-export RADV_PERFTEST=aco
-
-
 export XDG_RUNTIME_DIR=/run/user/$UID
 
 if [  -z $1 ]; then
@@ -104,8 +101,8 @@ MANGO_PREFIX=$PWD_PATH/mangohud
 if [ ! -d $PWD_PATH/dxvk ]; then
     mkdir dxvk
     cd dxvk
-    curl  -L "https://github.com/doitsujin/dxvk/releases/download/v1.7.3/dxvk-1.7.3.tar.gz" > dxvk-1.7.3.tar.gz
-    tar xf dxvk-1.7.3.tar.gz
+    curl  -L "https://github.com/doitsujin/dxvk/releases/download/v1.8/dxvk-1.8.tar.gz" > dxvk-1.8.tar.gz
+    tar xf dxvk-1.8.tar.gz
     cd "$PWD_PATH"
 fi
 
@@ -124,12 +121,12 @@ if [ ! -d $WINEPREFIX ]; then
     WINE_VK_VULKAN_ONLY=1 wineboot -u
     sleep 4
     
-    cp -r dxvk/dxvk-1.7.3/x32/* wine/drive_c/windows/system32/
+    cp -r dxvk/dxvk-1.8/x32/* wine/drive_c/windows/system32/
   else
     echo "is 64bit"
     WINE_VK_VULKAN_ONLY=1 wineboot -u
     sleep 4  
-    cp -r dxvk/dxvk-1.7.3/x64/* wine/drive_c/windows/system32/
+    cp -r dxvk/dxvk-1.8/x64/* wine/drive_c/windows/system32/
   fi
   
 fi
@@ -183,7 +180,7 @@ fi #end mangohud
 export WINEFSYNC
 export WINEESYNC
 
-export WINEDEBUG=-all,+waylanddrv
+export WINEDEBUG=fixme-all,-all,+waylanddrv
 
 rm $PWD_PATH/wine/drive_c/users/$USER/"My Documents"
 mkdir -p $PWD_PATH/wine/drive_c/users/$USER/"My Documents"

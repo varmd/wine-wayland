@@ -2,8 +2,10 @@ MODULE    = winewayland.drv
 IMPORTS   = uuid user32 gdi32 advapi32
 DELAYIMPORTS = comctl32 ole32 shell32 imm32
 EXTRAINCL = 
-#-lX11 
-EXTRALIBS = -lwayland-client  -lwayland-cursor 
+
+#EXTRALIBS = -lwayland-client  -lwayland-cursor -lwayland-egl -lEGL -lGLESv2
+
+EXTRALIBS = -lwayland-client  -lwayland-cursor
 
 EXTRACFLAGS += -std=c11 -Wno-declaration-after-statement
 

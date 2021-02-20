@@ -132,7 +132,7 @@ index 618021e13b..c6bcb5a329 100644
      if (do_esync())
          return esync_query_semaphore( handle, class, info, len, ret_len );
  
-@@ -419,6 +429,9 @@ NTSTATUS WINAPI NtReleaseSemaphore( HANDLE handle, ULONG count, PULONG previous
+@@ -419,6 +419,9 @@ NTSTATUS WINAPI NtReleaseSemaphore( HANDLE handle, ULONG count, PULONG previous
  {
      NTSTATUS ret;
  
@@ -142,7 +142,7 @@ index 618021e13b..c6bcb5a329 100644
      if (do_esync())
          return esync_release_semaphore( handle, count, previous );
  
-@@ -444,6 +454,9 @@ NTSTATUS WINAPI NtCreateEvent( PHANDLE EventHandle, ACCESS_MASK DesiredAccess,
+@@ -430,6 +430,9 @@ NTSTATUS WINAPI NtCreateEvent( PHANDLE EventHandle, ACCESS_MASK DesiredAccess,
      data_size_t len;
      struct object_attributes *objattr;
  
@@ -152,7 +152,7 @@ index 618021e13b..c6bcb5a329 100644
      if (do_esync())
          return esync_create_event( handle, access, attr, type, state );
  
-@@ -475,6 +485,9 @@ NTSTATUS WINAPI NtOpenEvent( HANDLE *handle, ACCESS_MASK access, const OBJECT_AT
+@@ -452,6 +452,9 @@ NTSTATUS WINAPI NtOpenEvent( HANDLE *handle, ACCESS_MASK access, const OBJECT_AT
  
      if ((ret = validate_open_object_attributes( attr ))) return ret;
  
@@ -162,7 +162,7 @@ index 618021e13b..c6bcb5a329 100644
      if (do_esync())
          return esync_open_event( handle, access, attr );
  
-@@ -502,6 +514,9 @@ NTSTATUS WINAPI NtSetEvent( HANDLE handle, LONG *prev_state )
+@@ -490,6 +490,9 @@ NTSTATUS WINAPI NtSetEvent( HANDLE handle, LONG *prev_state )
  {
      NTSTATUS ret;
  
@@ -172,7 +172,7 @@ index 618021e13b..c6bcb5a329 100644
      if (do_esync())
          return esync_set_event( handle );
  
-@@ -525,6 +540,9 @@ NTSTATUS WINAPI NtResetEvent( HANDLE handle, LONG *prev_state )
+@@ -515,6 +515,9 @@ NTSTATUS WINAPI NtResetEvent( HANDLE handle, LONG *prev_state )
  {
      NTSTATUS ret;
  
@@ -182,7 +182,7 @@ index 618021e13b..c6bcb5a329 100644
      if (do_esync())
          return esync_reset_event( handle );
  
-@@ -580,6 +590,9 @@ NTSTATUS WINAPI NtQueryEvent( HANDLE handle, EVENT_INFORMATION_CLASS class,
+@@ -570,6 +570,9 @@ NTSTATUS WINAPI NtQueryEvent( HANDLE handle, EVENT_INFORMATION_CLASS class,
      NTSTATUS ret;
      EVENT_BASIC_INFORMATION *out = info;
  
@@ -192,7 +192,7 @@ index 618021e13b..c6bcb5a329 100644
      if (do_esync())
          return esync_query_event( handle, class, info, len, ret_len );
  
-@@ -618,6 +628,9 @@ NTSTATUS WINAPI NtCreateMutant(OUT HANDLE* MutantHandle,
+@@ -600,6 +600,9 @@ NTSTATUS WINAPI NtCreateMutant(OUT HANDLE* MutantHandle,
      data_size_t len;
      struct object_attributes *objattr;
  
@@ -202,7 +202,7 @@ index 618021e13b..c6bcb5a329 100644
      if (do_esync())
          return esync_create_mutex( handle, access, attr, owned );
  
-@@ -648,6 +661,9 @@ NTSTATUS WINAPI NtOpenMutant( HANDLE *handle, ACCESS_MASK access, const OBJECT_A
+@@ -640,6 +640,9 @@ NTSTATUS WINAPI NtOpenMutant( HANDLE *handle, ACCESS_MASK access, const OBJECT_A
  
      if ((status = validate_open_object_attributes( attr ))) return status;
  
@@ -212,9 +212,9 @@ index 618021e13b..c6bcb5a329 100644
      if (do_esync())
          return esync_open_mutex( handle, access, attr );
  
-@@ -675,6 +700,9 @@ NTSTATUS WINAPI NtReleaseMutant( IN HANDLE handle, OUT PLONG prev_count OPTIONAL
+@@ -670,6 +670,9 @@ NTSTATUS WINAPI NtReleaseMutant( IN HANDLE handle, OUT PLONG prev_count OPTIONAL
  {
-     NTSTATUS    status;
+     NTSTATUS ret;
  
 +    if (do_fsync())
 +        return fsync_release_mutex( handle, prev_count );
@@ -222,7 +222,7 @@ index 618021e13b..c6bcb5a329 100644
      if (do_esync())
          return esync_release_mutex( handle, prev_count );
  
-@@ -696,6 +716,9 @@ NTSTATUS WINAPI NtQueryMutant( HANDLE handle, MUTANT_INFORMATION_CLASS class,
+@@ -700,6 +700,9 @@ NTSTATUS WINAPI NtQueryMutant( HANDLE handle, MUTANT_INFORMATION_CLASS class,
      NTSTATUS ret;
      MUTANT_BASIC_INFORMATION *out = info;
  
@@ -232,7 +232,7 @@ index 618021e13b..c6bcb5a329 100644
      if (do_esync())
          return esync_query_mutex( handle, class, info, len, ret_len );
  
-@@ -1113,6 +1140,13 @@ static NTSTATUS NtWaitForMultipleObjects( DWORD count, const HANDLE *handles,
+@@ -1360,6 +1360,13 @@ static NTSTATUS NtWaitForMultipleObjects( DWORD count, const HANDLE *handles,
  
      if (!count || count > MAXIMUM_WAIT_OBJECTS) return STATUS_INVALID_PARAMETER_1;
  
@@ -246,7 +246,7 @@ index 618021e13b..c6bcb5a329 100644
      if (do_esync())
      {
          NTSTATUS ret = esync_wait_objects( count, handles, wait_any, alertable, timeout );
-@@ -1147,6 +1177,9 @@ NTSTATUS WINAPI NtSignalAndWaitForSingleObject( HANDLE hSignalObject, HANDLE hWa
+@@ -1400,6 +1400,9 @@ NTSTATUS WINAPI NtSignalAndWaitForSingleObject( HANDLE hSignalObject, HANDLE hWa
      select_op_t select_op;
      UINT flags = SELECT_INTERRUPTIBLE;
  
@@ -573,9 +573,9 @@ index 9a29ef41f4..85b1aece3b 100644
      no_satisfied,                  /* satisfied */
      no_signal,                     /* signal */
      no_get_fd,                     /* get_fd */
-@@ -103,6 +104,7 @@ static const struct object_ops debug_ctx_ops =
+@@ -103,6 +104,7 @@ static const struct object_ops debug_obj_ops =
      remove_queue,                  /* remove_queue */
-     debug_ctx_signaled,            /* signaled */
+     debug_obj_signaled,            /* signaled */
      NULL,                          /* get_esync_fd */
 +    NULL,                          /* get_fsync_idx */
      no_satisfied,                  /* satisfied */
@@ -753,7 +753,7 @@ index 510a42bf28..1aa6b47eaf 100644
  
  struct event
  {
-@@ -44,12 +45,14 @@ struct event
+@@ -44,10 +45,12 @@ struct event
      int            manual_reset;    /* is it a manual reset event? */
      int            signaled;        /* event has been signaled */
      int            esync_fd;        /* esync file descriptor */
@@ -761,12 +761,10 @@ index 510a42bf28..1aa6b47eaf 100644
  };
  
  static void event_dump( struct object *obj, int verbose );
- static struct object_type *event_get_type( struct object *obj );
  static int event_signaled( struct object *obj, struct wait_queue_entry *entry );
  static int event_get_esync_fd( struct object *obj, enum esync_type *type );
 +static unsigned int event_get_fsync_idx( struct object *obj, enum fsync_type *type );
  static void event_satisfied( struct object *obj, struct wait_queue_entry *entry );
- static unsigned int event_map_access( struct object *obj, unsigned int access );
  static int event_signal( struct object *obj, unsigned int access);
 @@ -65,6 +68,7 @@ static const struct object_ops event_ops =
      remove_queue,              /* remove_queue */
@@ -947,7 +945,7 @@ index 3f8082579d..07093e2101 100644
      if (do_esync() && !signaled)
          esync_clear( fd->esync_fd );
  }
-@@ -2034,6 +2050,15 @@ int default_fd_get_esync_fd( struct object *obj, enum esync_type *type )
+@@ -2165,6 +2165,15 @@ int default_fd_get_esync_fd( struct object *obj, enum esync_type *type )
      return ret;
  }
  
@@ -960,9 +958,9 @@ index 3f8082579d..07093e2101 100644
 +    return ret;
 +}
 +
- /* default map_access() routine for objects that behave like an fd */
- unsigned int default_fd_map_access( struct object *obj, unsigned int access )
+ int default_fd_get_poll_events( struct fd *fd )
  {
+     int events = 0;
 diff --git a/server/file.c b/server/file.c
 index 25aa6bcbc6..0c4067e4de 100644
 --- a/server/file.c
@@ -984,9 +982,9 @@ index ed250c2c64..22cad72f36 100644
  extern int default_fd_signaled( struct object *obj, struct wait_queue_entry *entry );
  extern int default_fd_get_esync_fd( struct object *obj, enum esync_type *type );
 +extern unsigned int default_fd_get_fsync_idx( struct object *obj, enum fsync_type *type );
- extern unsigned int default_fd_map_access( struct object *obj, unsigned int access );
  extern int default_fd_get_poll_events( struct fd *fd );
  extern void default_poll_event( struct fd *fd, int event );
+ extern void fd_queue_async( struct fd *fd, struct async *async, int type );
 diff --git a/server/handle.c b/server/handle.c
 index 6ca4489a82..98a5984b35 100644
 --- a/server/handle.c
@@ -1751,7 +1749,7 @@ index f2403fc9ba..c65e26becb 100644
  
  struct timer
  {
-@@ -50,12 +51,14 @@ struct timer
+@@ -50,10 +51,12 @@ struct timer
      client_ptr_t         callback;  /* callback APC function */
      client_ptr_t         arg;       /* callback argument */
      int                  esync_fd;  /* esync file descriptor */
@@ -1759,12 +1757,10 @@ index f2403fc9ba..c65e26becb 100644
  };
  
  static void timer_dump( struct object *obj, int verbose );
- static struct object_type *timer_get_type( struct object *obj );
  static int timer_signaled( struct object *obj, struct wait_queue_entry *entry );
  static int timer_get_esync_fd( struct object *obj, enum esync_type *type );
 +static unsigned int timer_get_fsync_idx( struct object *obj, enum fsync_type *type );
  static void timer_satisfied( struct object *obj, struct wait_queue_entry *entry );
- static unsigned int timer_map_access( struct object *obj, unsigned int access );
  static void timer_destroy( struct object *obj );
 @@ -69,6 +72,7 @@ static const struct object_ops timer_ops =
      remove_queue,              /* remove_queue */

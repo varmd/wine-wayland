@@ -75,7 +75,7 @@ index 0652532ae1..5fb79a7c94 100644
  }
  
  /* check if fd is signaled */
-@@ -2001,6 +2014,15 @@ int default_fd_signaled( struct object *obj, struct wait_queue_entry *entry )
+@@ -2165,6 +2165,15 @@ int default_fd_signaled( struct object *obj, struct wait_queue_entry *entry )
      return ret;
  }
  
@@ -88,9 +88,9 @@ index 0652532ae1..5fb79a7c94 100644
 +    return ret;
 +}
 +
- /* default map_access() routine for objects that behave like an fd */
- unsigned int default_fd_map_access( struct object *obj, unsigned int access )
+ int default_fd_get_poll_events( struct fd *fd )
  {
+     int events = 0;
 diff --git a/server/file.h b/server/file.h
 index 84cbc29037..3c9e1ca249 100644
 --- a/server/file.h
@@ -100,9 +100,9 @@ index 84cbc29037..3c9e1ca249 100644
  
  extern int default_fd_signaled( struct object *obj, struct wait_queue_entry *entry );
 +extern int default_fd_get_esync_fd( struct object *obj, enum esync_type *type );
- extern unsigned int default_fd_map_access( struct object *obj, unsigned int access );
  extern int default_fd_get_poll_events( struct fd *fd );
  extern void default_poll_event( struct fd *fd, int event );
+ extern void fd_queue_async( struct fd *fd, struct async *async, int type );
 diff --git a/server/named_pipe.c b/server/named_pipe.c
 index 3be5d7968e..925ae5ebed 100644
 --- a/server/named_pipe.c

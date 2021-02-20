@@ -147,8 +147,8 @@ static void fsync_destroy( struct object *obj );
 const struct object_ops fsync_ops =
 {
     sizeof(struct fsync),      /* size */
+    &no_type,                  /* get_type */
     fsync_dump,                /* dump */
-    no_get_type,               /* get_type */
     no_add_queue,              /* add_queue */
     NULL,                      /* remove_queue */
     NULL,                      /* signaled */

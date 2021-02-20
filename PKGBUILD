@@ -1,6 +1,6 @@
 # Created by: varmd
 
-RELEASE=6.0
+RELEASE=6.2
 pkgname=('wine-wayland')
 
 pkgver=`echo $RELEASE | sed s~-~~`

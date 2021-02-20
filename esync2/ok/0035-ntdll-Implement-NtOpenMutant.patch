@@ -12,16 +12,16 @@ diff --git a/dlls/ntdll/unix/sync.c b/dlls/ntdll/unix/sync.c
 index e6951c8ea5..9b2b5614ba 100644
 --- a/dlls/ntdll/unix/sync.c
 +++ b/dlls/ntdll/unix/sync.c
-@@ -522,6 +522,9 @@ NTSTATUS WINAPI NtOpenMutant( HANDLE *handle, ACCESS_MASK access, const OBJECT_A
- 
+@@ -650,6 +650,9 @@ NTSTATUS WINAPI NtOpenMutant( HANDLE *handle, ACCESS_MASK access, const OBJECT_A
+
      if ((status = validate_open_object_attributes( attr ))) return status;
- 
+
 +    if (do_esync())
 +        return esync_open_mutex( handle, access, attr );
 +
      SERVER_START_REQ( open_mutex )
      {
          req->access  = access;
--- 
+--
 2.19.1
 

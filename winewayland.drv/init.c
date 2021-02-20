@@ -205,23 +205,27 @@ static INT CDECL WAYLANDDRV_GetDeviceCaps( PHYSDEV dev, INT cap )
 /**********************************************************************
  *           WAYLANDDRV_wine_get_wgl_driver
 */ 
-#if 0
+
 static struct opengl_funcs * CDECL WAYLANDDRV_wine_get_wgl_driver( PHYSDEV dev, UINT version )
 {
     struct opengl_funcs *ret = NULL;
     
+    //re-enable for opengl
+    #if 0
     if (!(ret = get_wgl_driver( version )))
     {
+        
         exit(1);
         //dev = GET_NEXT_PHYSDEV( dev, wine_get_wgl_driver );
         //ret = dev->funcs->wine_get_wgl_driver( dev, version );
     }
+    #endif
     
     //ret->wgl.p_wglDescribePixelFormat( NULL, NULL, NULL, NULL );
     return ret;
     
 }
-#endif
+
 
 /**********************************************************************
  *           WAYLANDDRV_wine_get_vulkan_driver

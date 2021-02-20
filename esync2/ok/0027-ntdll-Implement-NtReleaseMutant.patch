@@ -12,16 +12,16 @@ diff --git a/dlls/ntdll/unix/sync.c b/dlls/ntdll/unix/sync.c
 index 76004d613c..0040da4ffa 100644
 --- a/dlls/ntdll/unix/sync.c
 +++ b/dlls/ntdll/unix/sync.c
-@@ -538,6 +538,9 @@ NTSTATUS WINAPI NtReleaseMutant( IN HANDLE handle, OUT PLONG prev_count OPTIONAL
+@@ -685,6 +685,9 @@ NTSTATUS WINAPI NtReleaseMutant( IN HANDLE handle, OUT PLONG prev_count OPTIONAL
  {
-     NTSTATUS    status;
- 
+     NTSTATUS ret;
+
 +    if (do_esync())
 +        return esync_release_mutex( handle, prev_count );
 +
      SERVER_START_REQ( release_mutex )
      {
          req->handle = wine_server_obj_handle( handle );
--- 
+--
 2.19.1
 

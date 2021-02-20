@@ -99,7 +99,6 @@ Then in the terminal run sh start-your-game.sh
 * Use `export WINE_VK_FULLSCREEN_GRAB_CURSOR=1` to automatically enable cursor grab in fullscreen.
 * Use `export WINE_VK_ALWAYS_FULLSCREEN=1` to automatically set game to fullscreen without using F11.
 * For best performance use kernel with the fsync patch, and add `export WINEFSYNC=1` variable
-* Use `export WINE_VK_HIDE_CURSOR=1` to hide mouse cursor - for example, when only using a controller
 
 ## Keyboard shortcuts
 
@@ -145,3 +144,5 @@ Then in the terminal run sh start-your-game.sh
 * Pillars of Eternity
 * Ziggurat 1 (add -force-d3d11 in Exe options)
 * Warframe (see #25)
+* Shogun Total War 2
+* Imperator Rome

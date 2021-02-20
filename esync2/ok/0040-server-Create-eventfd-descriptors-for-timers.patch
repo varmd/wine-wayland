@@ -46,7 +46,7 @@ index 810349ae8a..3ee821c308 100644
  
  struct timer
  {
-@@ -48,11 +49,13 @@ struct timer
+@@ -48,9 +49,11 @@ struct timer
      struct thread       *thread;    /* thread that set the APC function */
      client_ptr_t         callback;  /* callback APC function */
      client_ptr_t         arg;       /* callback argument */
@@ -54,11 +54,9 @@ index 810349ae8a..3ee821c308 100644
  };
  
  static void timer_dump( struct object *obj, int verbose );
- static struct object_type *timer_get_type( struct object *obj );
  static int timer_signaled( struct object *obj, struct wait_queue_entry *entry );
 +static int timer_get_esync_fd( struct object *obj, enum esync_type *type );
  static void timer_satisfied( struct object *obj, struct wait_queue_entry *entry );
- static unsigned int timer_map_access( struct object *obj, unsigned int access );
  static void timer_destroy( struct object *obj );
 @@ -65,7 +68,7 @@ static const struct object_ops timer_ops =
      add_queue,                 /* add_queue */

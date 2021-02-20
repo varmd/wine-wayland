@@ -12,16 +12,16 @@ diff --git a/dlls/ntdll/unix/sync.c b/dlls/ntdll/unix/sync.c
 index 754e9e0d57..76004d613c 100644
 --- a/dlls/ntdll/unix/sync.c
 +++ b/dlls/ntdll/unix/sync.c
-@@ -594,6 +594,9 @@ NTSTATUS WINAPI NtCreateMutant(HANDLE *handle, ACCESS_MASK access, const OBJECT_ATTRIBUTES *attr,
+@@ -622,6 +622,9 @@ NTSTATUS WINAPI NtCreateMutant(HANDLE *handle, ACCESS_MASK access, const OBJECT_ATTRIBUTES *attr,
      data_size_t len;
      struct object_attributes *objattr;
- 
+
 +    if (do_esync())
 +        return esync_create_mutex( handle, access, attr, owned );
 +
      if ((ret = alloc_object_attributes( attr, &objattr, &len ))) return ret;
- 
+
      SERVER_START_REQ( create_mutex )
--- 
+--
 2.19.1
 

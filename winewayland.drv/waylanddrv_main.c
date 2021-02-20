@@ -108,31 +108,18 @@ static inline DWORD get_config_key( HKEY defkey, HKEY appkey, const char *name,
 
 
 
-void manage_desktop(  )
+void create_desktop(  )
 {
     static const WCHAR messageW[] = {'M','e','s','s','a','g','e',0};
     HDESK desktop = 0;
-    GUID guid;
-    MSG msg;
+    
     HWND hwnd;
-    HMODULE graphics_driver;
     unsigned int width, height;
     WCHAR *cmdline = NULL, *driver = NULL;
     const WCHAR *name = NULL;
     static const WCHAR desktopW[] = {'D','e','s','k','t','o','p',0};
     void (WINAPI *pShellDDEInit)( BOOL ) = NULL;
-    
-    #if 0
-    
-    static const WCHAR cdot[] = {'.',0};
-    static const WCHAR cname[] = {'W', 'I', 'V', 'K',0};
-    
 
-
-    SetComputerNameExW( ComputerNamePhysicalDnsDomain, (LPCWSTR)cdot );
-    SetComputerNameExW( ComputerNamePhysicalDnsHostname, (LPCWSTR)cname );
-    fix_computername_init();
-    #endif
 
         if (!(desktop = CreateDesktopW( desktopW, NULL, NULL, 0, DESKTOP_ALL_ACCESS, NULL )))
         {
@@ -153,10 +140,11 @@ void manage_desktop(  )
         /* create the HWND_MESSAGE parent */
         CreateWindowExW( 0, messageW, NULL, WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN, 0, 0, 100, 100, 0, 0, 0, NULL );
 
-    
+        
         SetWindowPos( hwnd, 0, GetSystemMetrics(SM_XVIRTUALSCREEN), GetSystemMetrics(SM_YVIRTUALSCREEN),
                       GetSystemMetrics(SM_CXVIRTUALSCREEN), GetSystemMetrics(SM_CYVIRTUALSCREEN),
                       SWP_SHOWWINDOW );
+      
         ClipCursor( NULL );
         
 
@@ -165,58 +153,51 @@ void manage_desktop(  )
 
 }
 
+
 /***********************************************************************
  *           WAYLANDDRV process initialisation routine
  */
 static BOOL process_attach(void)
 {
   
-    
+ 
+  const char *is_vulkan_desktop_only = getenv( "WINE_VK_VULKAN_DESKTOP_ONLY" );
+
+  char *env_width = getenv( "WINE_VK_WAYLAND_WIDTH" );
+  char *env_height = getenv( "WINE_VK_WAYLAND_HEIGHT" );
   
+  int screen_width = 1440;
+  int screen_height = 900;
   
-    char *env_width = getenv( "WINE_VK_WAYLAND_WIDTH" );
-    char *env_height = getenv( "WINE_VK_WAYLAND_HEIGHT" );
+  if(env_width) {
+    screen_width = atoi(env_width);
+  }
+  if(env_height) {
+    screen_height = atoi(env_height);
+  }
     
-    int screen_width = 1440;
-    int screen_height = 900;
+  screen_bpp = 32;
     
-    if(env_width) {
-      screen_width = atoi(env_width);
-    }
-    if(env_height) {
-      screen_height = atoi(env_height);
-    }
+  TRACE( "Creating desktop %d %d \n\n", screen_width , screen_height ); 
     
-    //screen_bpp = pixmap_formats[default_visual.depth]->bits_per_pixel;
-    screen_bpp = 32;
-    
-     TRACE( "Creating desktop %d %d \n\n", screen_width , screen_height ); 
-    
-    xinerama_init( screen_width , screen_height); 
+  xinerama_init( screen_width , screen_height); 
     
     
-    WAYLANDDRV_Settings_Init();
+  WAYLANDDRV_Settings_Init();
+   
+  TRACE( "Creating desktop done %d %d \n\n", screen_width , screen_height ); 
     
     
-    
-    //WAYLANDDRV_init_desktop( 1440 , 900);
-
-
-
-    //WAYLANDDRV_InitKeyboard( gdi_display );
-
-    
-    
-    TRACE( "Creating desktop done %d %d \n\n", screen_width , screen_height ); 
-    
-    
-    if ((thread_data_tls_index = TlsAlloc()) == TLS_OUT_OF_INDEXES) {
-      return FALSE;
-    }
-    
-    manage_desktop();
-    
-    return TRUE;
+  if ((thread_data_tls_index = TlsAlloc()) == TLS_OUT_OF_INDEXES) {
+    return FALSE;
+  }
+  
+  //Hack for GenshinImpact, prevents loss of mouse/keyboard input
+  if( !is_vulkan_desktop_only ) {
+    create_desktop();
+  }
+  
+  return TRUE;
 }
 
 
