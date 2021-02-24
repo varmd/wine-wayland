@@ -27,9 +27,20 @@
 
 
 
-#include "waylanddrv.h"
+#include "windef.h"
+#include "winbase.h"
+#include "winuser.h"
+#include "rpc.h"
+#include "winreg.h"
+#include "initguid.h"
+#include "devguid.h"
+#include "devpkey.h"
+#include "setupapi.h"
+#define WIN32_NO_STATUS
+#include "winternl.h"
 #include "wine/debug.h"
 #include "wine/unicode.h"
+#include "waylanddrv.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(waylanddrv);
 
@@ -38,10 +49,9 @@ static RECT virtual_screen_rect;
 static MONITORINFOEXW default_monitor =
 {
     sizeof(default_monitor),    /* cbSize */
-    {0, 0, 1440, 900},             /* rcMonitor */
-    { 0, 0, 1440, 900 },             /* rcWork */
+    {0, 0, 1600, 900},             /* rcMonitor */
+    { 0, 0, 1600, 900 },             /* rcWork */
     MONITORINFOF_PRIMARY,       /* dwFlags */
-    //{'\\','\\','.','\\', 'D','I','S','P','L','A','Y','1','\\', 'M','o','n','i','t','o','r','0','\\',0}   /* szDevice */
     { '\\','\\','.','\\','D','I','S','P','L','A','Y','1',0 }   /* szDevice */
 };
 //static const WCHAR monitor_deviceW[] = { '\\','\\','.','\\','D','I','S','P','L','A','Y','%','d',0 };
@@ -69,7 +79,7 @@ static inline int monitor_to_index( HMONITOR handle )
 
 static void query_work_area( RECT *rc_work )
 {
-   
+
 }
 
 
@@ -89,10 +99,10 @@ POINT virtual_screen_to_root( INT x, INT y )
 POINT root_to_virtual_screen( INT x, INT y )
 {
     POINT pt;
-  
+
     pt.x = x;
     pt.y = y;
-  
+
     return pt;
 }
 
@@ -115,10 +125,10 @@ void xinerama_init( unsigned int width, unsigned int height )
     SetRect( &rect, 0, 0, width, height );
 
     default_monitor.rcWork = default_monitor.rcMonitor = rect;
-        
+
     nb_monitors = 1;
     monitors = &default_monitor;
-    
+
 
     primary = get_primary();
     SetRectEmpty( &virtual_screen_rect );
@@ -147,14 +157,18 @@ void xinerama_init( unsigned int width, unsigned int height )
 BOOL CDECL WAYLANDDRV_GetMonitorInfo( HMONITOR handle, LPMONITORINFO info )
 {
     int i = monitor_to_index( handle );
-  
-    i = 0;
-    
-    info->rcMonitor = monitors[i].rcMonitor;
-    info->rcWork = monitors[i].rcWork;
-    info->dwFlags = monitors[i].dwFlags;
+
+    if(i == -1)
+      return FALSE;
+
+    TRACE( "GetMonitorInfo \n" );
+
+    info->rcMonitor = monitors[0].rcMonitor;
+    info->rcWork = monitors[0].rcWork;
+    info->dwFlags = monitors[0].dwFlags;
     if (info->cbSize >= sizeof(MONITORINFOEXW))
-        lstrcpyW( ((MONITORINFOEXW *)info)->szDevice, monitors[i].szDevice );
+      lstrcpyW( ((MONITORINFOEXW *)info)->szDevice, monitors[0].szDevice );
+
     return TRUE;
 }
 
@@ -164,9 +178,9 @@ BOOL CDECL WAYLANDDRV_GetMonitorInfo( HMONITOR handle, LPMONITORINFO info )
  */
 BOOL CDECL WAYLANDDRV_EnumDisplayMonitors( HDC hdc, LPRECT rect, MONITORENUMPROC proc, LPARAM lp )
 {
-  
+
     proc( index_to_monitor(0), 0, &monitors[0].rcMonitor, lp );
     return TRUE;
-  
+
 
 }

@@ -1,6 +1,6 @@
 ## What is wine-wayland
 
-Wine-wayland allows running DX9/DX11 and Vulkan games using pure Wayland and Wine/DXVK.
+Wine-wayland allows running DX9/DX11/DX12 and Vulkan games using pure Wayland and Wine/DXVK.
 
 ## Why wine-wayland
 
@@ -22,18 +22,18 @@ Wine-wayland allows running DX9/DX11 and Vulkan games using pure Wayland and Win
  * Mesa 20.1 or later with Wayland and Vulkan support
  * Weston based compositor (tested on wayward), wlroots based compositor (tested on sway)
  * SDL and Faudio
- 
+
 ## Download
 
 You can download the 64-bit only archlinux package from https://github.com/varmd/wine-wayland/releases. This version is automatically built via Github Actions. cd to download folder and install
-    
+
     pacman -U wine-wayland*pkg*
-    
+
 ## Download of 32-bit (optional, for 32-bit games)
 
 You can download the optional 32-bit version from https://github.com/varmd/wine-wayland/releases. It is automatically built via Github Actions. Download both the 64-bit and 32-bit archlinux packages, cd to download folder and install
-    
-    pacman -U *wine-wayland*pkg* 
+
+    pacman -U *wine-wayland*pkg*
 
 ## Compile
 
@@ -56,7 +56,7 @@ From command line (or using file manager)
 
     mkdir -p ~/.local/share/wineland/your-game
     mv YourGameFolder ~/.local/share/wineland/your-game/
-    
+
 "your-name" above should be lowercase, no spaces tag. For example, for Subnautica it would be subnautica. After, go to your launcher, click on the blue joystick icon. In the browser tab, click Edit below the card for your-game. Enter name for your game, YourGameFolder/game.exe for exe path. And -EpicPortal for game options (for EGS games). Set mangohud, fsync/esync, and other options if needed. See below screenshot for example of options for Subnautica.
 
 ![screenshot](https://raw.githubusercontent.com/varmd/wine-wayland/master/wineland/wineland-screenshot-2.png "Screenshot")
@@ -66,20 +66,20 @@ Afterwards, click Submit. Then click Launch.
 You can obtain YourGameFolder from EGS, Steam or GOG. See the notes section below for links to command line downloaders and tools for these services.
 
 For troubleshooting you can check the logs at YourGameFolder/log.log
-  
+
 ## Using terminal to run games with wineland launcher
 
 After setting up your game with the steps above, you can
 also run your games from the terminal.
 
     wineland your-game
-    
+
 ## Using terminal to run games without wineland launcher
 
     cd your-dir
     mkdir -p prefix/your-game
     cp -r YourGameFolder prefix/your-game/
-   
+
 Copy relevant 64-bit or 32-bit dxvk dlls to YourGameFolder or use winetricks.
 
 Copy start-example.sh to your-dir and modify it for your-game, change your-game and YourGameFolder at the top of the file.
@@ -92,7 +92,7 @@ Then in the terminal run sh start-your-game.sh
 
 * Use `export LD_LIBRARY_PATH="/usr/lib/wineland/lib32:$LD_LIBRARY_PATH"` and `export VK_ICD_FILENAMES="/usr/lib/wineland/vulkan/icd.d/intel_icd.i686.json:/usr/lib/wineland/vulkan/icd.d/radeon_icd.i686.json"` when running 32-bit wine apps outside of the wineland launcher
 * If a game is not starting, or there is no keyboard/mouse focus, try `export WINE_VK_VULKAN_ONLY=1` variable and start the game to see if there are any error popups
-* Use `export XCURSOR_SIZE="xx"` and `export XCURSOR_THEME=themename` to set cursor theme and increase cursor size 
+* Use `export XCURSOR_SIZE="xx"` and `export XCURSOR_THEME=themename` to set cursor theme and increase cursor size
 * Use `export WINE_VK_HIDE_CURSOR=1` to hide cursors, when games do not hide cursors - for example when using a controller
 * Use `export WINE_VK_USE_CUSTOM_CURSORS=1` to enable experimental custom game cursors. This will disable cursor size and theme
 * Use `export WINE_VK_NO_CLIP_CURSOR=1` to disable cursor locking for games that erroneously try to lock mouse cursor.
@@ -103,7 +103,7 @@ Then in the terminal run sh start-your-game.sh
 ## Keyboard shortcuts
 
 * F11 - Enter fullscreen mode
-* F10 - some games may not restrict cursor properly, manually restricts cursor to the game surface. 
+* F10 - some games may not restrict cursor properly, manually restricts cursor to the game surface.
 * F9 - some games (such as NMS) that draw their own cursor may need this to lock the cursor pointer.
 
 
@@ -146,3 +146,5 @@ Then in the terminal run sh start-your-game.sh
 * Warframe (see #25)
 * Shogun Total War 2
 * Imperator Rome
+* The Witcher 3
+* Cyberpunk 2077 (needs vkd3d dll, see https://github.com/varmd/wine-wayland/issues/31)

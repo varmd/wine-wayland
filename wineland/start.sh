@@ -3,9 +3,9 @@
 #
 
 #for i in $(ls -d */); do echo ${i%%/}; done
-#for i in $(set -- */; printf "%s\n" "${@%/}"); 
-#do 
-#  echo ${i%%/}; 
+#for i in $(set -- */; printf "%s\n" "${@%/}");
+#do
+#  echo ${i%%/};
 #done
 
 WINE_CMD="wine64"
@@ -75,7 +75,7 @@ if [[ -z "$IS_64_EXE" ]]; then
   WINE_CMD="wine"
   export LD_LIBRARY_PATH="/usr/lib/wineland/lib32:$LD_LIBRARY_PATH"
   export VK_ICD_FILENAMES="/usr/lib/wineland/vulkan/icd.d/intel_icd.i686.json:/usr/lib/wineland/vulkan/icd.d/radeon_icd.i686.json:/usr/lib/wineland/vulkan/icd.d/amd_icd.i686.json"
-fi    
+fi
 
 cd "$PWD_PATH"
 
@@ -108,27 +108,27 @@ fi
 
 if [ ! -d $WINEPREFIX ]; then
   NEW_WINEPREFIX=1
-  
-  
+
+
   cd "$PWD_PATH"
-  
-  
+
+
   if [[ -z "$IS_64_EXE" ]]; then
     echo "is 32bit"
     WINE_CMD="wine"
-    
+
     export WINEARCH=win32
     WINE_VK_VULKAN_ONLY=1 wineboot -u
     sleep 4
-    
+
     cp -r dxvk/dxvk-1.8/x32/* wine/drive_c/windows/system32/
   else
     echo "is 64bit"
     WINE_VK_VULKAN_ONLY=1 wineboot -u
-    sleep 4  
+    sleep 4
     cp -r dxvk/dxvk-1.8/x64/* wine/drive_c/windows/system32/
   fi
-  
+
 fi
 
 
@@ -138,8 +138,8 @@ if [[ -z "$MANGOHUD" ]]; then
   echo ""
 else
 if [ ! -d $MANGO_PREFIX ]; then
-  
-  
+
+
   cd "$PWD_PATH"
   if [ ! -d $PWD/mangohud ]; then
     mkdir mangohud
@@ -155,9 +155,9 @@ fi
   mkdir -p /run/user/$UID/mangohud-wine-wayland
   cp -r mangohud/usr/lib/mangohud/* /run/user/$UID/mangohud-wine-wayland
   cp -r mangohud/usr/share/vulkan/implicit_layer.d/*.json mangohud/mangohud.json
-  
-  
-  
+
+
+
 
   if [[ -z "$IS_64_EXE" ]]; then
     echo "is 32bit mangohud"
@@ -166,7 +166,7 @@ fi
     echo "is 64bit mangohud"
     LIB="lib"
   fi
-  
+
   sed -i "s/\/usr\/lib\/mangohud/\/run\/user\/${UID}\/mangohud-wine-wayland/g" mangohud/mangohud.json
 
   export VK_INSTANCE_LAYERS=VK_LAYER_MANGOHUD_overlay
@@ -199,6 +199,10 @@ echo $PWD_PATH/wine/drive_c/"$GAME_PATHNAME"
 #link to c:
 ln -s $PWD_PATH/"$GAME_PATHNAME" $PWD_PATH/wine/drive_c/ 2> /dev/null
 
-cd $PWD_PATH/wine/drive_c/"$GAME_PATHNAME"
+#hack for multiple level exes
+FINAL_PATH="$(dirname "$GAME_EXE")"
+FINAL_EXE="$(basename "$GAME_EXE")"
 
-$WINE_CMD $GAME_EXE $GAME_OPTIONS  &> $LOG_PATH
+cd $PWD_PATH/wine/drive_c/"$GAME_PATHNAME"/$FINAL_PATH
+
+$WINE_CMD $FINAL_EXE $GAME_OPTIONS  &> $LOG_PATH

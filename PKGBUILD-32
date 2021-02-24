@@ -5,21 +5,21 @@ depends+=(
 )
 
 makedepends+=(
-    'lib32-alsa-lib' 
-    'lib32-expat' 
-    'lib32-libffi' 
-    'lib32-gcc-libs' 
-    'lib32-libdrm' 
-    'lib32-libelf' 
+    'lib32-alsa-lib'
+    'lib32-expat'
+    'lib32-libffi'
+    'lib32-gcc-libs'
+    'lib32-libdrm'
+    'lib32-libelf'
     'lib32-libjpeg-turbo'
     'lib32-libpng'
     'lib32-vulkan-icd-loader'
-    'lib32-zlib'    
-    'automake'               
-    'unzip'               
-    'cmake'               
-    'meson'               
-    'ninja'               
+    'lib32-zlib'
+    'automake'
+    'unzip'
+    'cmake'
+    'meson'
+    'ninja'
     'python-mako'
     'glslang'
     'dbus'
@@ -42,39 +42,39 @@ url_libsystemd32="https://github.com/systemd/systemd-stable/archive/v247.2.zip"
 
 build_systemd_32() {
   cd "${srcdir}"
-  
-  
+
+
 
   rm -rf $(find . -maxdepth 1 -type d -name "*systemd*" | sed 1q)
-  
+
   if [ ! -f systemd.zip ]; then
     curl -L $url_libsystemd32 > systemd.zip
   fi
-  
+
   unzip -q systemd.zip
-  
+
   export CC='gcc -m32'
   export PKG_CONFIG_PATH="/usr/lib32/pkgconfig:$pkgdir/usr/lib32/pkgconfig"
-  
+
   cd $(find . -maxdepth 1 -type d -name "*systemd*"  | sed 1q)
-  
+
   export CC="gcc -m32"
   export CXX="g++ -m32"
-  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"  
-  export CFLAGS=" -O1 -I/usr/include/libmount/ "  
-  
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
+  export CFLAGS=" -O1 -I/usr/include/libmount/ "
+
   mkdir build
-  
+
   sed -i "s~'crypt'~'m'~" meson.build
   sed -i "s~'cap'~'m'~" meson.build
   sed -i "s~'libcap'~'m'~" meson.build
   #sed -i "s~libmount =~libmount = libcap#'~" meson.build
   #sed -i "/2\.30/d" meson.build
-  
-  
+
+
   sed -i "s~crypt_r(p~NULL;//~" src/shared/libcrypt-util.c
-  
-  cp ../../lib32/systemd/meson.build .  
+
+  cp ../../lib32/systemd/meson.build .
   cp ../../lib32/systemd/shared/mount-util.c src/shared/
   #cp ../../lib32/systemd/udev/meson.build src/udev/
   #cp ../../lib32/systemd/shared/meson.build src/shared/
@@ -82,19 +82,19 @@ build_systemd_32() {
   echo "" > src/basic/capability-util.c
   echo '#include "capability-util.h"' >> src/basic/capability-util.c
   echo "unsigned cap_last_cap(void) { return 0; }" >> src/basic/capability-util.c
-  
-  
+
+
   #echo "" > src/shared/mount-util.c
   #echo "" > src/shared/mount-util.h
-  
+
   #echo "static inline int mount_nofollow_verbose(int error_log_level, const char *what, const char *where, const char *type, unsigned long flags, const char *options) { return 0; } " > src/shared/mount-util.c
-  
+
   #echo "int umount_recursive(const char *target, int flags) { return 0; } " >> src/shared/mount-util.c
-  
+
   #echo "include <libmount.h>" > src/shared/libmount-util.h
   #echo "static inline int libmount_parse(const char *path, FILE *source,    struct libmnt_table **ret_table, struct libmnt_iter **ret_iter) { return 1; }" >> src/shared/libmount-util.h
-  
-  
+
+
   local _meson_options=(
     --libexecdir	/usr/lib32
     --libdir		/usr/lib32
@@ -145,10 +145,10 @@ build_systemd_32() {
     -Dfirstboot=false
     -Dnss-resolve=false
     -Drfkill=false
-    -Dselinux=false    
+    -Dselinux=false
     -Dglib=false
     -Ddbus=false
-    -Dbashcompletiondir=no    
+    -Dbashcompletiondir=no
     -Dtests=false
     -Ddbuspolicydir=/usr/share/dbus-1/system.d
     -Ddefault-kill-user-processes=false
@@ -198,14 +198,14 @@ build_systemd_32() {
   )
 
   arch-meson . build "${_meson_options[@]}"
-  
-  
+
+
 
   meson configure build
-  
+
   ninja -C build
   DESTDIR="$pkgdir" ninja -C build install
-  
+
   cd $pkgdir/usr/lib32/pkgconfig
   sed -i "s~\${prefix}/lib32~$pkgdir/usr/lib32~" libudev.pc
   rm -rf  $pkgdir/etc/
@@ -217,24 +217,24 @@ build_systemd_32() {
 
 build_wayland_32() {
   cd "${srcdir}"
-  
-  
+
+
 
   rm -rf $(find . -maxdepth 1 -type d -name "*wayland-1*" | sed 1q)
-  
+
   if [ ! -f wayland.zip ]; then
     curl -L $url_wayland > wayland.zip
   fi
-  
+
   unzip -q wayland.zip
-  
+
   export CC='gcc -m32'
   export PKG_CONFIG_PATH="/usr/lib32/pkgconfig:$pkgdir/usr/lib32/pkgconfig"
-  
+
   cd $(find . -maxdepth 1 -type d -name "*wayland-1*"  | sed 1q)
-  
+
   mkdir build
-  
+
   arch-meson . build \
     --libdir=/usr/lib32 \
     -D scanner=false \
@@ -242,36 +242,36 @@ build_wayland_32() {
     -D dtd_validation=false
 
   meson configure build
-  
+
   ninja -C build
   DESTDIR="$pkgdir" ninja -C build install
-  
+
   cd $pkgdir/usr/lib32/pkgconfig
   sed -i "s~\${prefix}/lib32~$pkgdir/usr/lib32~" wayland-*.pc
-  
+
 }
 
 
 build_libxml2_32() {
   cd "${srcdir}"
-  
+
   rm -rf $(find . -maxdepth 1 -type d -name "*libxml2*" | sed 1q)
-  
+
   if [ ! -f libxml2.zip ]; then
     curl -L $url_libxml2 > libxml2.zip
   fi
-  
+
   unzip -q libxml2.zip
-  
+
   cd $(find . -maxdepth 1 -type d -name "*libxml2*"  | sed 1q)
-  
-  
+
+
 
   export CC="gcc -m32"
   export CXX="g++ -m32"
   export PKG_CONFIG_PATH="/usr/lib32/pkgconfig:$pkgdir/usr/lib32/pkgconfig"
-  
-  
+
+
 
   mkdir -p build
 
@@ -294,10 +294,10 @@ build_libxml2_32() {
   CPUS=$(getconf _NPROCESSORS_ONLN)
   make -j $CPUS
   make DESTDIR="$pkgdir" install
-  
+
   cd $pkgdir/usr/lib32/pkgconfig
   sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libxml-2.0.pc
-  
+
 
 }
 
@@ -310,28 +310,28 @@ build_mpg123_32() {
 
 
   cd "${srcdir}"
-  
+
   if [ ! -f mpg123.tar.bz2 ]; then
     curl -L $url_mpg123 > mpg123.tar.bz2
     tar xjf mpg123.tar.bz2
   fi
   cd $(find . -maxdepth 1 -type d -name "*mpg123*"  | sed 1q)
-  
+
   export CC="gcc -m32"
   export CXX="g++ -m32"
   export PKG_CONFIG_PATH="/usr/lib32/pkgconfig:$pkgdir/usr/lib32/pkgconfig"
 
-  
+
 
   ./configure --prefix=/usr --with-audio="alsa" --with-cpu=i586 --libdir=/usr/lib32
-  
+
   CPUS=$(getconf _NPROCESSORS_ONLN)
-  
+
   make -j $CPUS
   make -j $CPUS DESTDIR="${pkgdir}" install
-  
+
   cd $pkgdir/usr/lib32/pkgconfig
-  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" *123.pc    
+  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" *123.pc
 }
 
 build_openal_32() {
@@ -341,24 +341,24 @@ build_openal_32() {
 
 
   cd "${srcdir}"
-  
+
   rm -rf $(find . -maxdepth 1 -type d -name "*openal*" | sed 1q)
-  
+
   if [ ! -f openal.zip ]; then
     curl -L $url_openal > openal.zip
   fi
-  
-  unzip -q openal.zip  
-  
+
+  unzip -q openal.zip
+
   export CC="gcc -m32"
   export CXX="g++ -m32"
   export PKG_CONFIG_PATH="/usr/lib32/pkgconfig:$pkgdir/usr/lib32/pkgconfig"
 
   cd $(find . -maxdepth 1 -type d -name "*openal*" | sed 1q)
 
-  
+
   rm -rf build
-  
+
   cmake -S . -B build \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DCMAKE_BUILD_TYPE=None \
@@ -367,14 +367,14 @@ build_openal_32() {
     -DCMAKE_INSTALL_LIBDIR=lib32
   cmake --build build
   DESTDIR="$pkgdir" cmake --install build
-  
+
   cd $pkgdir/usr/lib32/pkgconfig
-  sed -i "s~\${exec_prefix}/lib32~$pkgdir/usr/lib32~g" openal.pc  
+  sed -i "s~\${exec_prefix}/lib32~$pkgdir/usr/lib32~g" openal.pc
 }
 
 
 build_mesa_32() {
-  
+
   #if [ -d $srcdir/mesa/build ]; then
   #  cd $srcdir/mesa
   #  DESTDIR="$pkgdir" ninja -C build install
@@ -389,8 +389,8 @@ build_mesa_32() {
   if [ ! -f mesa.zip ]; then
     curl -L $url_mesa > mesa.zip
   fi
-  
-  
+
+
 
   unzip -q mesa.zip
 
@@ -398,12 +398,12 @@ build_mesa_32() {
   cd $(find . -maxdepth 1 -type d -name "*mesa*" | sed 1q)
   ls -la
   patch -Np1 < ../../lib32/mesa/disable-llvm-2.patch
-  cp ../../lib32/mesa/meson.build .  
-  
+  cp ../../lib32/mesa/meson.build .
+
   export CC="gcc -m32"
   export CXX="g++ -m32"
   export PKG_CONFIG_PATH="/usr/lib32/pkgconfig:$pkgdir/usr/lib32/pkgconfig"
-  
+
   arch-meson . build \
     --libdir=/usr/lib32 \
     -D b_ndebug=true \
@@ -427,16 +427,17 @@ build_mesa_32() {
     -D osmesa=none \
     -D shared-glapi=false \
     -D zstd=false \
-    -D valgrind=false 
+    -D valgrind=false
 
   # Print config
   meson configure build
-  
+
   ninja -C build
   DESTDIR="$pkgdir" ninja -C build install
-  
+
   cd $pkgdir/usr/lib32/pkgconfig
-  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" *.pc  
+  #sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" dri.pc
+  #sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" gbm.pc
 }
 
 
@@ -448,23 +449,23 @@ build_sdl2_32() {
   if [ ! -f sdl2.zip ]; then
     curl -L $url_sdl2 > sdl2.zip
   fi
-  
-  
+
+
 
   unzip -q sdl2.zip
-  
+
 
   cd $(find . -maxdepth 1 -type d -name "*SDL*" | sed 1q)
-  
+
   patch -Np1 < ../../lib32/sdl2/remove-dbus.patch
   patch -Np1 < ../../lib32/sdl2/remove-ibus.patch
   mkdir -p build
   cd build
-  
+
   export CC='gcc -m32'
   export CXX='g++ -m32'
   export PKG_CONFIG_PATH="/usr/lib32/pkgconfig:$pkgdir/usr/lib32/pkgconfig"
-  
+
   cmake .. \
       -DCMAKE_INSTALL_PREFIX=/usr \
       -DLIB_SUFFIX=32 \
@@ -491,14 +492,14 @@ build_sdl2_32() {
       -DX11_SHARED=OFF \
       -DRPATH=OFF \
       -DCLOCK_GETTIME=ON
-      
+
   CPUS=$(getconf _NPROCESSORS_ONLN)
-  
+
   make -j $CPUS
   make DESTDIR="${pkgdir}" install
-  
+
   cd $pkgdir/usr/lib32/pkgconfig
-  sed -i "s~\${exec_prefix}/lib32~$pkgdir/usr/lib32~g" sdl2.pc  
+  sed -i "s~\${exec_prefix}/lib32~$pkgdir/usr/lib32~g" sdl2.pc
 }
 
 
@@ -510,33 +511,33 @@ build_freetype2_32() {
   if [ ! -f freetype2.tar.xz ]; then
     curl -L $url_freetype2 > freetype2.tar.xz
   fi
-  
-  
+
+
 
   tar xf freetype2.tar.xz
-  
+
 
   cd $(find . -maxdepth 1 -type d -name "*freetype-*" | sed 1q)
-  
-  
+
+
   export CC="gcc -m32"
   export CXX="g++ -m32"
   export PKG_CONFIG_PATH="/usr/lib32/pkgconfig/"
 
   ./configure --prefix=/usr --without-png --without-bzip2 --without-harfbuzz --disable-static --libdir=/usr/lib32
-      
+
   CPUS=$(getconf _NPROCESSORS_ONLN)
-  
+
   make -j $CPUS
   make DESTDIR="${pkgdir}" install
-  
+
   cd $pkgdir/usr/lib32/pkgconfig
   sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" freetype2.pc
 }
 
 build_32() {
   cd "${srcdir}"
-  
+
   mkdir -p $pkgdir/usr/lib32
   cp /usr/lib32/lib* $pkgdir/usr/lib32
 
@@ -546,23 +547,23 @@ build_32() {
   export CFLAGS="${CFLAGS/-fno-plt/}"
   export LDFLAGS="${LDFLAGS/,-z,now/}"
   export LDFLAGS="-L$pkgdir/usr/lib32 $LDFLAGS"
-  
+
   export PKG_CONFIG_PATH="$pkgdir/usr/lib32/pkgconfig:/usr/lib32/pkgconfig"
-  
-  
+
+
   export LD_LIBRARY_PATH="/usr/lib32:$pkgdir/usr/lib32:$LD_LIBRARY_PATH"
-  
+
 
   # create new build dirs
 	mkdir -p "${srcdir}"/wine-wayland-32-build
 
   msg2 'Building Wine-32...'
 	cd  "${srcdir}"/wine-wayland-32-build
-	
-  
-  
-  
-  if [ -e Makefile ]; then 
+
+
+
+
+  if [ -e Makefile ]; then
     echo "Already configured"
   else
   ../${_winesrcdir}/configure \
@@ -608,20 +609,20 @@ build_32() {
     --without-ldap \
 		--disable-tests
   fi
-	
+
   CPUS=$(getconf _NPROCESSORS_ONLN)
-  
+
 	make -s -j $CPUS
-  
-  
-  
+
+
+
 }
 
 package_lib32-wine-wayland() {
 
-  
+
   provides=('lib32-wine')
-  
+
   build_systemd_32
   build_wayland_32
   build_sdl2_32
@@ -629,19 +630,18 @@ package_lib32-wine-wayland() {
   build_mpg123_32
   build_openal_32
   build_mesa_32
-  
   build_freetype2_32
   build_32
-  
+
   mkdir -p $pkgdir/usr/lib/wineland/
   mkdir -p $pkgdir/usr/lib/wineland/vulkan/icd.d
-  
+
   cp $pkgdir/usr/share/vulkan/icd.d/*i686* $pkgdir/usr/lib/wineland/vulkan/icd.d/
-  
+
   rm -rf $pkgdir/usr/share
   rm -rf $pkgdir/usr/include
   rm -rf $pkgdir/usr/bin
-  
+
   rm -rf  $pkgdir/usr/lib32/pkgconfig
   rm -rf  $pkgdir/usr/lib32/cmake
   rm -rf  $pkgdir/usr/lib32/*.a
@@ -657,13 +657,25 @@ package_lib32-wine-wayland() {
   rm -rf  $pkgdir/usr/lib32/libX*
   rm -rf  $pkgdir/etc/
   rm -rf  $pkgdir/var/
-  
+
+  #fix libc conflicts
+  #https://unix.stackexchange.com/questions/272606/locally-installing-glibc-2-23-causes-all-programs-to-segfault
+  #rm -rf $pkgdir/lib32/libc-2.*
+  #rm -rf $pkgdir/lib32/libc.*
+  #rm -rf $pkgdir/lib32/libm-2.*
+  #rm -rf $pkgdir/lib32/libm.*
+  #rm -rf $pkgdir/lib32/libdl.*
+  #rm -rf $pkgdir/lib32/libpthread-2.*
+  #rm -rf $pkgdir/lib32/libresolv-.*
+  #rm -rf $pkgdir/lib32/libpthread.so*
+  #rm -rf $pkgdir/lib32/libresolv.so*
+
   mkdir -p $pkgdir/usr/lib/wineland
   mv $pkgdir/usr/lib32 $pkgdir/usr/lib/wineland/lib32
-  
+
   cd $pkgdir/usr/lib/wineland/vulkan/icd.d
   sed -i "s~/usr/lib32~/usr/lib/wineland/lib32~g" *
-  
+
   cd "${srcdir}"/wine-wayland-32-build
 	make -s	prefix="${pkgdir}/usr" \
     libdir="${pkgdir}/usr/lib32" \

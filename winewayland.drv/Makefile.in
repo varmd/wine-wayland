@@ -1,13 +1,13 @@
 MODULE    = winewayland.drv
 IMPORTS   = uuid user32 gdi32 advapi32
 DELAYIMPORTS = comctl32 ole32 shell32 imm32
-EXTRAINCL = 
+EXTRAINCL =
 
 #EXTRALIBS = -lwayland-client  -lwayland-cursor -lwayland-egl -lEGL -lGLESv2
 
 EXTRALIBS = -lwayland-client  -lwayland-cursor
 
-EXTRACFLAGS += -std=c11 -Wno-declaration-after-statement
+#EXTRACFLAGS += -std=c11 -Wno-declaration-after-statement
 
 
 
@@ -20,13 +20,13 @@ EXTRACFLAGS += -std=c11 -Wno-declaration-after-statement
 #	xrender.c
 # systray.c \
 #	clipboard.c \
-#	
+#
 #	keyboard.c \
 # palette.c \
 #	pen.c \
 #	mouse.c \
 #	bitblt.c \
-#	graphics.c \ 
+#	graphics.c \
 # brush.c \
 #  opengl.c \
 # window.c \

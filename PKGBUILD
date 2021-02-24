@@ -35,7 +35,7 @@ depends=(
   'faudio'
   'sdl2'
   'wayland'
-  'wayland-protocols'  
+  'wayland-protocols'
 )
 
 makedepends=(
@@ -139,14 +139,14 @@ prepare() {
     sed -i '/programs\/explorer/d' configure.ac
     sed -i '/programs\/iexplore/d' configure.ac
     sed -i '/programs\/dxdiag/d' configure.ac
-    
+
     sed -i '/programs\/hh/d' configure.ac
     sed -i '/programs\/powershell/d' configure.ac
     sed -i '/programs\/winemenubuilder/d' configure.ac
-    sed -i '/programs\/wordpad/d' configure.ac
-    sed -i '/programs\/conhost/d' configure.ac
+    #sed -i '/programs\/wordpad/d' configure.ac
+    #sed -i '/programs\/conhost/d' configure.ac
     sed -i '/programs\/winedbg/d' configure.ac
-    
+
     sed -i '/\/tests/d' configure.ac
     sed -i '/dlls\/d3d8/d' configure.ac
     sed -i '/dlls\/d3d12/d' configure.ac
