@@ -57,10 +57,11 @@ index deb5b4643c..6a40da5527 100644
      set_fd_events( process->msg_fd, POLLIN );  /* start listening to events */
      return process;
  
-@@ -623,6 +629,9 @@ static void process_destroy( struct object *obj )
+@@ -623,7 +629,10 @@ static void process_destroy( struct object *obj )
      if (process->id) free_ptid( process->id );
      if (process->token) release_object( process->token );
      free( process->dir_cache );
+     free( process->image );
 +
 +    if (do_esync())
 +        close( process->esync_fd );

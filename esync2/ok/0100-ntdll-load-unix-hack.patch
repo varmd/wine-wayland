@@ -1,15 +1,15 @@
 --- a/dlls/ntdll/unix/server.c	2020-08-01 14:44:24.000000000 +0400
 +++ b/dlls/ntdll/unix/server.c	2020-08-01 17:12:56.091245631 +0400
 @@ -1467,6 +1468,12 @@
-     void *entry = (char *)peb->ImageBaseAddress + nt->OptionalHeader.AddressOfEntryPoint;
+     void *entry;
      NTSTATUS status;
      int suspend, needs_close, unixdir;
-+  
++
 +    TRACE("Begin unix esync load hack\n");  
 +    //Hack hack hack
 +    activate_esync();
 +    if (do_esync())
-+      esync_init();  
- 
- #ifdef __APPLE__
-     send_server_task_port();
++      esync_init();
+
+     if (peb->ProcessParameters->CurrentDirectory.Handle &&
+         !server_get_unix_fd( peb->ProcessParameters->CurrentDirectory.Handle,

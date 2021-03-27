@@ -12,15 +12,15 @@ diff --git a/dlls/ntdll/unix/server.c b/dlls/ntdll/unix/server.c
 index 0b56251348..6c74ce535d 100644
 --- a/dlls/ntdll/unix/server.c
 +++ b/dlls/ntdll/unix/server.c
-@@ -1610,6 +1610,8 @@
- {
-     NTSTATUS ret;
-     int fd = remove_fd_from_cache( handle );
+@@ -1751,6 +1751,8 @@
+     /* always remove the cached fd; if the server request fails we'll just
+      * retrieve it again */
+     fd = remove_fd_from_cache( handle );
 +    if (do_esync())
 +        esync_close( handle );
- 
+
      SERVER_START_REQ( close_handle )
      {
--- 
+--
 2.19.1
 

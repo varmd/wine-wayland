@@ -1,6 +1,6 @@
 # Created by: varmd
 
-RELEASE=6.2
+RELEASE=6.5
 pkgname=('wine-wayland')
 
 pkgver=`echo $RELEASE | sed s~-~~`
@@ -136,6 +136,7 @@ prepare() {
     #rm -rf programs/iexplore
 
     # speed up
+
     sed -i '/programs\/explorer/d' configure.ac
     sed -i '/programs\/iexplore/d' configure.ac
     sed -i '/programs\/dxdiag/d' configure.ac

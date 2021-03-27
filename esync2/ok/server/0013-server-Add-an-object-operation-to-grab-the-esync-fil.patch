@@ -586,7 +586,7 @@ index a8e6e28599..9cae4e26dc 100644
 @@ -145,6 +145,7 @@ static const struct object_ops sock_ops =
      add_queue,                    /* add_queue */
      remove_queue,                 /* remove_queue */
-     sock_signaled,                /* signaled */
+     default_fd_signaled,          /* signaled */
 +    NULL,                         /* get_esync_fd */
      no_satisfied,                 /* satisfied */
      no_signal,                    /* signal */

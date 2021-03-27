@@ -140,14 +140,18 @@ void xinerama_init( unsigned int width, unsigned int height )
         OffsetRect( &monitors[i].rcMonitor, rect.left, rect.top );
         OffsetRect( &monitors[i].rcWork, rect.left, rect.top );
         UnionRect( &virtual_screen_rect, &virtual_screen_rect, &monitors[i].rcMonitor );
+        /*
         TRACE( "monitor %p: %s work %s%s\n",
                index_to_monitor(i), wine_dbgstr_rect(&monitors[i].rcMonitor),
                wine_dbgstr_rect(&monitors[i].rcWork),
                (monitors[i].dwFlags & MONITORINFOF_PRIMARY) ? " (primary)" : "" );
+        */
     }
 
+    /*
     TRACE( "virtual size: %s primary: %s\n",
            wine_dbgstr_rect(&virtual_screen_rect), wine_dbgstr_rect(&primary->rcMonitor) );
+    */
 }
 
 
@@ -160,8 +164,6 @@ BOOL CDECL WAYLANDDRV_GetMonitorInfo( HMONITOR handle, LPMONITORINFO info )
 
     if(i == -1)
       return FALSE;
-
-    TRACE( "GetMonitorInfo \n" );
 
     info->rcMonitor = monitors[0].rcMonitor;
     info->rcWork = monitors[0].rcWork;
@@ -178,9 +180,6 @@ BOOL CDECL WAYLANDDRV_GetMonitorInfo( HMONITOR handle, LPMONITORINFO info )
  */
 BOOL CDECL WAYLANDDRV_EnumDisplayMonitors( HDC hdc, LPRECT rect, MONITORENUMPROC proc, LPARAM lp )
 {
-
     proc( index_to_monitor(0), 0, &monitors[0].rcMonitor, lp );
     return TRUE;
-
-
 }

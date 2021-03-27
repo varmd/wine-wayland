@@ -91,7 +91,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(waylanddrv);
 #endif
 
 #define HAS_ESYNC 1
-//#define OPENGL_TEST 0
+//#define OPENGL_TEST 1
 
 #ifdef OPENGL_TEST
 #define GLAPIENTRY /* nothing */
@@ -1640,20 +1640,24 @@ void wayland_pointer_enter_cb(void *data,
     TRACE("Current hwnd is %p and surface %p \n", temp, surface);
     global_update_hwnd = temp;
   } else if (vulkan_window != NULL && vulkan_window->surface == surface && global_vulkan_hwnd != NULL) {
+    
+    
+      
       TRACE("Current vulkan hwnd is %p and surface %p \n", global_vulkan_hwnd, surface);
-      SetWindowPos( global_vulkan_hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOSIZE);
+      //SetWindowPos( global_vulkan_hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOSIZE);
+      SetFocus(global_vulkan_hwnd);
       SetActiveWindow( global_vulkan_hwnd );
       SetForegroundWindow( global_vulkan_hwnd );
-      ShowWindow( global_vulkan_hwnd, SW_SHOW );
+      //ShowWindow( global_vulkan_hwnd, SW_SHOW );
       SetFocus(global_vulkan_hwnd);
-      SetActiveWindow( global_vulkan_hwnd );
-      SetFocus(global_vulkan_hwnd);
+      //SetActiveWindow( global_vulkan_hwnd );
+      
 
 
-      SetCapture(global_vulkan_hwnd);
+      //SetCapture(global_vulkan_hwnd);
 
-      UpdateWindow(global_vulkan_hwnd);
-
+      //UpdateWindow(global_vulkan_hwnd);
+      
 
   }
   global_last_cursor_change = 0;
@@ -1863,22 +1867,28 @@ void wayland_pointer_button_cb_vulkan(void *data,
 		break;
 	}
 
+  
+    
+    SERVER_START_REQ( send_hardware_message )
+  {
+    req->win        = wine_server_user_handle( hwnd );
+    req->flags      = 0;
+    req->input.type = input.type;
+    req->input.mouse.x     = input.u.mi.dx;
+    req->input.mouse.y     = input.u.mi.dy;
+    req->input.mouse.data  = 0;
+    req->input.mouse.flags = input.u.mi.dwFlags;
+    req->input.mouse.time  = 0;
+    req->input.mouse.info  = 0;
 
-  SERVER_START_REQ( send_hardware_message )
-    {
-        req->win        = wine_server_user_handle( hwnd );
-        req->flags      = 0;
-        req->input.type = input.type;
+    wine_server_call( req );
 
-        req->input.mouse.x     = input.u.mi.dx;
-        req->input.mouse.y     = input.u.mi.dy;
-        req->input.mouse.data  = input.u.mi.mouseData;
-        req->input.mouse.flags = input.u.mi.dwFlags;
-        req->input.mouse.time  = 0;
-        req->input.mouse.info  = 0;
-        wine_server_call( req );
-    }
+
+
+  }
   SERVER_END_REQ;
+
+
 
 }
 
@@ -2241,10 +2251,9 @@ void wayland_keyboard_key_cb (void *data, struct wl_keyboard *keyboard,
                           keycode, input.u.ki.wVk, input.u.ki.wScan, state );
     */
 
-  input.type             = INPUT_KEYBOARD;
+  input.type = INPUT_KEYBOARD;
 
-  input.u.ki.time        = 0;
-  input.u.ki.dwExtraInfo = 0;
+
 
   hwnd = global_update_hwnd;
 
@@ -2663,8 +2672,9 @@ handle_xdg_surface_configure(void *data, struct xdg_surface *surface,
 			 uint32_t serial)
 {
   TRACE( "Surface configured \n" );
-  xdg_surface_ack_configure(surface, serial);
   global_wait_for_configure = 0;
+  xdg_surface_ack_configure(surface, serial);
+  
 
 
 }
@@ -6162,6 +6172,23 @@ static VkResult WAYLANDDRV_vkCreateSwapchainKHR(VkDevice device,
 
 
 
+/***************************************************************************
+ *	get_basename
+ *
+ * Return the base name of a file name (i.e. remove the path components).
+ */
+static const WCHAR *get_basename( const WCHAR *name )
+{
+    const WCHAR *ptr;
+
+    if (name[0] && name[1] == ':') name += 2;  /* strip drive specification */
+    if ((ptr = strrchrW( name, '\\' ))) name = ptr + 1;
+    if ((ptr = strrchrW( name, '/' ))) name = ptr + 1;
+    return name;
+}
+
+
+
 static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
         const VkWin32SurfaceCreateInfoKHR *create_info,
         const VkAllocationCallbacks *allocator, VkSurfaceKHR *surface)
@@ -6171,7 +6198,10 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
     struct wine_vk_surface *x11_surface;
 
     int no_flag = 1;
+    int no_focus = 0;
     int count = 0;
+    int screen_width = 1920;
+    int screen_height = 1080;
 
     //#if 0
     //Hack
@@ -6202,30 +6232,56 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
     }
     #endif
 
-    
+    #if 0
     const char *is_vulkan_desktop_only = getenv( "WINE_VK_VULKAN_DESKTOP_ONLY" );
 
-    if(is_vulkan_desktop_only) {
+    //if(is_vulkan_desktop_only) {
+      
+      static WCHAR *current_exe = NULL;
+      static const WCHAR zfgamebrowser_exe[] = {'Z','F','G','a','m','e','B','r','o','w','s','e','r','.','e','x','e', 0};
+      static WCHAR current_exepath[MAX_PATH] = {0};
+
+      GetModuleFileNameW(NULL, current_exepath, ARRAY_SIZE(current_exepath));
+      current_exe = (WCHAR *)get_basename(current_exepath);
+
+        
+        TRACE("current exe path %s \n", debugstr_wn(current_exepath, strlenW( current_exepath )));
+        TRACE("current exe %s \n", debugstr_wn(current_exe, strlenW( current_exe )));
+
+        //Hack for Path Of Exile
+        if(!lstrcmpiW(current_exe, zfgamebrowser_exe)) {
+          //create_desktop(1);
+          TRACE(" 2 current exe path %s \n", debugstr_wn(current_exepath, strlenW( current_exepath )));
+          TRACE("2 current exe %s \n", debugstr_wn(current_exe, strlenW( current_exe )));
+          create_desktop(1);
+          no_focus = 1;
+          //no_flag = 0;
+          //return VK_ERROR_INCOMPATIBLE_DRIVER;
+          //return VK_SUCCESS;
+        } else {
+          create_desktop( 0 );
+        }
+      
+      
       //Hack for GenshinImpact, prevents loss of mouse/keyboard input due
       //to Chromium windows
-      create_desktop();
-    }
+      //create_desktop();
+    //}
 
-
+    #endif
 
     if(no_flag) {
 
       //create wayland display early to get screen width/height
       if(!wayland_display) {
-        TRACE("Creating wayland display \n");
+        TRACE("Creating wayland display for %p %s \n", create_info->hwnd, debugstr_w(class_name));
         create_wayland_display();
     	}
 
       char *env_width = getenv( "WINE_VK_WAYLAND_WIDTH" );
       char *env_height = getenv( "WINE_VK_WAYLAND_HEIGHT" );
 
-      int screen_width = 1920;
-      int screen_height = 1080;
+      
 
       if(global_output_width > 0 && global_output_height > 0) {
         screen_width = global_output_width;
@@ -6247,6 +6303,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
       }
       #endif
 
+      
       global_vulkan_hwnd = create_info->hwnd;
       SetActiveWindow( global_vulkan_hwnd );
       SetForegroundWindow( global_vulkan_hwnd );
@@ -6259,9 +6316,11 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
       SERVER_END_REQ;
       SetCapture(global_vulkan_hwnd);
       UpdateWindow(global_vulkan_hwnd);
-      TRACE("Global vulkan hwnd is %p \n", create_info->hwnd);
-
       SetWindowPos( global_vulkan_hwnd, HWND_TOP, 0, 0, screen_width, screen_height, 0);
+      
+      TRACE("New global vulkan hwnd is %p \n", create_info->hwnd);
+
+      
 
     } else {
       TRACE("Not visible for %p %p %p %p\n", instance, create_info, allocator, surface);
@@ -6294,7 +6353,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
 
 
   global_is_vulkan = 1;
-	vulkan_window = create_wayland_window (create_info->hwnd, 1920, 1080);
+	vulkan_window = create_wayland_window (create_info->hwnd, screen_width, screen_height);
 
   while (!count) {
     sleep(0.5);
@@ -6325,7 +6384,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
     }
 
 
-    TRACE("Created vulkan Window for %p  %s \n", global_vulkan_hwnd, debugstr_w(class_name));
+    TRACE("Created vulkan Window for %p  %s \n", create_info->hwnd, debugstr_w(class_name));
 
 
 
@@ -6485,21 +6544,6 @@ static VkResult WAYLANDDRV_vkGetPhysicalDeviceSurfaceCapabilities2KHR(VkPhysical
     return pvkGetPhysicalDeviceSurfaceCapabilitiesKHR(phys_dev, surface_info_host.surface, &capabilities->surfaceCapabilities);
 }
 
-
-/***************************************************************************
- *	get_basename
- *
- * Return the base name of a file name (i.e. remove the path components).
- */
-static const WCHAR *get_basename( const WCHAR *name )
-{
-    const WCHAR *ptr;
-
-    if (name[0] && name[1] == ':') name += 2;  /* strip drive specification */
-    if ((ptr = strrchrW( name, '\\' ))) name = ptr + 1;
-    if ((ptr = strrchrW( name, '/' ))) name = ptr + 1;
-    return name;
-}
 
 
 static WCHAR *global_current_exe = NULL;

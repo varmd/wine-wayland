@@ -108,20 +108,27 @@ static inline DWORD get_config_key( HKEY defkey, HKEY appkey, const char *name,
 
 
 
-void create_desktop(  )
+void create_desktop( int is_one )
 {
     static const WCHAR messageW[] = {'M','e','s','s','a','g','e',0};
     HDESK desktop = 0;
-    
+
     HWND hwnd;
     unsigned int width, height;
     WCHAR *cmdline = NULL, *driver = NULL;
     const WCHAR *name = NULL;
+
     static const WCHAR desktopW[] = {'D','e','s','k','t','o','p',0};
+    static const WCHAR desktopW1[] = {'D','e','s','k','t','o','p','1',0};
+    static const WCHAR *desktopw = NULL;;
+    desktopw = &desktopW;
+    //WCHAR desktopW[] = {'D','e','s','k','t','o','p',0};
+    if(is_one)
+      desktopw = &desktopW1;
     void (WINAPI *pShellDDEInit)( BOOL ) = NULL;
 
 
-        if (!(desktop = CreateDesktopW( desktopW, NULL, NULL, 0, DESKTOP_ALL_ACCESS, NULL )))
+        if (!(desktop = CreateDesktopW( desktopw, NULL, NULL, 0, DESKTOP_ALL_ACCESS, NULL )))
         {
             WINE_ERR( "failed to create desktop %s error %d\n", wine_dbgstr_w(name), GetLastError() );
             ExitProcess( 1 );
@@ -140,17 +147,33 @@ void create_desktop(  )
         /* create the HWND_MESSAGE parent */
         CreateWindowExW( 0, messageW, NULL, WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN, 0, 0, 100, 100, 0, 0, 0, NULL );
 
-        
+
         SetWindowPos( hwnd, 0, GetSystemMetrics(SM_XVIRTUALSCREEN), GetSystemMetrics(SM_YVIRTUALSCREEN),
                       GetSystemMetrics(SM_CXVIRTUALSCREEN), GetSystemMetrics(SM_CYVIRTUALSCREEN),
                       SWP_SHOWWINDOW );
-      
-        ClipCursor( NULL );
-        
 
-       
+        ClipCursor( NULL );
+
+
+
     }
 
+}
+
+
+/***************************************************************************
+ *	get_basename
+ *
+ * Return the base name of a file name (i.e. remove the path components).
+ */
+static const WCHAR *get_basename( const WCHAR *name )
+{
+    const WCHAR *ptr;
+
+    if (name[0] && name[1] == ':') name += 2;  /* strip drive specification */
+    if ((ptr = strrchrW( name, '\\' ))) name = ptr + 1;
+    if ((ptr = strrchrW( name, '/' ))) name = ptr + 1;
+    return name;
 }
 
 
@@ -159,44 +182,73 @@ void create_desktop(  )
  */
 static BOOL process_attach(void)
 {
-  
- 
-  const char *is_vulkan_desktop_only = getenv( "WINE_VK_VULKAN_DESKTOP_ONLY" );
+
+
+  static WCHAR *current_exe = NULL;
+  static const WCHAR zfgamebrowser_exe[] = {'Z','F','G','a','m','e','B','r','o','w','s','e','r','.','e','x','e', 0};
+  static WCHAR current_exepath[MAX_PATH] = {0};
+
+  GetModuleFileNameW(NULL, current_exepath, ARRAY_SIZE(current_exepath));
+  current_exe = (WCHAR *)get_basename(current_exepath);
+
+//  const char *is_vulkan_desktop_only = getenv( "WINE_VK_VULKAN_DESKTOP_ONLY" );
+
+  TRACE("current exe path %s \n", debugstr_wn(current_exepath, strlenW( current_exepath )));
+  TRACE("current exe %s \n", debugstr_wn(current_exe, strlenW( current_exe )));
 
   char *env_width = getenv( "WINE_VK_WAYLAND_WIDTH" );
   char *env_height = getenv( "WINE_VK_WAYLAND_HEIGHT" );
-  
-  int screen_width = 1440;
-  int screen_height = 900;
-  
+
+  int screen_width = 1920;
+  int screen_height = 1080;
+
   if(env_width) {
     screen_width = atoi(env_width);
   }
   if(env_height) {
     screen_height = atoi(env_height);
   }
-    
+
   screen_bpp = 32;
-    
-  TRACE( "Creating desktop %d %d \n\n", screen_width , screen_height ); 
-    
-  xinerama_init( screen_width , screen_height); 
-    
-    
+
+//  if( !is_vulkan_desktop_only ) {
+//    TRACE( "Creating desktop %d %d \n\n", screen_width , screen_height );
+//  }
+  xinerama_init( screen_width , screen_height);
+
+
   WAYLANDDRV_Settings_Init();
-   
-  TRACE( "Creating desktop done %d %d \n\n", screen_width , screen_height ); 
-    
-    
+
+//  if( !is_vulkan_desktop_only ) {
+//    TRACE( "Creating desktop done %d %d \n\n", screen_width , screen_height );
+//  }
+
   if ((thread_data_tls_index = TlsAlloc()) == TLS_OUT_OF_INDEXES) {
     return FALSE;
   }
-  
+
+
+
+
+
+
+
+    //Hack for GenshinImpact ZFGameBrowser
+    if(!lstrcmpiW(current_exe, zfgamebrowser_exe)) {
+      create_desktop(1);
+    } else {
+      create_desktop( 0 );
+    }
+
+
+    //if( !is_vulkan_desktop_only ) {
+        //create_desktop( 0 );
+    //  }
   //Hack for GenshinImpact, prevents loss of mouse/keyboard input
-  if( !is_vulkan_desktop_only ) {
-    create_desktop();
-  }
-  
+
+    //create_desktop();
+
+
   return TRUE;
 }
 
@@ -210,17 +262,17 @@ static BOOL process_attach(void)
  */
 struct waylanddrv_thread_data *waylanddrv_init_thread_data(void)
 {
-    
-  
-  
-    
+
+
+
+
     struct waylanddrv_thread_data *data = waylanddrv_thread_data();
 
-    if (data) 
+    if (data)
       return data;
-    
+
     return NULL;
-  
+
   /*
 
     if (!(data = HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*data) )))
@@ -237,7 +289,7 @@ struct waylanddrv_thread_data *waylanddrv_init_thread_data(void)
     fcntl( ConnectionNumber(data->display), F_SETFD, 1 ); // set close on exec flag
 
 
-    
+
     TlsSetValue( thread_data_tls_index, data );
 
 

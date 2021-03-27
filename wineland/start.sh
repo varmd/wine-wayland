@@ -38,7 +38,7 @@ LOG_PATH=$PWD/$1/log.log
 
 
 
-WINEDLLOVERRIDES="d3dcompiler_47,d3d9,dxgi,d3d11=n,b;dinput=d;winedbg=d;winemenubuilder.exe=d;mscoree=d;mshtml=d"
+WINEDLLOVERRIDES="d3dcompiler_47,d3d9,dxgi,d3d11,d3d12=n,b;dinput=d;winedbg=d;winemenubuilder.exe=d;mscoree=d;mshtml=d"
 
 WINE_VK_WAYLAND_WIDTH=1920
 WINE_VK_WAYLAND_HEIGHT=1080
