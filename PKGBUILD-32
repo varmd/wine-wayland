@@ -30,7 +30,7 @@ pkgname+=('lib32-wine-wayland')
 
 
 url_wayland="https://gitlab.freedesktop.org/wayland/wayland/-/archive/1.18.0/wayland-1.18.0.zip"
-url_mpg123="https://mpg123.de/download/mpg123-1.26.3.tar.bz2"
+url_mpg123="https://mpg123.de/download/mpg123-1.27.2.tar.bz2"
 url_openal="https://github.com/kcat/openal-soft/archive/openal-soft-1.21.0.zip"
 url_mesa="https://github.com/mesa3d/mesa/archive/1378c67bcf9e16aea98ddb8cb6bd37b9ed4e3a81.zip"
 url_sdl2="https://github.com/spurious/SDL-mirror/archive/release-2.0.12.zip"
