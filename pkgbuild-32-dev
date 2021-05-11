@@ -1,0 +1,103 @@
+install_systemd_32() {
+  cd "${srcdir}"
+
+
+  cd $(find . -maxdepth 1 -type d -name "*systemd*"  | sed 1q)
+
+  DESTDIR="$pkgdir" ninja -C build install
+
+  cd $pkgdir/usr/lib32/pkgconfig
+  sed -i "s~\${prefix}/lib32~$pkgdir/usr/lib32~" libudev.pc
+  rm -rf  $pkgdir/etc/
+  rm -rf  $pkgdir/var
+  rm -rf  $pkgdir/usr/lib
+}
+
+
+install_wayland_32() {
+  cd "${srcdir}"
+
+  cd $(find . -maxdepth 1 -type d -name "*wayland-1*"  | sed 1q)
+
+  DESTDIR="$pkgdir" ninja -C build install
+
+  cd $pkgdir/usr/lib32/pkgconfig
+  sed -i "s~\${prefix}/lib32~$pkgdir/usr/lib32~" wayland-*.pc
+
+}
+
+
+install_libxml2_32() {
+  cd "${srcdir}"
+  cd $(find . -maxdepth 1 -type d -name "*libxml2*"  | sed 1q)
+  cd build
+
+  make DESTDIR="$pkgdir" install
+
+  cd $pkgdir/usr/lib32/pkgconfig
+  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libxml-2.0.pc
+
+
+}
+
+
+install_mpg123_32() {
+  cd "${srcdir}"
+  cd $(find . -maxdepth 1 -type d -name "*mpg123*"  | sed 1q) 
+
+  make -j $CPUS DESTDIR="${pkgdir}" install
+
+  cd $pkgdir/usr/lib32/pkgconfig
+  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" *123.pc
+}
+
+install_openal_32() {
+
+
+  cd "${srcdir}"
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig:$pkgdir/usr/lib32/pkgconfig"
+
+  cd $(find . -maxdepth 1 -type d -name "*openal*" | sed 1q)
+  cmake --build build
+  DESTDIR="$pkgdir" cmake --install build
+
+  cd $pkgdir/usr/lib32/pkgconfig
+  sed -i "s~\${exec_prefix}/lib32~$pkgdir/usr/lib32~g" openal.pc
+}
+
+
+install_mesa_32() {
+  cd "${srcdir}"
+  
+  cd $(find . -maxdepth 1 -type d -name "*mesa*" | sed 1q)
+
+  DESTDIR="$pkgdir" ninja -C build install
+
+  cd $pkgdir/usr/lib32/pkgconfig
+
+}
+
+
+install_sdl2_32() {
+  cd "${srcdir}"
+
+  cd $(find . -maxdepth 1 -type d -name "*SDL*" | sed 1q)
+
+  cd build
+
+  make DESTDIR="${pkgdir}" install
+
+  cd $pkgdir/usr/lib32/pkgconfig
+  sed -i "s~\${exec_prefix}/lib32~$pkgdir/usr/lib32~g" sdl2.pc
+}
+
+
+install_freetype2_32() {
+  cd "${srcdir}"
+  cd $(find . -maxdepth 1 -type d -name "*freetype-*" | sed 1q)
+  
+  make DESTDIR="${pkgdir}" install
+
+  cd $pkgdir/usr/lib32/pkgconfig
+  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" freetype2.pc
+} 

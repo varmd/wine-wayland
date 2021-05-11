@@ -74,8 +74,8 @@
 #@ cdecl WindowMessage(long long long long) WAYLANDDRV_WindowMessage
 
 @ cdecl WindowPosChanging(long long long ptr ptr ptr ptr) WAYLANDDRV_WindowPosChanging
+@ cdecl WindowPosChanged(long long long ptr ptr ptr ptr ptr) WAYLANDDRV_WindowPosChanged
 
-# @ cdecl WindowPosChanged(long long long ptr ptr ptr ptr ptr) WAYLANDDRV_WindowPosChanged
 # @ cdecl SystemParametersInfo(long long ptr long) WAYLANDDRV_SystemParametersInfo
 # @ cdecl UpdateCandidatePos(long ptr) WAYLANDDRV_UpdateCandidatePos
 # @ cdecl ThreadDetach() WAYLANDDRV_ThreadDetach

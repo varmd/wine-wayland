@@ -3,35 +3,8 @@ IMPORTS   = uuid user32 gdi32 advapi32
 DELAYIMPORTS = comctl32 ole32 shell32 imm32
 EXTRAINCL =
 
-#EXTRALIBS = -lwayland-client  -lwayland-cursor -lwayland-egl -lEGL -lGLESv2
-
 EXTRALIBS = -lwayland-client  -lwayland-cursor
-
-#EXTRACFLAGS += -std=c11 -Wno-declaration-after-statement
-
-
-
-#	xim.c \
-# ime.c \
-#	wintab.c \
-#	xvidmode.c
-#	xrandr.c \
-#	xdnd.c \
-#	xrender.c
-# systray.c \
-#	clipboard.c \
-#
-#	keyboard.c \
-# palette.c \
-#	pen.c \
-#	mouse.c \
-#	bitblt.c \
-#	graphics.c \
-# brush.c \
-#  opengl.c \
-# window.c \
-# event.c \
-# #  desktop.c \
+#XTRALIBS = -lwayland-client  -lwayland-cursor -lwayland-egl -lEGL -lGLESv2
 
 C_SRCS = \
 	init.c \

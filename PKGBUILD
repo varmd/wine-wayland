@@ -1,6 +1,6 @@
 # Created by: varmd
 
-RELEASE=6.5
+RELEASE=6.8
 pkgname=('wine-wayland')
 
 pkgver=`echo $RELEASE | sed s~-~~`
@@ -137,22 +137,22 @@ prepare() {
 
     # speed up
 
-    sed -i '/programs\/explorer/d' configure.ac
-    sed -i '/programs\/iexplore/d' configure.ac
-    sed -i '/programs\/dxdiag/d' configure.ac
+    #sed -i '/programs\/explorer/d' configure.ac
+    #sed -i '/programs\/iexplore/d' configure.ac
+    #sed -i '/programs\/dxdiag/d' configure.ac
 
-    sed -i '/programs\/hh/d' configure.ac
-    sed -i '/programs\/powershell/d' configure.ac
-    sed -i '/programs\/winemenubuilder/d' configure.ac
+    #sed -i '/programs\/hh/d' configure.ac
+    #sed -i '/programs\/powershell/d' configure.ac
+    #sed -i '/programs\/winemenubuilder/d' configure.ac
     #sed -i '/programs\/wordpad/d' configure.ac
     #sed -i '/programs\/conhost/d' configure.ac
-    sed -i '/programs\/winedbg/d' configure.ac
+    #sed -i '/programs\/winedbg/d' configure.ac
 
-    sed -i '/\/tests/d' configure.ac
-    sed -i '/dlls\/d3d8/d' configure.ac
-    sed -i '/dlls\/d3d12/d' configure.ac
-    sed -i '/dlls\/jscript/d' configure.ac
-    sed -i '/dlls\/hhctrl/d' configure.ac
+    #sed -i '/\/tests/d' configure.ac
+    #sed -i '/dlls\/d3d8/d' configure.ac
+    #sed -i '/dlls\/d3d12/d' configure.ac
+    #sed -i '/dlls\/jscript/d' configure.ac
+    #sed -i '/dlls\/hhctrl/d' configure.ac
 
 
     rm configure
@@ -168,6 +168,14 @@ prepare() {
 
 
 build() {
+
+
+  if [ -z "${WINE_BUILD_32_DEV_SKIP_64:-}" ]; then
+    echo "Building 64bit"
+  else
+    return 0;
+  fi
+
 
   #build civetweb for wineland
   cd civetweb-1.12
@@ -232,11 +240,22 @@ build() {
   fi
 
   CPUS=$(getconf _NPROCESSORS_ONLN)
+  if ((CPUS > 10)); then
+    CPUS=10;
+  fi
 	make -s -j $CPUS
 
 }
 
 package_wine-wayland() {
+
+  if [ -z "${WINE_BUILD_32_DEV_SKIP_64:-}" ]; then
+    echo "Building 64bit"
+  else
+    return 0;
+  fi
+
+
   depends=(
     'adwaita-icon-theme'
     'fontconfig'

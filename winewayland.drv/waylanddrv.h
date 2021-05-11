@@ -33,13 +33,9 @@
 //Wayland
 #include <wayland-client.h>
 
-
-
 static struct wl_compositor *wayland_compositor = NULL;
 typedef unsigned long Time;
-
-
-
+//#define OPENGL_TEST 1
 
 //End Wayland
 
@@ -152,8 +148,6 @@ static inline void add_bounds_rect( RECT *bounds, const RECT *rect )
     bounds->bottom = max( bounds->bottom, rect->bottom );
 }
 
-void create_desktop();
-
 void *fail_on_null(void *p, size_t size, char *file, int32_t line);
 
 #define xstrdup(s) (fail_on_null(strdup(s), 0, __FILE__, __LINE__))
@@ -177,7 +171,7 @@ extern UINT WAYLANDDRV_GetSystemPaletteEntries( PHYSDEV dev, UINT start, UINT co
 
 
 
-                        
+
 extern BOOL WAYLANDDRV_Polygon( PHYSDEV dev, const POINT* pt, INT count ) DECLSPEC_HIDDEN;
 extern BOOL WAYLANDDRV_PolyPolygon( PHYSDEV dev, const POINT* pt, const INT* counts, UINT polygons) DECLSPEC_HIDDEN;
 extern BOOL WAYLANDDRV_PolyPolyline( PHYSDEV dev, const POINT* pt, const DWORD* counts, DWORD polylines) DECLSPEC_HIDDEN;
@@ -209,15 +203,15 @@ extern BOOL WAYLANDDRV_UnrealizePalette( HPALETTE hpal ) DECLSPEC_HIDDEN;
 extern DWORD copy_image_bits( BITMAPINFO *info, BOOL is_r8g8b8, XImage *image,
                               const struct gdi_image_bits *src_bits, struct gdi_image_bits *dst_bits,
                               struct bitblt_coords *coords, const int *mapping, unsigned int zeropad_mask ) DECLSPEC_HIDDEN;
-/*                              
+/*
 extern Pixmap create_pixmap_from_image( HDC hdc, const BITMAPINFO *info,
                                         const struct gdi_image_bits *bits, UINT coloruse ) DECLSPEC_HIDDEN;
 extern DWORD get_pixmap_image( Pixmap pixmap, int width, int height, const XVisualInfo *vis,
                                BITMAPINFO *info, struct gdi_image_bits *bits ) DECLSPEC_HIDDEN;
-*/                               
-  
-/*  
-                               
+*/
+
+/*
+
 extern struct window_surface *create_surface( Window window, const XVisualInfo *vis, const RECT *rect,
                                               COLORREF color_key, BOOL use_alpha ) DECLSPEC_HIDDEN;
 
@@ -245,15 +239,6 @@ extern BOOL shape_layered_windows DECLSPEC_HIDDEN;
 
 extern struct opengl_funcs *get_wgl_driver(UINT) DECLSPEC_HIDDEN;
 extern const struct vulkan_funcs *get_vulkan_driver(UINT) DECLSPEC_HIDDEN;
-
-
-
-
-/**************************************************************************
- * X11 GDI driver
- */
-
-//extern Display *gdi_display DECLSPEC_HIDDEN;  /* display to use for all GDI functions */
 
 /* X11 GDI palette driver */
 
@@ -377,10 +362,8 @@ static inline size_t get_property_size( int format, unsigned long count )
     return count * (format / 8);
 }
 
-//extern XVisualInfo default_visual DECLSPEC_HIDDEN;
-//extern XVisualInfo argb_visual DECLSPEC_HIDDEN;
 extern Colormap default_colormap DECLSPEC_HIDDEN;
-//extern XPixmapFormatValues **pixmap_formats DECLSPEC_HIDDEN;
+
 //extern Window root_window DECLSPEC_HIDDEN;
 extern BOOL clipping_cursor DECLSPEC_HIDDEN;
 extern unsigned int screen_bpp DECLSPEC_HIDDEN;

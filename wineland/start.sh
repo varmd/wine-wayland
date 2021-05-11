@@ -75,6 +75,8 @@ if [[ -z "$IS_64_EXE" ]]; then
   WINE_CMD="wine"
   export LD_LIBRARY_PATH="/usr/lib/wineland/lib32:$LD_LIBRARY_PATH"
   export VK_ICD_FILENAMES="/usr/lib/wineland/vulkan/icd.d/intel_icd.i686.json:/usr/lib/wineland/vulkan/icd.d/radeon_icd.i686.json:/usr/lib/wineland/vulkan/icd.d/amd_icd.i686.json"
+  export MESA_LOADER_DRIVER_OVERRIDE=zink
+  export LIBGL_DRIVERS_PATH="/usr/lib/wineland/lib32/dri"
 fi
 
 cd "$PWD_PATH"

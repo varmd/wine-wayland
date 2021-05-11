@@ -407,7 +407,7 @@ function load_ui(type, data) {
   
   }
   
-  //db.get('games').remove().value();
+  db.get('games').remove().value();
   db.get('games').assign(games).value();
   
   db.write();

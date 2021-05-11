@@ -51,17 +51,17 @@ ColorShifts global_palette_default_shifts = { {0,0,0,}, {0,0,0}, {0,0,0}, {0,0,0
  */
 static BOOL WINAPI device_init( INIT_ONCE *once, void *param, void **context )
 {
-    
+
     palette_size = 16777216 ;
 
-    
+
     return TRUE;
 }
 
 
 static inline void push_dc_driver2( PHYSDEV *dev, PHYSDEV physdev, const struct gdi_dc_funcs *funcs )
 {
-  
+
   while ((*dev)->funcs->priority > funcs->priority) dev = &(*dev)->next;
     physdev->funcs = funcs;
     physdev->next = *dev;
@@ -72,11 +72,11 @@ static inline void push_dc_driver2( PHYSDEV *dev, PHYSDEV physdev, const struct 
 static WAYLANDDRV_PDEVICE *create_x11_physdev( /* Drawable drawable*/ )
 {
     WAYLANDDRV_PDEVICE *physDev;
-  
-    
+
+
     if (!(physDev = HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*physDev) ))) return NULL;
     return physDev;
-    
+
   /*
 
     InitOnceExecuteOnce( &init_once, device_init, NULL, NULL );
@@ -84,7 +84,7 @@ static WAYLANDDRV_PDEVICE *create_x11_physdev( /* Drawable drawable*/ )
     if (!(physDev = HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*physDev) ))) return NULL;
 
     //physDev->drawable = drawable;
-  
+
     return physDev;
   */
 }
@@ -95,30 +95,30 @@ static WAYLANDDRV_PDEVICE *create_x11_physdev( /* Drawable drawable*/ )
 static BOOL CDECL WAYLANDDRV_CreateDC( PHYSDEV *pdev, LPCWSTR driver, LPCWSTR device,
                              LPCWSTR output, const DEVMODEW* initData )
 {
-    
+
     WAYLANDDRV_PDEVICE *physDev = create_x11_physdev( /*root_window*/ );
 
     if (!physDev) return FALSE;
 
-    
+
     physDev->depth         = 32;
     //physDev->color_shifts  = &global_palette_default_shifts;
     physDev->dc_rect       = get_virtual_screen_rect();
-  
-    
-  
+
+
+
     OffsetRect( &physDev->dc_rect, -physDev->dc_rect.left, -physDev->dc_rect.top );
-  
-  
-    
-  
+
+
+
+
     if(!&physDev->dev) {
       TRACE( "NO dev \n" );
-      exit(1);  
+      exit(1);
     }
-    
+
     push_dc_driver2( pdev, &physDev->dev, &waylanddrv_funcs );
-    
+
     return TRUE;
 }
 
@@ -204,23 +204,23 @@ static INT CDECL WAYLANDDRV_GetDeviceCaps( PHYSDEV dev, INT cap )
 
 /**********************************************************************
  *           WAYLANDDRV_wine_get_wgl_driver
-*/ 
+*/
 
 static struct opengl_funcs * CDECL WAYLANDDRV_wine_get_wgl_driver( PHYSDEV dev, UINT version )
 {
     struct opengl_funcs *ret = NULL;
-    
+
     //re-enable for opengl
-    
+
     if (!(ret = get_wgl_driver( version )))
     {
       dev = GET_NEXT_PHYSDEV( dev, wine_get_wgl_driver );
       ret = dev->funcs->wine_get_wgl_driver( dev, version );
     }
-    
-    
+
+
     return ret;
-    
+
 }
 
 
@@ -238,6 +238,8 @@ static const struct vulkan_funcs * CDECL WAYLANDDRV_wine_get_vulkan_driver( PHYS
     }
     return ret;
 }
+
+
 
 
 static const struct gdi_dc_funcs waylanddrv_funcs =
@@ -376,16 +378,19 @@ static const struct gdi_dc_funcs waylanddrv_funcs =
     NULL,                               /* pSetWorldTransform */
     NULL,                               /* pStartDoc */
     NULL,                               /* pStartPage */
-    NULL,                  /* pStretchBlt */ //WAYLANDDRV_StretchBlt, 
+    NULL,                  /* pStretchBlt */ //WAYLANDDRV_StretchBlt,
     NULL,                               /* pStretchDIBits */
     NULL,           /* pStrokeAndFillPath */ //WAYLANDDRV_StrokeAndFillPath
-    NULL,                  /* pStrokePath */   
+    NULL,                  /* pStrokePath */
     NULL,            /* pUnrealizePalette */
     NULL,                               /* pWidenPath */
     NULL,                                // D3D ??
     NULL,                                // D3D ??
+    #ifdef OPENGL_TEST
+    WAYLANDDRV_wine_get_wgl_driver,         /* wine_get_wgl_driver */
+    #else
     NULL,         /* WGL Not Supported */
-    //WAYLANDDRV_wine_get_wgl_driver,         /* wine_get_wgl_driver */
+    #endif
     WAYLANDDRV_wine_get_vulkan_driver,      /* wine_get_vulkan_driver */
     GDI_PRIORITY_GRAPHICS_DRV           /* priority */
 };

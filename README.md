@@ -128,7 +128,7 @@ Then in the terminal run sh start-your-game.sh
 * Dirt 3
 * Subnautica
 * Rebel Galaxy
-* Endless Space (add -force-d3d11 in Exe options)
+* Endless Space
 * Age of Wonders 3
 * Stellaris
 * EU4
@@ -148,3 +148,4 @@ Then in the terminal run sh start-your-game.sh
 * Imperator Rome
 * The Witcher 3
 * Cyberpunk 2077 (needs vkd3d dll, see https://github.com/varmd/wine-wayland/issues/31)
+* Deponia TCJ
