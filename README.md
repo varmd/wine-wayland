@@ -152,4 +152,6 @@ Then in the terminal run sh start-your-game.sh
 * Torchlight2
 
 ## Apps tested
+
 * FLStudio Trial
+* HeidiSQL
