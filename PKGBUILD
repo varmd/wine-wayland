@@ -1,6 +1,6 @@
 # Created by: varmd
 
-RELEASE=6.8
+RELEASE=6.9
 pkgname=('wine-wayland')
 
 pkgver=`echo $RELEASE | sed s~-~~`
@@ -100,8 +100,10 @@ prepare() {
 
 
     patch dlls/user32/driver.c < ../../winewayland.drv/patch/user32-driverc.patch
-    patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/0002-user32-sysparamsc-new2.patch
-    patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/0004-user32-sysparams-fix-valid-adapter.patch
+    
+    #patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/0002-user32-sysparamsc-new2.patch
+    #patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/0004-user32-sysparams-fix-valid-adapter.patch
+    
     patch programs/explorer/desktop.c < ../../winewayland.drv/patch/explorer-desktopc.patch
 
 
@@ -138,21 +140,20 @@ prepare() {
     # speed up
 
     #sed -i '/programs\/explorer/d' configure.ac
-    #sed -i '/programs\/iexplore/d' configure.ac
-    #sed -i '/programs\/dxdiag/d' configure.ac
+    sed -i '/programs\/iexplore/d' configure.ac
+    sed -i '/programs\/dxdiag/d' configure.ac
 
-    #sed -i '/programs\/hh/d' configure.ac
-    #sed -i '/programs\/powershell/d' configure.ac
-    #sed -i '/programs\/winemenubuilder/d' configure.ac
-    #sed -i '/programs\/wordpad/d' configure.ac
+    sed -i '/programs\/hh/d' configure.ac
+    sed -i '/programs\/powershell/d' configure.ac
+    sed -i '/programs\/winemenubuilder/d' configure.ac
+    sed -i '/programs\/wordpad/d' configure.ac
     #sed -i '/programs\/conhost/d' configure.ac
-    #sed -i '/programs\/winedbg/d' configure.ac
+    sed -i '/programs\/winedbg/d' configure.ac
 
     #sed -i '/\/tests/d' configure.ac
-    #sed -i '/dlls\/d3d8/d' configure.ac
     #sed -i '/dlls\/d3d12/d' configure.ac
-    #sed -i '/dlls\/jscript/d' configure.ac
-    #sed -i '/dlls\/hhctrl/d' configure.ac
+    sed -i '/dlls\/jscript/d' configure.ac
+    sed -i '/dlls\/hhctrl/d' configure.ac
 
 
     rm configure
@@ -241,7 +242,7 @@ build() {
 
   CPUS=$(getconf _NPROCESSORS_ONLN)
   if ((CPUS > 10)); then
-    CPUS=10;
+    CPUS=9;
   fi
 	make -s -j $CPUS
 

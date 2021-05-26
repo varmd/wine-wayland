@@ -32,9 +32,9 @@
 #include "winuser.h"
 #include "rpc.h"
 #include "winreg.h"
-#include "initguid.h"
-#include "devguid.h"
-#include "devpkey.h"
+//#include "initguid.h"
+//#include "devguid.h"
+//#include "devpkey.h"
 #include "setupapi.h"
 #define WIN32_NO_STATUS
 #include "winternl.h"

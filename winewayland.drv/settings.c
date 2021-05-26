@@ -114,7 +114,6 @@ static unsigned int dd_max_modes = 0;
 /* All Windows drivers seen so far either support 32 bit depths, or 24 bit depths, but never both. So if we have
  * a 32 bit framebuffer, report 32 bit bpps, otherwise 24 bit ones.
  */
-static const unsigned int depths_24[]  = {8, 16, 24};
 static const unsigned int depths_32[]  = {8, 16, 32};
 
 /* pointers to functions that actually do the hard stuff */
@@ -180,7 +179,6 @@ void WAYLANDDRV_Settings_AddDepthModes(void)
     int i, j;
     int existing_modes = dd_mode_count;
     DWORD dwBpp = screen_bpp;
-    //const DWORD *depths = screen_bpp == 32 ? depths_32 : depths_24;
     const DWORD *depths = depths_32;
 
     for (j=0; j<3; j++)

@@ -1,5 +1,5 @@
 MODULE    = winewayland.drv
-IMPORTS   = uuid user32 gdi32 advapi32
+IMPORTS   = uuid user32 gdi32 advapi32 setupapi rpcrt4
 DELAYIMPORTS = comctl32 ole32 shell32 imm32
 EXTRAINCL =
 
@@ -9,6 +9,7 @@ EXTRALIBS = -lwayland-client  -lwayland-cursor
 C_SRCS = \
 	init.c \
 	settings.c \
+	setup-display.c \
 	vulkan.c \
 	waylanddrv_main.c \
   pointer-constraints-unstable-v1-protocol.c \

@@ -65,7 +65,7 @@
 
 
 
-#@ cdecl SysCommand(long long long) WAYLANDDRV_SysCommand
+@ cdecl SysCommand(long long long) WAYLANDDRV_SysCommand
 
 #@ cdecl UpdateClipboard() WAYLANDDRV_UpdateClipboard
 

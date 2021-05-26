@@ -149,3 +149,7 @@ Then in the terminal run sh start-your-game.sh
 * The Witcher 3
 * Cyberpunk 2077 (needs vkd3d dll, see https://github.com/varmd/wine-wayland/issues/31)
 * Deponia TCJ
+* Torchlight2
+
+## Apps tested
+* FLStudio Trial

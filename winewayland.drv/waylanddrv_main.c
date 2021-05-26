@@ -218,6 +218,10 @@ static BOOL process_attach(void)
 
 
   WAYLANDDRV_Settings_Init();
+  
+  
+  //setup registry for display devices
+  wayland_init_display_devices(1);
 
 //  if( !is_vulkan_desktop_only ) {
 //    TRACE( "Creating desktop done %d %d \n\n", screen_width , screen_height );

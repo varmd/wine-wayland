@@ -35,8 +35,8 @@ index fdb443b45c..eea1387863 100644
  extern int server_pipe( int fd[2] ) DECLSPEC_HIDDEN;
 +extern int receive_fd( obj_handle_t *handle ) DECLSPEC_HIDDEN;
  
- extern NTSTATUS context_to_server( context_t *to, const CONTEXT *from ) DECLSPEC_HIDDEN;
- extern NTSTATUS context_from_server( CONTEXT *to, const context_t *from ) DECLSPEC_HIDDEN; 
+ extern void set_thread_id( TEB *teb, DWORD pid, DWORD tid ) DECLSPEC_HIDDEN;
+ extern NTSTATUS init_thread_stack( TEB *teb, ULONG_PTR zero_bits, SIZE_T reserve_size,
 diff --git a/dlls/ntdll/server.c b/dlls/ntdll/server.c
 index ec034455aa..3d24baa096 100644
 --- a/dlls/ntdll/unix/server.c

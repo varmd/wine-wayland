@@ -1,6 +1,9 @@
 #
-# Copyright 2020 varmd
+# Copyright 2020-2021 varmd
 #
+
+WINE_VK_DXVK_VERSION="dxvk-1.8.1"
+
 
 #for i in $(ls -d */); do echo ${i%%/}; done
 #for i in $(set -- */; printf "%s\n" "${@%/}");
@@ -11,6 +14,7 @@
 WINE_CMD="wine64"
 #remove all exe programs
 #should avoid stuck exe issues
+pgrep -f "\.exe" | xargs -L1 kill -9
 pgrep -f "\.exe" | xargs -L1 kill -9
 
 #needs to be here for GDI
@@ -43,7 +47,7 @@ WINEDLLOVERRIDES="d3dcompiler_47,d3d9,dxgi,d3d11,d3d12=n,b;dinput=d;winedbg=d;wi
 WINE_VK_WAYLAND_WIDTH=1920
 WINE_VK_WAYLAND_HEIGHT=1080
 MANGOHUD=1
-#WINEFSYNC=1
+
 
 export XCURSOR_SIZE="32"
 export XCURSOR_THEME=Adwaita
@@ -71,10 +75,10 @@ IS_64_EXE=`file $GAME_EXE | grep PE32+`
 
 
 if [[ -z "$IS_64_EXE" ]]; then
-  echo "is 32bit wine exe"
+  echo "32bit exe"
   WINE_CMD="wine"
   export LD_LIBRARY_PATH="/usr/lib/wineland/lib32:$LD_LIBRARY_PATH"
-  export VK_ICD_FILENAMES="/usr/lib/wineland/vulkan/icd.d/intel_icd.i686.json:/usr/lib/wineland/vulkan/icd.d/radeon_icd.i686.json:/usr/lib/wineland/vulkan/icd.d/amd_icd.i686.json"
+  export VK_ICD_FILENAMES="/usr/lib/wineland/vulkan/icd.d/intel_icd.i686.json:/usr/lib/wineland/vulkan/icd.d/radeon_icd.i686.json"
   export MESA_LOADER_DRIVER_OVERRIDE=zink
   export LIBGL_DRIVERS_PATH="/usr/lib/wineland/lib32/dri"
 fi
@@ -103,9 +107,10 @@ MANGO_PREFIX=$PWD_PATH/mangohud
 if [ ! -d $PWD_PATH/dxvk ]; then
     mkdir dxvk
     cd dxvk
-    curl  -L "https://github.com/doitsujin/dxvk/releases/download/v1.8/dxvk-1.8.tar.gz" > dxvk-1.8.tar.gz
-    tar xf dxvk-1.8.tar.gz
+    curl  -L "https://github.com/doitsujin/dxvk/releases/download/v1.8.1/${WINE_VK_DXVK_VERSION}.tar.gz" > dxvk-1.8.1.tar.gz
+    tar xf dxvk-1.8.1.tar.gz
     cd "$PWD_PATH"
+    REFRESH_DXVK=1
 fi
 
 if [ ! -d $WINEPREFIX ]; then
@@ -116,24 +121,32 @@ if [ ! -d $WINEPREFIX ]; then
 
 
   if [[ -z "$IS_64_EXE" ]]; then
-    echo "is 32bit"
+    echo "32bit wine"
     WINE_CMD="wine"
 
     export WINEARCH=win32
     WINE_VK_VULKAN_ONLY=1 wineboot -u
     sleep 4
 
-    cp -r dxvk/dxvk-1.8/x32/* wine/drive_c/windows/system32/
+    cp -r dxvk/${WINE_VK_DXVK_VERSION}/x32/* wine/drive_c/windows/system32/
   else
-    echo "is 64bit"
+    echo "64bit wine"
     WINE_VK_VULKAN_ONLY=1 wineboot -u
     sleep 4
-    cp -r dxvk/dxvk-1.8/x64/* wine/drive_c/windows/system32/
+    cp -r dxvk/${WINE_VK_DXVK_VERSION}/x64/* wine/drive_c/windows/system32/
   fi
 
 fi
 
-
+if [[ -z "$REFRESH_DXVK" ]]; then
+  if [[ -z "$IS_64_EXE" ]]; then
+    echo "refreshing 32bit dxvk"
+    cp -r dxvk/${WINE_VK_DXVK_VERSION}/x32/* wine/drive_c/windows/system32/
+  else
+    echo "refreshing 64bit dxvk"
+    cp -r dxvk/${WINE_VK_DXVK_VERSION}/x64/* wine/drive_c/windows/system32/
+  fi
+fi
 
 
 if [[ -z "$MANGOHUD" ]]; then
@@ -162,10 +175,10 @@ fi
 
 
   if [[ -z "$IS_64_EXE" ]]; then
-    echo "is 32bit mangohud"
+    echo "32bit mangohud"
     LIB="lib32"
   else
-    echo "is 64bit mangohud"
+    echo "64bit mangohud"
     LIB="lib"
   fi
 
@@ -174,6 +187,8 @@ fi
   export VK_INSTANCE_LAYERS=VK_LAYER_MANGOHUD_overlay
   export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d:"$PWD_PATH/mangohud"
   export VK_LAYER_PATH="$PWD_PATH/mangohud"
+  #disable wined3d which runs even with dxvk on and crashes due to opengl
+  WINEDLLOVERRIDES="wined3d=d;$WINEDLLOVERRIDES"
 
 fi #end mangohud
 
@@ -207,4 +222,4 @@ FINAL_EXE="$(basename "$GAME_EXE")"
 
 cd $PWD_PATH/wine/drive_c/"$GAME_PATHNAME"/$FINAL_PATH
 
-$WINE_CMD $FINAL_EXE $GAME_OPTIONS  &> $LOG_PATH
+$WINE_CMD $FINAL_EXE $GAME_OPTIONS  &> $LOG_PATH 
