@@ -35,7 +35,7 @@ if [ ! -d $PWD/$1 ]; then
   exit;
 fi
 
-echo $1;
+echo "Starting $1";
 
 PWD_PATH=$PWD/$1
 LOG_PATH=$PWD/$1/log.log
@@ -139,6 +139,8 @@ if [ ! -d $WINEPREFIX ]; then
 fi
 
 if [[ -z "$REFRESH_DXVK" ]]; then
+  echo ""
+else
   if [[ -z "$IS_64_EXE" ]]; then
     echo "refreshing 32bit dxvk"
     cp -r dxvk/${WINE_VK_DXVK_VERSION}/x32/* wine/drive_c/windows/system32/
@@ -200,7 +202,9 @@ export WINEESYNC
 export WINEDEBUG=fixme-all,-all,+waylanddrv
 
 rm $PWD_PATH/wine/drive_c/users/$USER/"My Documents"
+rm $PWD_PATH/wine/drive_c/users/$USER/"Documents"
 mkdir -p $PWD_PATH/wine/drive_c/users/$USER/"My Documents"
+mkdir -p $PWD_PATH/wine/drive_c/users/$USER/"Documents"
 
 
 

@@ -1,6 +1,6 @@
 # Created by: varmd
 
-RELEASE=6.9
+RELEASE=6.10
 pkgname=('wine-wayland')
 
 pkgver=`echo $RELEASE | sed s~-~~`
@@ -97,6 +97,10 @@ prepare() {
     cd "${srcdir}"/"${_winesrcdir}"
 
     patch -Np1 < '../../enable-wayland.patch'
+    
+    #fix civ 6
+    #TODO remove when fixed in Wine
+    patch -Np1 < '../../fix-civ6.patch'
 
 
     patch dlls/user32/driver.c < ../../winewayland.drv/patch/user32-driverc.patch

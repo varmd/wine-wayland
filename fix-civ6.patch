@@ -1,0 +1,44 @@
+diff -u 1/input.c 2/input.c
+--- a/dlls/user32/input.c
++++ b/dlls/user32/input.c
+@@ -1898,16 +1898,7 @@
+     return copied;
+ }
+ 
+-/***********************************************************************
+- *		EnableMouseInPointer (USER32.@)
+- */
+-BOOL WINAPI EnableMouseInPointer(BOOL enable)
+-{
+-    FIXME("(%#x) stub\n", enable);
+ 
+-    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+-    return FALSE;
+-}
+ 
+ static DWORD CALLBACK devnotify_window_callback(HANDLE handle, DWORD flags, DEV_BROADCAST_HDR *header)
+ {
+diff -u 1/user32.spec 2/user32.spec
+--- a/dlls/user32/user32.spec
++++ 2/dlls/user32/user32.spec
+@@ -204,7 +204,7 @@
+ @ stdcall EditWndProc(long long long long) EditWndProcA
+ @ stdcall EmptyClipboard()
+ @ stdcall EnableMenuItem(long long long)
+-@ stdcall EnableMouseInPointer(long)
++
+ @ stdcall EnableNonClientDpiScaling(long)
+ @ stdcall EnableScrollBar(long long long)
+ @ stdcall EnableWindow(long long)
+diff -u 1/winuser.h 2/winuser.h
+--- a/include/winuser.h
++++ b/include/winuser.h
+@@ -3715,7 +3715,7 @@
+ #define                       DrawTextEx WINELIB_NAME_AW(DrawTextEx)
+ WINUSERAPI BOOL        WINAPI EmptyClipboard(void);
+ WINUSERAPI BOOL        WINAPI EnableMenuItem(HMENU,UINT,UINT);
+-WINUSERAPI BOOL        WINAPI EnableMouseInPointer(BOOL);
++
+ WINUSERAPI BOOL        WINAPI EnableNonClientDpiScaling(HWND);
+ WINUSERAPI BOOL        WINAPI EnableScrollBar(HWND,UINT,UINT);
+ WINUSERAPI BOOL        WINAPI EnableWindow(HWND,BOOL);

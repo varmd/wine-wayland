@@ -32,9 +32,9 @@ index b75e8308ac..26d1fb537e 100644
 	unix/signal_x86_64.c \
 	unix/esync.c \
 +	unix/fsync.c \
+	unix/socket.c \
 	unix/sync.c \
 	unix/system.c \
-	unix/tape.c \
 diff --git a/dlls/ntdll/unix/esync.c b/dlls/ntdll/unix/esync.c
 index 6152fa679d..8ec7fb342e 100644
 --- a/dlls/ntdll/unix/esync.c

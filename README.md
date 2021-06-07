@@ -13,7 +13,8 @@ Wine-wayland allows running DX9/DX11/DX12 and Vulkan games using pure Wayland an
 ## Screenshot
 
 ![screenshot](https://raw.githubusercontent.com/varmd/wine-wayland/master/screenshot.png "Screenshot")
-![screenshot1](https://raw.githubusercontent.com/varmd/wine-wayland/master/screenshot1.png "Screenshot1")
+![screenshot1](https://raw.githubusercontent.com/varmd/wine-wayland/master/screenshot1.png "Subnautica")
+![screenshot2](https://raw.githubusercontent.com/varmd/wine-wayland/master/screenshot2.png "CivilizationVI")
 
 ## Requirements
 
@@ -150,6 +151,7 @@ Then in the terminal run sh start-your-game.sh
 * Cyberpunk 2077 (needs vkd3d dll, see https://github.com/varmd/wine-wayland/issues/31)
 * Deponia TCJ
 * Torchlight2
+* Civilization 6 - use SidMeiersCivilizationVI/Base/Binaries/Win64EOS/CivilizationVI.exe for exe path (EGS version)
 
 ## Apps tested
 

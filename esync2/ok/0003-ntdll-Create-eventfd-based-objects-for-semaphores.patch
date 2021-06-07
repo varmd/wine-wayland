@@ -21,9 +21,9 @@ index ed4bb94e4d..b75e8308ac 100644
 	unix/signal_i386.c \
 	unix/signal_x86_64.c \
 +	unix/esync.c \
+	unix/socket.c \
 	unix/sync.c \
 	unix/system.c \
-	unix/tape.c \
 diff --git a/dlls/ntdll/unix/unix_private.h b/dlls/ntdll/unix/unix_private.h
 index fdb443b45c..eea1387863 100644
 --- a/dlls/ntdll/unix/unix_private.h
