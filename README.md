@@ -58,7 +58,7 @@ From command line (or using file manager)
     mkdir -p ~/.local/share/wineland/your-game
     mv YourGameFolder ~/.local/share/wineland/your-game/
 
-"your-name" above should be lowercase, no spaces tag. For example, for Subnautica it would be subnautica. After, go to your launcher, click on the blue joystick icon. In the browser tab, click Edit below the card for your-game. Enter name for your game, YourGameFolder/game.exe for exe path. And -EpicPortal for game options (for EGS games). Set mangohud, fsync/esync, and other options if needed. See below screenshot for example of options for Subnautica.
+"your-game" above should be lowercase, no spaces tag. For example, for Subnautica it would be subnautica. After, go to your launcher, click on the blue joystick icon. In the browser tab, click Edit below the card for your-game. Enter name for your game, YourGameFolder/game.exe for exe path. And -EpicPortal for game options (for EGS games). Set mangohud, fsync/esync, and other options if needed. See below screenshot for example of options for Subnautica.
 
 ![screenshot](https://raw.githubusercontent.com/varmd/wine-wayland/master/wineland/wineland-screenshot-2.png "Screenshot")
 
