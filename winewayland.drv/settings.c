@@ -301,6 +301,7 @@ BOOL CDECL WAYLANDDRV_EnumDisplaySettingsEx( LPCWSTR name, DWORD n, LPDEVMODEW d
     devmode->dmDriverExtra = 0;
     devmode->u2.dmDisplayFlags = 0;
     devmode->dmDisplayFrequency = 0;
+    devmode->dmBitsPerPel = 32;
     devmode->u1.s2.dmPosition.x = 0;
     devmode->u1.s2.dmPosition.y = 0;
     devmode->u1.s2.dmDisplayOrientation = 0;
@@ -308,7 +309,7 @@ BOOL CDECL WAYLANDDRV_EnumDisplaySettingsEx( LPCWSTR name, DWORD n, LPDEVMODEW d
         
     
     
-    //TRACE("mode %d %p \n", n, handler_name);    
+    TRACE("Asking for mode %d %p \n", n, handler_name);    
     
         
 

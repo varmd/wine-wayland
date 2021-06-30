@@ -1,7 +1,8 @@
 # Created by: varmd
 
-RELEASE=6.10
-pkgname=('wine-wayland')
+RELEASE=6.11
+_pkgname=('wine-wayland')
+pkgname=('wineland' 'wine-wayland')
 
 pkgver=`echo $RELEASE | sed s~-~~`
 pkgrel=1
@@ -153,8 +154,19 @@ prepare() {
     sed -i '/programs\/wordpad/d' configure.ac
     #sed -i '/programs\/conhost/d' configure.ac
     sed -i '/programs\/winedbg/d' configure.ac
+    sed -i '/programs\/winemine/d' configure.ac
+    
+    sed -i '/programs\/taskmgr/d' configure.ac
+    sed -i '/programs\/winhlp32/d' configure.ac
+    sed -i '/programs\/notepad/d' configure.ac
+    sed -i '/programs\/aspnet/d' configure.ac
+    sed -i '/programs\/xpsprint/d' configure.ac
+    
+    sed -i '/dlls\/dxerr8/d' configure.ac
+    sed -i '/dlls\/dx8vb/d' configure.ac
+    sed -i '/dlls\/opencl/d' configure.ac
 
-    #sed -i '/\/tests/d' configure.ac
+    sed -i '/\/tests/d' configure.ac
     #sed -i '/dlls\/d3d12/d' configure.ac
     sed -i '/dlls\/jscript/d' configure.ac
     sed -i '/dlls\/hhctrl/d' configure.ac
@@ -163,7 +175,7 @@ prepare() {
     rm configure
     autoconf
 
-    mkdir -p "${srcdir}"/"${pkgname}"-64-build
+    mkdir -p "${srcdir}"/"${_pkgname}"-64-build
 
   fi
 
@@ -182,18 +194,11 @@ build() {
   fi
 
 
-  #build civetweb for wineland
-  cd civetweb-1.12
-  make build WITH_IPV6=0 USE_LUA=0 PREFIX="$pkgdir/usr"
-
-
-	cd "${srcdir}"
-
-
+  
   export CC=cc
 
   msg2 'Building Wine-64...'
-	cd  "${srcdir}"/"${pkgname}"-64-build
+	cd  "${srcdir}"/${_pkgname}-64-build
 
 
   if [ -e Makefile ]; then
@@ -252,6 +257,48 @@ build() {
 
 }
 
+package_wineland() {
+
+  
+  depends=(
+    'adwaita-icon-theme'
+    'fontconfig'
+    'freetype2'
+    'gcc-libs'
+    'desktop-file-utils'
+    'mpg123'
+    'openal'
+    'alsa-lib'
+    'mesa'
+    'vulkan-icd-loader'
+    'faudio'
+    'sdl2'
+    'libpng'
+    'libxml2'
+    'lib32-glibc'
+  )
+
+
+  #build civetweb for wineland
+  cd $srcdir
+  cd civetweb-1.12
+  make build WITH_IPV6=0 USE_LUA=0 PREFIX="$pkgdir/usr"
+  
+  mkdir -p ${pkgdir}/usr/bin
+  mkdir -p ${pkgdir}/usr/lib/wineland
+  cp ${srcdir}/civetweb*/civetweb ${pkgdir}/usr/lib/wineland/wineland-civetweb
+  cd ${srcdir}
+  cp -r ../wineland ${pkgdir}/usr/lib/wineland/ui
+  cp -r ../wineland/joystick.svg ${pkgdir}/usr/lib/wineland/ui/joystick.svg
+  cp -r ../wineland/wineland ${pkgdir}/usr/bin/wineland
+  chmod +x ${pkgdir}/usr/bin/wineland
+
+  mkdir -p ${pkgdir}/usr/share/applications
+  cp -r ../wineland/wineland.desktop ${pkgdir}/usr/share/applications/wineland.desktop
+
+}
+
+
 package_wine-wayland() {
 
   if [ -z "${WINE_BUILD_32_DEV_SKIP_64:-}" ]; then
@@ -282,20 +329,11 @@ package_wine-wayland() {
   provides=('wine')
 
 
-	cd "${srcdir}/${pkgname}"-64-build
+	cd "${srcdir}/${_pkgname}"-64-build
 	make -s	prefix="${pkgdir}/usr" \
 			libdir="${pkgdir}/usr/lib" \
 			dlldir="${pkgdir}/usr/lib/wine" install
 
 
-  mkdir -p ${pkgdir}/usr/lib/wineland
-  cp ${srcdir}/civetweb*/civetweb ${pkgdir}/usr/lib/wineland/wineland-civetweb
-  cd ${srcdir}
-  cp -r ../wineland ${pkgdir}/usr/lib/wineland/ui
-  cp -r ../wineland/joystick.svg ${pkgdir}/usr/lib/wineland/ui/joystick.svg
-  cp -r ../wineland/wineland ${pkgdir}/usr/bin/wineland
-  chmod +x ${pkgdir}/usr/bin/wineland
-
-  mkdir -p ${pkgdir}/usr/share/applications
-  cp -r ../wineland/wineland.desktop ${pkgdir}/usr/share/applications/wineland.desktop
+  
 }

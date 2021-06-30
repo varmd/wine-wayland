@@ -101,3 +101,15 @@ install_freetype2_32() {
   cd $pkgdir/usr/lib32/pkgconfig
   sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" freetype2.pc
 } 
+
+install_jpegturbo_32() {
+  cd "${srcdir}"
+  cd $(find . -maxdepth 1 -type d -name "*libjpeg-*" | sed 1q)
+  
+  cd build
+  make DESTDIR="${pkgdir}" install
+
+  cd $pkgdir/usr/lib32/pkgconfig
+  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libturbojpeg.pc
+  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libjpeg.pc
+} 

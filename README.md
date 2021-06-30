@@ -20,9 +20,19 @@ Wine-wayland allows running DX9/DX11/DX12 and Vulkan games using pure Wayland an
 
  * Archlinux or Manjaro
  * GPU with Vulkan and Wayland support, 2GB+ VRAM, AMD or Intel, Nvidia not tested
- * Mesa 20.1 or later with Wayland and Vulkan support
- * Weston based compositor (tested on wayward), wlroots based compositor (tested on sway)
+ * Mesa 21 or later with Wayland and Vulkan support
+ * Weston based compositor (tested on wayward), wlroots based compositor (tested on sway), Gnome not tested
  * SDL and Faudio
+
+## Installation with wineland
+
+From v6.11, it's possible to install only the wineland launcher, without system-wide installation of wine-wayland. The launcher
+will then download wine-wayland, dxvk and mangohud from Github and run games without system-wide installation of wine-wayland. 
+
+You can download the wineland launcher package from https://github.com/varmd/wine-wayland/releases. This version is automatically built via Github Actions. cd to download folder and install. After installation, refer to the section below on how to configure games for the wineland launcher.
+
+    pacman -U wineland*pkg*
+
 
 ## Download
 
@@ -110,8 +120,7 @@ Then in the terminal run sh start-your-game.sh
 
 ## Notes
 
-* Some Unity games require the game folder to be executable
-* While launchers are not working many games do not require launchers to run
+* Some games require the game folder to be executable
 * You can use https://github.com/derrod/legendary to download and run games from Epic Games Store
 * You can use https://github.com/ValvePython/steamctl to download games from Steam
 * GOG games can be extracted with innoextract
@@ -120,7 +129,7 @@ Then in the terminal run sh start-your-game.sh
 
 ## Caveats and issues
 
-* No GDI apps support - though popups and simple launchers may work
+* No GDI apps support - though popups and simple launchers should work
 * No OpenGL
 
 ## Games confirmed working
@@ -152,6 +161,7 @@ Then in the terminal run sh start-your-game.sh
 * Deponia TCJ
 * Torchlight2
 * Civilization 6 - use SidMeiersCivilizationVI/Base/Binaries/Win64EOS/CivilizationVI.exe for exe path (EGS version)
+* GTA 5
 
 ## Apps tested
 

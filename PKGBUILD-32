@@ -38,6 +38,8 @@ url_freetype2="https://download.savannah.gnu.org/releases/freetype/freetype-2.10
 url_libxml2="https://github.com/GNOME/libxml2/archive/v2.9.10.zip"
 url_libsystemd32="https://github.com/systemd/systemd-stable/archive/v247.2.zip"
 
+url_libjpegturbo="https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/2.1.0.zip"
+
 
 
 build_systemd_32() {
@@ -549,6 +551,48 @@ build_freetype2_32() {
   sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" freetype2.pc
 }
 
+build_jpegturbo_32() {
+  cd "${srcdir}"
+
+  rm -rf $(find . -maxdepth 1 -type d -name "*jpeg-*" | sed 1q)
+
+  if [ ! -f jpegturbo.zip ]; then
+    curl -L $url_libjpegturbo > jpegturbo.zip
+  fi
+
+
+
+  unzip -q jpegturbo.zip
+
+
+  cd $(find . -maxdepth 1 -type d -name "*libjpeg-*" | sed 1q)
+
+
+  export CC="gcc -m32"
+  export CXX="g++ -m32"
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig/"
+  
+  cmake -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_INSTALL_LIBDIR=/usr/lib32 \
+        -DCMAKE_BUILD_TYPE='None' \
+        -DWITH_JPEG8=ON \
+        -DWITH_SIMD=FALSE \
+        -W no-dev \
+        -B build \
+        -S .
+
+
+  CPUS=$(getconf _NPROCESSORS_ONLN)
+
+  cd build
+  make -j $CPUS
+  make DESTDIR="${pkgdir}" install
+
+  cd $pkgdir/usr/lib32/pkgconfig
+  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libturbojpeg.pc
+  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libjpeg.pc
+}
+
 build_32() {
   cd "${srcdir}"
 
@@ -639,7 +683,7 @@ build_32() {
 
 	make -s -j $CPUS
 
-  
+
 
 }
 
@@ -657,6 +701,7 @@ package_lib32-wine-wayland() {
     build_mpg123_32
     build_openal_32
     build_freetype2_32
+    build_jpegturbo_32
     build_32
   else
     source ../pkgbuild-32-dev
@@ -668,6 +713,7 @@ package_lib32-wine-wayland() {
     install_mpg123_32
     install_openal_32
     install_freetype2_32
+    install_jpegturbo_32
     build_32
   fi
 
@@ -695,22 +741,6 @@ package_lib32-wine-wayland() {
   rm -rf  $pkgdir/var/
 
 
-  #fix libc conflicts
-  #https://unix.stackexchange.com/questions/272606/locally-installing-glibc-2-23-causes-all-programs-to-segfault
-  #rm -rf $pkgdir/lib32/libc-2.*
-  #rm -rf $pkgdir/lib32/libc.*
-  #rm -rf $pkgdir/lib32/libm-2.*
-  #rm -rf $pkgdir/lib32/libm.*
-  #rm -rf $pkgdir/lib32/libdl.*
-  #rm -rf $pkgdir/lib32/libpthread-2.*
-  #rm -rf $pkgdir/lib32/libresolv-.*
-  #rm -rf $pkgdir/lib32/libpthread.so*
-  #rm -rf $pkgdir/lib32/libresolv.so*
-
-
-
-
-
   mkdir -p $pkgdir/usr/lib/wineland
   mv $pkgdir/usr/lib32 $pkgdir/usr/lib/wineland/lib32
 
@@ -721,13 +751,13 @@ package_lib32-wine-wayland() {
 	make -s	prefix="${pkgdir}/usr" \
     libdir="${pkgdir}/usr/lib32" \
 	  dlldir="${pkgdir}/usr/lib32/wine" install
-    
-    
+
+
   #Redisable Opengl
   cd $srcdir
   cd ../winewayland.drv
   sed -i "s~#define OPENGL_TEST~//#define OPENGL_TEST~" waylanddrv.h
   sed -i "s~EXTRALIBS = -lwayland-client~#XTRALIBS = -lwayland-client~" Makefile.in
-  sed -i "s~#_TRALIBS = -lwayland-client~EXTRALIBS = -lwayland-client~" Makefile.in  
+  sed -i "s~#_TRALIBS = -lwayland-client~EXTRALIBS = -lwayland-client~" Makefile.in
 
 }
