@@ -1739,7 +1739,7 @@ void wayland_pointer_motion_cb(void *data,
 
   GetWindowRect(hwnd, &rect);
 
-  TRACE("Motion x y %d %d %s hwnd %p pointer %p \n", wl_fixed_to_int(sx), wl_fixed_to_int(sy), wine_dbgstr_rect( &rect ), hwnd, pointer);
+  //TRACE("Motion x y %d %d %s hwnd %p pointer %p \n", wl_fixed_to_int(sx), wl_fixed_to_int(sy), wine_dbgstr_rect( &rect ), hwnd, pointer);
 
 
   global_input.u.mi.dx = global_input.u.mi.dx + rect.left;
@@ -1778,8 +1778,8 @@ void wayland_pointer_motion_cb(void *data,
 
 
 }
-HWND global_hwnd_clicked = NULL;
-int global_hwnd_popup_mode = 0;
+
+
 
 void wayland_pointer_button_cb_vulkan(void *data,
 		struct wl_pointer *pointer, uint32_t serial, uint32_t time, uint32_t button,
@@ -1920,12 +1920,10 @@ void wayland_pointer_button_cb(void *data,
 	case BTN_LEFT:
     if(state == WL_POINTER_BUTTON_STATE_PRESSED) {
       input.u.mi.dwFlags  |= MOUSEEVENTF_LEFTDOWN;
-      global_hwnd_clicked = global_update_hwnd;
       global_gdi_lb_hold = 1;     
     } else if(state == WL_POINTER_BUTTON_STATE_RELEASED) {
       input.u.mi.dwFlags |= MOUSEEVENTF_LEFTUP;
       global_gdi_lb_hold = 0;
-      
     }
 		break;
 
@@ -1954,16 +1952,15 @@ void wayland_pointer_button_cb(void *data,
   hwnd = global_update_hwnd;
   RECT rect;
 
-    //MapWindowPoints( global_update_hwnd, 0, (POINT *)&rect, 2 );
-  GetWindowRect(global_hwnd_clicked, &rect);
+  //MapWindowPoints( global_update_hwnd, 0, (POINT *)&rect, 2 );
+  GetWindowRect(global_update_hwnd, &rect);
 
-  //TRACE("Click x y %d %d %s \n", input.u.mi.dx, input.u.mi.dy, wine_dbgstr_rect( &rect ));
-
+  TRACE("Click x y %d %d %s \n", input.u.mi.dx, input.u.mi.dy, wine_dbgstr_rect( &rect ));
+  
   input.u.mi.dx = input.u.mi.dx + rect.left;
   input.u.mi.dy = input.u.mi.dy + rect.top;
   
-
-  //TRACE("Click x y %d %d %s \n", input.u.mi.dx, input.u.mi.dy, wine_dbgstr_rect( &rect ));
+  TRACE("Click x y %d %d %s \n", input.u.mi.dx, input.u.mi.dy, wine_dbgstr_rect( &rect ));
 
 
 
@@ -1982,9 +1979,6 @@ void wayland_pointer_button_cb(void *data,
     req->input.mouse.info  = 0;
 
     wine_server_call( req );
-
-
-
   }
   SERVER_END_REQ;
 
@@ -4497,13 +4491,14 @@ void CDECL WAYLANDDRV_WindowPosChanged( HWND hwnd, HWND insert_after, UINT swp_f
  */
 LRESULT CDECL WAYLANDDRV_SysCommand(HWND hwnd, WPARAM wparam, LPARAM lparam)
 {
+  
   struct gdi_win_data *hwnd_data;
   WPARAM command = wparam & 0xfff0;
   
   hwnd_data = get_win_data( hwnd );
   
   if(!hwnd_data) {
-    return;
+    return -1;
   }
 
   if (command == SC_MOVE)

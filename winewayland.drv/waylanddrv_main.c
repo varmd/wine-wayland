@@ -232,26 +232,12 @@ static BOOL process_attach(void)
   }
 
 
-
-
-
-
-
-    //Hack for GenshinImpact ZFGameBrowser
-    if(!lstrcmpiW(current_exe, zfgamebrowser_exe)) {
-      create_desktop(1);
-    } else {
-      create_desktop( 0 );
-    }
-
-
-    //if( !is_vulkan_desktop_only ) {
-        //create_desktop( 0 );
-    //  }
-  //Hack for GenshinImpact, prevents loss of mouse/keyboard input
-
-    //create_desktop();
-
+  //Hack for GenshinImpact ZFGameBrowser
+  if(!lstrcmpiW(current_exe, zfgamebrowser_exe)) {
+    create_desktop(1);
+  } else {
+    create_desktop( 0 );
+  }
 
   return TRUE;
 }

@@ -1,6 +1,6 @@
 # Created by: varmd
 
-RELEASE=6.11
+RELEASE=6.12
 _pkgname=('wine-wayland')
 pkgname=('wineland' 'wine-wayland')
 
@@ -53,7 +53,6 @@ makedepends=(
 
 
 source=(
-  #"https://github.com/wine-mirror/wine/archive/wine-$pkgver.zip"
   "https://github.com/wine-mirror/wine/archive/wine-$RELEASE.zip"
   "https://github.com/civetweb/civetweb/archive/v1.12.zip"
 )
@@ -122,7 +121,6 @@ prepare() {
     cp ../../esync2/fsync-copy/server/* server/
 
 
-
     for _f in ../../esync2/ok/server/*.patch; do
       msg2 "Applying ${_f}"
       patch -Np1 < ${_f}
@@ -152,19 +150,32 @@ prepare() {
     sed -i '/programs\/powershell/d' configure.ac
     sed -i '/programs\/winemenubuilder/d' configure.ac
     sed -i '/programs\/wordpad/d' configure.ac
-    #sed -i '/programs\/conhost/d' configure.ac
+    
     sed -i '/programs\/winedbg/d' configure.ac
     sed -i '/programs\/winemine/d' configure.ac
     
     sed -i '/programs\/taskmgr/d' configure.ac
-    sed -i '/programs\/winhlp32/d' configure.ac
+    sed -i '/winhlp32/d' configure.ac
     sed -i '/programs\/notepad/d' configure.ac
     sed -i '/programs\/aspnet/d' configure.ac
     sed -i '/programs\/xpsprint/d' configure.ac
+    sed -i '/programs\/oleview/d' configure.ac
+    sed -i '/programs\/progman/d' configure.ac
+    sed -i '/programs\/clock/d' configure.ac
+    sed -i '/systeminfo/d' configure.ac
     
     sed -i '/dlls\/dxerr8/d' configure.ac
     sed -i '/dlls\/dx8vb/d' configure.ac
     sed -i '/dlls\/opencl/d' configure.ac
+    
+    #ie stuff
+    #sed -i '/dlls\/shdocvw/d' configure.ac
+    #sed -i '/dlls\/ieframe/d' configure.ac
+    sed -i '/dhtmled\.ocx/d' configure.ac
+    sed -i '/inetcpl\.cpl/d' configure.ac
+    
+    #wlan
+    sed -i '/dlls\/wlanui/d' configure.ac
 
     sed -i '/\/tests/d' configure.ac
     #sed -i '/dlls\/d3d12/d' configure.ac
@@ -334,6 +345,12 @@ package_wine-wayland() {
 			libdir="${pkgdir}/usr/lib" \
 			dlldir="${pkgdir}/usr/lib/wine" install
 
-
+  #Cleanup
+  rm -rf $pkgdir/usr/include
+  rm -rf $pkgdir/usr/share/man
+  rm -rf $pkgdir/usr/lib/wine/x86_64-unix/*.a
+  rm -rf $pkgdir/usr/lib/wine/x86_64-unix/*.def
+  cd $pkgdir/usr/lib/wine/x86_64-unix/
+  strip -s *
   
 }

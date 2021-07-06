@@ -113,3 +113,13 @@ install_jpegturbo_32() {
   sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libturbojpeg.pc
   sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libjpeg.pc
 } 
+
+install_libpng_32() {
+  cd "${srcdir}"
+  cd $(find . -maxdepth 1 -type d -name "*libpng-*" | sed 1q)
+  
+  make DESTDIR="${pkgdir}" install
+
+  cd $pkgdir/usr/lib32/pkgconfig
+  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libpng16.pc  
+} 

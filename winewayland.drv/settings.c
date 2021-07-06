@@ -47,18 +47,18 @@ static struct screen_size {
     //{ 512,  384},
     //{ 640,  480},
     //{ 768,  576},
-    { 800,  600},
-    {1024,  768},
-    {1152,  864},
-    {1280,  960},
-    {1400, 1050},
+    //{ 800,  600},
+    //{1024,  768},
+    //{1152,  864},
+    //{1280,  960},
+    //{1400, 1050},
     {1600, 1200},
     {2048, 1536},
     /* 5:4 */
-    {1280, 1024},
+    //{1280, 1024},
     {2560, 2048},
     /* 16:9 */
-    {1280,  720},
+    //{1280,  720},
     {1366,  768},
     {1600,  900},
     {1920, 1080},
@@ -67,9 +67,9 @@ static struct screen_size {
     /* 16:10 */
     //{ 320,  200},
     //{ 640,  400},
-    {1280,  800},
+    //{1280,  800},
     {1440,  900},
-    {1680, 1050},
+    //{1680, 1050},
     {1920, 1200},
     {2560, 1600}
 };
@@ -89,21 +89,12 @@ static void make_modes(void)
 
     /* original specified desktop size */
     WAYLANDDRV_Settings_AddOneMode(screen_width, screen_height, 32, 60);
+    //WAYLANDDRV_Settings_AddOneMode(1920, 1080, 32, 60);
     //WAYLANDDRV_Settings_AddOneMode(screen_width, screen_height, 24, 60);    
     for (i=0; i<ARRAY_SIZE(screen_sizes); i++)
     {
-        
-            //if ( (screen_sizes[i].width != screen_width) || (screen_sizes[i].height != screen_height)  )
-            //{
-                //TRACE("Adding  mode: %d %d \n", screen_sizes[i].width, screen_sizes[i].height);
-                /* only add them if they are smaller than the root window and unique */
-                //32bit
-                WAYLANDDRV_Settings_AddOneMode(screen_sizes[i].width, screen_sizes[i].height, 32, 60);
-                //24bit
-                //WAYLANDDRV_Settings_AddOneMode(screen_sizes[i].width, screen_sizes[i].height, 24, 60);
-                
-            //}
-        
+      if ( (screen_sizes[i].width != screen_width) || (screen_sizes[i].height != screen_height)  )
+        WAYLANDDRV_Settings_AddOneMode(screen_sizes[i].width, screen_sizes[i].height, 32, 60);
     }
    
 }
@@ -111,10 +102,7 @@ static void make_modes(void)
 static struct waylanddrv_mode_info *dd_modes = NULL;
 static unsigned int dd_mode_count = 0;
 static unsigned int dd_max_modes = 0;
-/* All Windows drivers seen so far either support 32 bit depths, or 24 bit depths, but never both. So if we have
- * a 32 bit framebuffer, report 32 bit bpps, otherwise 24 bit ones.
- */
-static const unsigned int depths_32[]  = {8, 16, 32};
+
 
 /* pointers to functions that actually do the hard stuff */
 static int (*pGetCurrentMode)(void);
@@ -173,26 +161,7 @@ void WAYLANDDRV_Settings_AddOneMode(unsigned int width, unsigned int height, uns
     dd_mode_count++;
 }
 
-/* copy all the current modes using the other color depths */
-void WAYLANDDRV_Settings_AddDepthModes(void)
-{
-    int i, j;
-    int existing_modes = dd_mode_count;
-    DWORD dwBpp = screen_bpp;
-    const DWORD *depths = depths_32;
 
-    for (j=0; j<3; j++)
-    {
-        if (depths[j] != dwBpp)
-        {
-            for (i=0; i < existing_modes; i++)
-            {
-                WAYLANDDRV_Settings_AddOneMode(dd_modes[i].width, dd_modes[i].height, 
-                                           depths[j], dd_modes[i].refresh_rate);
-            }
-        }
-    }
-}
 
 /* return the number of modes that are initialized */
 unsigned int WAYLANDDRV_Settings_GetModeCount(void)
@@ -225,8 +194,6 @@ void WAYLANDDRV_Settings_Init(void)
                                 WAYLANDDRV_nores_SetCurrentMode, 
                                 ARRAY_SIZE(screen_sizes)+2, 0);
     make_modes();
-  
-    //WAYLANDDRV_Settings_AddOneMode( primary.right - primary.left, primary.bottom - primary.top, 0, 60);
 }
 
 static BOOL get_display_device_reg_key(char *key, unsigned len)
@@ -285,6 +252,8 @@ static BOOL write_registry_settings(const DEVMODEW *dm)
     return ret;
 }
 
+
+
 /***********************************************************************
  *		EnumDisplaySettingsEx  (WAYLANDDRV.@)
  *
@@ -293,6 +262,21 @@ BOOL CDECL WAYLANDDRV_EnumDisplaySettingsEx( LPCWSTR name, DWORD n, LPDEVMODEW d
 {
     //static const WCHAR dev_name[CCHDEVICENAME] = { 'W','i','n','e',0 };
     //static const WCHAR dev_name[CCHDEVICENAME] = {'\\','\\','.','\\','D','I','S','P','L','A','Y', '\\', 'W','i','n','e',0};
+  
+  
+    //TRACE("Asking for mode %d %p \n", n, handler_name);    
+    if (n == ENUM_CURRENT_SETTINGS)
+    {
+        //TRACE("mode %d (current) -- getting current mode (%s)\n", n, handler_name);
+        n = 0;
+    }
+    if (n == ENUM_REGISTRY_SETTINGS)
+    {
+        //TRACE("mode %d (registry) -- getting default mode (%s)\n", n, handler_name);
+        n = 0;
+        //return read_registry_settings(devmode);
+    }
+      
         
     devmode->dmSize = FIELD_OFFSET(DEVMODEW, dmICMMethod);
     devmode->dmSpecVersion = DM_SPECVERSION;
@@ -307,26 +291,6 @@ BOOL CDECL WAYLANDDRV_EnumDisplaySettingsEx( LPCWSTR name, DWORD n, LPDEVMODEW d
     devmode->u1.s2.dmDisplayOrientation = 0;
     devmode->u1.s2.dmDisplayFixedOutput = 0;
         
-    
-    
-    TRACE("Asking for mode %d %p \n", n, handler_name);    
-    
-        
-
-    if (n == ENUM_CURRENT_SETTINGS)
-    {
-        //TRACE("mode %d (current) -- getting current mode (%s)\n", n, handler_name);
-        n = 0;
-    }
-    if (n == ENUM_REGISTRY_SETTINGS)
-    {
-        //TRACE("mode %d (registry) -- getting default mode (%s)\n", n, handler_name);
-        n = 0;
-        //return read_registry_settings(devmode);
-    }
-    
-    
-    
     if (n < dd_mode_count)
     {
         devmode->dmPelsWidth = dd_modes[n].width;
@@ -335,7 +299,6 @@ BOOL CDECL WAYLANDDRV_EnumDisplaySettingsEx( LPCWSTR name, DWORD n, LPDEVMODEW d
         devmode->dmDisplayFrequency = dd_modes[n].refresh_rate;
         devmode->dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_BITSPERPEL |
                             DM_DISPLAYFLAGS | DM_DISPLAYFREQUENCY;
-
         return TRUE;
     }
     TRACE("mode %d -- not present (%s)\n", n, handler_name);
@@ -343,29 +306,6 @@ BOOL CDECL WAYLANDDRV_EnumDisplaySettingsEx( LPCWSTR name, DWORD n, LPDEVMODEW d
     return FALSE;
 }
 
-#define _X_FIELD(prefix, bits) if ((fields) & prefix##_##bits) {p+=sprintf(p, "%s%s", first ? "" : ",", #bits); first=FALSE;}
-static const char * _CDS_flags(DWORD fields)
-{
-    BOOL first = TRUE;
-    char buf[128];
-    char *p = buf;
-    _X_FIELD(CDS,UPDATEREGISTRY);_X_FIELD(CDS,TEST);_X_FIELD(CDS,FULLSCREEN);
-    _X_FIELD(CDS,GLOBAL);_X_FIELD(CDS,SET_PRIMARY);_X_FIELD(CDS,RESET);
-    _X_FIELD(CDS,NORESET);
-    *p = 0;
-    return wine_dbg_sprintf("%s", buf);
-}
-static const char * _DM_fields(DWORD fields)
-{
-    BOOL first = TRUE;
-    char buf[128];
-    char *p = buf;
-    _X_FIELD(DM,BITSPERPEL);_X_FIELD(DM,PELSWIDTH);_X_FIELD(DM,PELSHEIGHT);
-    _X_FIELD(DM,DISPLAYFLAGS);_X_FIELD(DM,DISPLAYFREQUENCY);_X_FIELD(DM,POSITION);
-    *p = 0;
-    return wine_dbg_sprintf("%s", buf);
-}
-#undef _X_FIELD
 
 /***********************************************************************
  *		ChangeDisplaySettingsEx  (WAYLANDDRV.@)
