@@ -73,8 +73,8 @@ index a00a159d24..3d6db08668 100644
  
  WINE_DEFAULT_DEBUG_CHANNEL(sync);
 @@ -322,6 +322,9 @@ NTSTATUS WINAPI NtCreateSemaphore( HANDLE *handle, ACCESS_MASK access, const OBJECT_ATTRIBUTES *attr,
-     struct object_attributes *objattr;
 
+     *handle = 0;
      if (max <= 0 || initial < 0 || initial > max) return STATUS_INVALID_PARAMETER;
 +    if (do_esync())
 +        return esync_create_semaphore( handle, access, attr, initial, max );

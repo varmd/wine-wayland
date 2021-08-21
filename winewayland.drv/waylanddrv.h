@@ -33,9 +33,9 @@
 //Wayland
 #include <wayland-client.h>
 
-static struct wl_compositor *wayland_compositor = NULL;
 typedef unsigned long Time;
-//#define OPENGL_TEST 1
+
+#define FSHACK_TEST 1
 
 //End Wayland
 
@@ -73,22 +73,6 @@ typedef int Colormap;
 #include "wine/list.h"
 
 #define MAX_DASHLEN 16
-
-#define WINE_XDND_VERSION 5
-
-
-
-  /* X physical pen */
-
-
-  /* X physical brush */
-typedef struct
-{
-    int          style;
-    int          fillStyle;
-    int          pixel;
-    //Pixmap       pixmap;
-} X_PHYSBRUSH;
 
 typedef struct {
     int shift;
@@ -152,146 +136,19 @@ void *fail_on_null(void *p, size_t size, char *file, int32_t line);
 
 #define xstrdup(s) (fail_on_null(strdup(s), 0, __FILE__, __LINE__))
 
-/* Wine driver X11 functions */
 
-extern BOOL WAYLANDDRV_Arc( PHYSDEV dev, INT left, INT top, INT right,
-                        INT bottom, INT xstart, INT ystart, INT xend, INT yend ) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_Chord( PHYSDEV dev, INT left, INT top, INT right, INT bottom,
-                          INT xstart, INT ystart, INT xend, INT yend ) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_Ellipse( PHYSDEV dev, INT left, INT top, INT right, INT bottom ) DECLSPEC_HIDDEN;
-extern INT WAYLANDDRV_EnumICMProfiles( PHYSDEV dev, ICMENUMPROCW proc, LPARAM lparam ) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_ExtFloodFill( PHYSDEV dev, INT x, INT y, COLORREF color, UINT fillType ) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_FillPath( PHYSDEV dev ) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_GetDeviceGammaRamp( PHYSDEV dev, LPVOID ramp ) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_GetICMProfile( PHYSDEV dev, LPDWORD size, LPWSTR filename ) DECLSPEC_HIDDEN;
-extern DWORD WAYLANDDRV_GetImage( PHYSDEV dev, BITMAPINFO *info,
-                              struct gdi_image_bits *bits, struct bitblt_coords *src ) DECLSPEC_HIDDEN;
-extern COLORREF WAYLANDDRV_GetNearestColor( PHYSDEV dev, COLORREF color ) DECLSPEC_HIDDEN;
-extern UINT WAYLANDDRV_GetSystemPaletteEntries( PHYSDEV dev, UINT start, UINT count, LPPALETTEENTRY entries ) DECLSPEC_HIDDEN;
-
-
-
-
-extern BOOL WAYLANDDRV_Polygon( PHYSDEV dev, const POINT* pt, INT count ) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_PolyPolygon( PHYSDEV dev, const POINT* pt, const INT* counts, UINT polygons) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_PolyPolyline( PHYSDEV dev, const POINT* pt, const DWORD* counts, DWORD polylines) DECLSPEC_HIDDEN;
-extern DWORD WAYLANDDRV_PutImage( PHYSDEV dev, HRGN clip, BITMAPINFO *info,
-                              const struct gdi_image_bits *bits, struct bitblt_coords *src,
-                              struct bitblt_coords *dst, DWORD rop ) DECLSPEC_HIDDEN;
-extern UINT WAYLANDDRV_RealizeDefaultPalette( PHYSDEV dev ) DECLSPEC_HIDDEN;
-extern UINT WAYLANDDRV_RealizePalette( PHYSDEV dev, HPALETTE hpal, BOOL primary ) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_Rectangle(PHYSDEV dev, INT left, INT top, INT right, INT bottom) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_RoundRect( PHYSDEV dev, INT left, INT top, INT right, INT bottom,
-                              INT ell_width, INT ell_height ) DECLSPEC_HIDDEN;
-extern HBRUSH WAYLANDDRV_SelectBrush( PHYSDEV dev, HBRUSH hbrush, const struct brush_pattern *pattern ) DECLSPEC_HIDDEN;
-extern HPEN WAYLANDDRV_SelectPen( PHYSDEV dev, HPEN hpen, const struct brush_pattern *pattern ) DECLSPEC_HIDDEN;
-extern COLORREF WAYLANDDRV_SetDCBrushColor( PHYSDEV dev, COLORREF crColor ) DECLSPEC_HIDDEN;
-extern COLORREF WAYLANDDRV_SetDCPenColor( PHYSDEV dev, COLORREF crColor ) DECLSPEC_HIDDEN;
-extern void WAYLANDDRV_SetDeviceClipping( PHYSDEV dev, HRGN rgn ) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_SetDeviceGammaRamp( PHYSDEV dev, LPVOID ramp ) DECLSPEC_HIDDEN;
-extern COLORREF WAYLANDDRV_SetPixel( PHYSDEV dev, INT x, INT y, COLORREF color ) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_StretchBlt( PHYSDEV dst_dev, struct bitblt_coords *dst,
-                               PHYSDEV src_dev, struct bitblt_coords *src, DWORD rop ) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_StrokeAndFillPath( PHYSDEV dev ) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_StrokePath( PHYSDEV dev ) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_UnrealizePalette( HPALETTE hpal ) DECLSPEC_HIDDEN;
-
-/* X11 driver internal functions */
-
-
-
-extern DWORD copy_image_bits( BITMAPINFO *info, BOOL is_r8g8b8, XImage *image,
-                              const struct gdi_image_bits *src_bits, struct gdi_image_bits *dst_bits,
-                              struct bitblt_coords *coords, const int *mapping, unsigned int zeropad_mask ) DECLSPEC_HIDDEN;
-
-
-/*
-
-extern struct window_surface *create_surface( Window window, const XVisualInfo *vis, const RECT *rect,
-                                              COLORREF color_key, BOOL use_alpha ) DECLSPEC_HIDDEN;
-
-*/
 
 extern void set_surface_color_key( struct window_surface *window_surface, COLORREF color_key ) DECLSPEC_HIDDEN;
 extern HRGN expose_surface( struct window_surface *window_surface, const RECT *rect ) DECLSPEC_HIDDEN;
 
-extern RGNDATA *WAYLANDDRV_GetRegionData( HRGN hrgn, HDC hdc_lptodp ) DECLSPEC_HIDDEN;
-extern BOOL add_extra_clipping_region( WAYLANDDRV_PDEVICE *dev, HRGN rgn ) DECLSPEC_HIDDEN;
-extern void restore_clipping_region( WAYLANDDRV_PDEVICE *dev ) DECLSPEC_HIDDEN;
-extern void add_device_bounds( WAYLANDDRV_PDEVICE *dev, const RECT *rect ) DECLSPEC_HIDDEN;
-
-//extern void execute_rop( WAYLANDDRV_PDEVICE *physdev, Pixmap src_pixmap, GC gc, const RECT *visrect, DWORD rop ) DECLSPEC_HIDDEN;
-
-extern BOOL WAYLANDDRV_SetupGCForPatBlt( WAYLANDDRV_PDEVICE *physDev, GC gc, BOOL fMapColors ) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_SetupGCForBrush( WAYLANDDRV_PDEVICE *physDev ) DECLSPEC_HIDDEN;
-extern INT WAYLANDDRV_XWStoDS( HDC hdc, INT width ) DECLSPEC_HIDDEN;
-extern INT WAYLANDDRV_YWStoDS( HDC hdc, INT height ) DECLSPEC_HIDDEN;
-
-extern BOOL client_side_graphics DECLSPEC_HIDDEN;
-extern BOOL client_side_with_render DECLSPEC_HIDDEN;
-extern BOOL shape_layered_windows DECLSPEC_HIDDEN;
 
 
-extern struct opengl_funcs *get_wgl_driver(UINT) DECLSPEC_HIDDEN;
+//extern struct opengl_funcs *get_wgl_driver(UINT) DECLSPEC_HIDDEN;
 extern const struct vulkan_funcs *get_vulkan_driver(UINT) DECLSPEC_HIDDEN;
 
 /* X11 GDI palette driver */
 
-#define WAYLANDDRV_PALETTE_FIXED    0x0001 /* read-only colormap - have to use XAllocColor (if not virtual) */
-#define WAYLANDDRV_PALETTE_VIRTUAL  0x0002 /* no mapping needed - pixel == pixel color */
 
-#define WAYLANDDRV_PALETTE_PRIVATE  0x1000 /* private colormap, identity mapping */
-
-extern UINT16 WAYLANDDRV_PALETTE_PaletteFlags DECLSPEC_HIDDEN;
-
-extern int *WAYLANDDRV_PALETTE_PaletteToXPixel DECLSPEC_HIDDEN;
-extern int *WAYLANDDRV_PALETTE_XPixelToPalette DECLSPEC_HIDDEN;
-extern ColorShifts WAYLANDDRV_PALETTE_default_shifts DECLSPEC_HIDDEN;
-
-extern int WAYLANDDRV_PALETTE_mapEGAPixel[16] DECLSPEC_HIDDEN;
-
-extern int WAYLANDDRV_PALETTE_Init(void) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_IsSolidColor(COLORREF color) DECLSPEC_HIDDEN;
-
-extern COLORREF WAYLANDDRV_PALETTE_ToLogical(WAYLANDDRV_PDEVICE *physDev, int pixel) DECLSPEC_HIDDEN;
-extern int WAYLANDDRV_PALETTE_ToPhysical(WAYLANDDRV_PDEVICE *physDev, COLORREF color) DECLSPEC_HIDDEN;
-extern COLORREF WAYLANDDRV_PALETTE_GetColor( WAYLANDDRV_PDEVICE *physDev, COLORREF color ) DECLSPEC_HIDDEN;
-
-/* GDI escapes */
-
-#define WAYLANDDRV_ESCAPE 6789
-enum waylanddrv_escape_codes
-{
-    WAYLANDDRV_SET_DRAWABLE,     /* set current drawable for a DC */
-    WAYLANDDRV_GET_DRAWABLE,     /* get current drawable for a DC */
-    WAYLANDDRV_START_EXPOSURES,  /* start graphics exposures */
-    WAYLANDDRV_END_EXPOSURES,    /* end graphics exposures */
-    WAYLANDDRV_FLUSH_GL_DRAWABLE, /* flush changes made to the gl drawable */
-    WAYLANDDRV_FLUSH_GDI_DISPLAY /* flush the gdi display */
-};
-
-struct waylanddrv_escape_set_drawable
-{
-    enum waylanddrv_escape_codes code;         /* escape code (WAYLANDDRV_SET_DRAWABLE) */
-    Drawable                 drawable;     /* X drawable */
-    int                      mode;         /* ClipByChildren or IncludeInferiors */
-    RECT                     dc_rect;      /* DC rectangle relative to drawable */
-};
-
-struct waylanddrv_escape_get_drawable
-{
-    enum waylanddrv_escape_codes code;         /* escape code (WAYLANDDRV_GET_DRAWABLE) */
-    Drawable                 drawable;     /* X drawable */
-    Drawable                 gl_drawable;  /* GL drawable */
-    int                      pixel_format; /* internal GL pixel format */
-};
-
-struct waylanddrv_escape_flush_gl_drawable
-{
-    enum waylanddrv_escape_codes code;         /* escape code (WAYLANDDRV_FLUSH_GL_DRAWABLE) */
-    Drawable                 gl_drawable;  /* GL drawable */
-    BOOL                     flush;        /* flush X11 before copying */
-};
 
 /**************************************************************************
  * X11 USER driver
@@ -307,26 +164,22 @@ struct waylanddrv_valuator_data
 struct waylanddrv_thread_data
 {
     Display *display;
-    //XEvent  *current_event;        /* event currently being processed */
+
     HWND     grab_hwnd;            /* window that currently grabs the mouse */
     HWND     active_window;        /* active window */
     HWND     last_focus;           /* last window that had focus */
-    //XIM      xim;                  /* input method */
-    HWND     last_xic_hwnd;        /* last xic window */
-//    XFontSet font_set;             /* international text drawing font set */
-    //Window   selection_wnd;        /* window used for selection interactions */
+    
+
     unsigned long warp_serial;     /* serial number of last pointer warp request */
     //Window   clip_window;          /* window used for cursor clipping */
     HWND     clip_hwnd;            /* message window stored in desktop while clipping is active */
     DWORD    clip_reset;           /* time when clipping was last reset */
     HKL      kbd_layout;           /* active keyboard layout */
-    enum { xi_unavailable = -1, xi_unknown, xi_disabled, xi_enabled } xi2_state; /* XInput2 state */
-    void    *xi2_devices;          /* list of XInput2 devices (valid when state is enabled) */
-    int      xi2_device_count;
+    
+
     struct waylanddrv_valuator_data x_rel_valuator;
     struct waylanddrv_valuator_data y_rel_valuator;
-    int      xi2_core_pointer;     /* XInput2 core pointer id */
-    int      xi2_current_slave;    /* Current slave driving the Core pointer */
+
 };
 
 extern struct waylanddrv_thread_data *waylanddrv_init_thread_data(void) DECLSPEC_HIDDEN;
@@ -363,13 +216,12 @@ extern Colormap default_colormap DECLSPEC_HIDDEN;
 extern BOOL clipping_cursor DECLSPEC_HIDDEN;
 extern unsigned int screen_bpp DECLSPEC_HIDDEN;
 extern BOOL use_xkb DECLSPEC_HIDDEN;
-extern BOOL usexrandr DECLSPEC_HIDDEN;
-extern BOOL usexvidmode DECLSPEC_HIDDEN;
-//extern BOOL ximInComposeMode DECLSPEC_HIDDEN;
+
+
 extern BOOL use_take_focus DECLSPEC_HIDDEN;
 extern BOOL use_primary_selection DECLSPEC_HIDDEN;
 extern BOOL use_system_cursors DECLSPEC_HIDDEN;
-extern BOOL show_systray DECLSPEC_HIDDEN;
+
 extern BOOL grab_pointer DECLSPEC_HIDDEN;
 extern BOOL grab_fullscreen DECLSPEC_HIDDEN;
 extern BOOL usexcomposite DECLSPEC_HIDDEN;
@@ -380,14 +232,21 @@ extern int primary_monitor DECLSPEC_HIDDEN;
 extern int copy_default_colors DECLSPEC_HIDDEN;
 extern int alloc_system_colors DECLSPEC_HIDDEN;
 extern int default_display_frequency DECLSPEC_HIDDEN;
-//extern int xrender_error_base DECLSPEC_HIDDEN;
+
 extern HMODULE waylanddrv_module DECLSPEC_HIDDEN;
 extern char *process_name DECLSPEC_HIDDEN;
-extern Display *clipboard_display DECLSPEC_HIDDEN;
 
-/* atoms */
 
-/* X11 event driver */
+//fshack
+extern BOOL fs_hack_enabled(void) DECLSPEC_HIDDEN;
+extern BOOL fs_hack_mapping_required(void) DECLSPEC_HIDDEN;
+extern void fs_hack_set_current_mode(int width, int height) DECLSPEC_HIDDEN;
+extern BOOL fs_hack_matches_real_mode(int w, int h) DECLSPEC_HIDDEN;
+extern POINT fs_hack_current_mode(void) DECLSPEC_HIDDEN;
+extern POINT fs_hack_real_mode(void) DECLSPEC_HIDDEN;
+extern void fs_hack_user_to_real(POINT *pos) DECLSPEC_HIDDEN;
+extern void fs_hack_real_to_user(POINT *pos) DECLSPEC_HIDDEN;
+extern void fs_hack_real_to_user_relative(double *x, double *y) DECLSPEC_HIDDEN;
 
 typedef BOOL (*waylanddrv_event_handler)( HWND hwnd /*, XEvent *event */ );
 
@@ -400,33 +259,10 @@ extern BOOL WAYLANDDRV_EnterNotify( HWND hwnd ) DECLSPEC_HIDDEN;
 extern BOOL WAYLANDDRV_KeyEvent( HWND hwnd ) DECLSPEC_HIDDEN;
 extern BOOL WAYLANDDRV_KeymapNotify( HWND hwnd ) DECLSPEC_HIDDEN;
 extern BOOL WAYLANDDRV_DestroyNotify( HWND hwnd ) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_SelectionRequest( HWND hWnd ) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_SelectionClear( HWND hWnd ) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_MappingNotify( HWND hWnd ) DECLSPEC_HIDDEN;
+
+
 extern BOOL WAYLANDDRV_GenericEvent( HWND hwnd ) DECLSPEC_HIDDEN;
 
-
-
-/* X11 driver private messages, must be in the range 0x80001000..0x80001fff */
-enum waylanddrv_window_messages
-{
-    WM_WAYLANDDRV_UPDATE_CLIPBOARD = 0x80001000,
-    WM_WAYLANDDRV_SET_WIN_REGION,
-    WM_WAYLANDDRV_RESIZE_DESKTOP,
-    WM_WAYLANDDRV_SET_CURSOR,
-    WM_WAYLANDDRV_CLIP_CURSOR
-};
-
-/* _NET_WM_STATE properties that we keep track of */
-enum waylanddrv_net_wm_state
-{
-    NET_WM_STATE_FULLSCREEN,
-    NET_WM_STATE_ABOVE,
-    NET_WM_STATE_MAXIMIZED,
-    NET_WM_STATE_SKIP_PAGER,
-    NET_WM_STATE_SKIP_TASKBAR,
-    NB_NET_WM_STATES
-};
 
 /* waylanddrv private window data */
 struct waylanddrv_win_data
@@ -440,21 +276,20 @@ struct waylanddrv_win_data
     RECT        window_rect;    /* USER window rectangle relative to parent */
     RECT        whole_rect;     /* X window rectangle for the whole window relative to parent */
     RECT        client_rect;    /* client area relative to parent */
-    //XIC         xic;            /* X input context */
+
     BOOL        managed : 1;    /* is window managed? */
     BOOL        mapped : 1;     /* is window mapped? (in either normal or iconic state) */
     BOOL        iconic : 1;     /* is window in iconic state? */
-    BOOL        embedded : 1;   /* is window an XEMBED client? */
+    
     BOOL        shaped : 1;     /* is window using a custom region shape? */
     BOOL        layered : 1;    /* is window layered and with valid attributes? */
     BOOL        use_alpha : 1;  /* does window use an alpha channel? */
     int         wm_state;       /* current value of the WM_STATE property */
     DWORD       net_wm_state;   /* bit mask of active waylanddrv_net_wm_state values */
-    //Window      embedder;       /* window id of embedder */
+
     unsigned long configure_serial; /* serial number of last configure request */
     struct window_surface *surface;
-    //Pixmap         icon_pixmap;
-    //Pixmap         icon_mask;
+
     unsigned long *icon_bits;
     unsigned int   icon_size;
 };

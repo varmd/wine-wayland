@@ -16,13 +16,13 @@ index 7955e540aa..84abb0d205 100644
      data_size_t len;
      struct object_attributes *objattr;
  
+     *handle = 0;
 +    if (do_esync())
 +        return esync_create_event( handle, access, attr, type, state );
 +
      if (type != NotificationEvent && type != SynchronizationEvent) return STATUS_INVALID_PARAMETER;
      if ((ret = alloc_object_attributes( attr, &objattr, &len ))) return ret;
  
-     SERVER_START_REQ( create_event )
 -- 
 2.19.1
 

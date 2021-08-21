@@ -13,9 +13,9 @@ index 754e9e0d57..76004d613c 100644
 --- a/dlls/ntdll/unix/sync.c
 +++ b/dlls/ntdll/unix/sync.c
 @@ -622,6 +622,9 @@ NTSTATUS WINAPI NtCreateMutant(HANDLE *handle, ACCESS_MASK access, const OBJECT_ATTRIBUTES *attr,
-     data_size_t len;
      struct object_attributes *objattr;
 
+     *handle = 0;
 +    if (do_esync())
 +        return esync_create_mutex( handle, access, attr, owned );
 +

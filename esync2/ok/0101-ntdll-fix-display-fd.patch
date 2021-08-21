@@ -2,8 +2,8 @@
 +++ b/dlls/ntdll/ntdll.spec	2020-07-24 12:26:53.180090612 +0400
 @@ -1609,3 +1609,5 @@
  # Filesystem
- @ cdecl -syscall wine_nt_to_unix_file_name(ptr ptr ptr long)
- @ cdecl -syscall wine_unix_to_nt_file_name(str ptr ptr)
+ @ stdcall -syscall wine_nt_to_unix_file_name(ptr ptr ptr long)
+ @ stdcall -syscall wine_unix_to_nt_file_name(str ptr ptr)
 +
 +@ cdecl wine_esync_set_queue_fd(long)
 --- a/dlls/ntdll/misc.c	2020-07-18 01:29:13.000000000 +0400

@@ -47,12 +47,12 @@
 # @ cdecl GetDC(long long long ptr ptr long) WAYLANDDRV_GetDC
 
 @ cdecl MsgWaitForMultipleObjectsEx(long ptr long long long) WAYLANDDRV_MsgWaitForMultipleObjectsEx
-# @ cdecl ReleaseDC(long long) WAYLANDDRV_ReleaseDC
-# @ cdecl ScrollDC(long long long long) WAYLANDDRV_ScrollDC
+
+
 # @ cdecl SetActiveWindow(long) WAYLANDDRV_SetActiveWindow
 
-@ cdecl SetCapture(long long) WAYLANDDRV_SetCapture
-@ cdecl ReleaseCapture( ) WAYLANDDRV_ReleaseCapture
+# @ cdecl SetCapture(long long) WAYLANDDRV_SetCapture
+# @ cdecl ReleaseCapture( ) WAYLANDDRV_ReleaseCapture
 
 # @ cdecl SetFocus(long) WAYLANDDRV_SetFocus
 # @ cdecl SetLayeredWindowAttributes(long long long long) WAYLANDDRV_SetLayeredWindowAttributes

@@ -36,23 +36,18 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(waylanddrv);
 
+//fshack
+double fs_hack_user_to_real_w = 1., fs_hack_user_to_real_h = 1.;
+double fs_hack_real_to_user_w = 1., fs_hack_real_to_user_h = 1.;
+static int offs_x = 0, offs_y = 0;
+static int fs_width = 0, fs_height = 0;
+static int global_current_mode = 0;
 
 static struct screen_size {
     unsigned int width;
     unsigned int height;
 } screen_sizes[] = {
     /* 4:3 */
-    //{ 320,  240},
-    //{ 400,  300},
-    //{ 512,  384},
-    //{ 640,  480},
-    //{ 768,  576},
-    //{ 800,  600},
-    //{1024,  768},
-    //{1152,  864},
-    //{1280,  960},
-    //{1400, 1050},
-    {1600, 1200},
     {2048, 1536},
     /* 5:4 */
     //{1280, 1024},
@@ -61,15 +56,11 @@ static struct screen_size {
     //{1280,  720},
     {1366,  768},
     {1600,  900},
+    {1706, 960},
     {1920, 1080},
     {2560, 1440},
     {3840, 2160},
     /* 16:10 */
-    //{ 320,  200},
-    //{ 640,  400},
-    //{1280,  800},
-    {1440,  900},
-    //{1680, 1050},
     {1920, 1200},
     {2560, 1600}
 };
@@ -90,7 +81,7 @@ static void make_modes(void)
     /* original specified desktop size */
     WAYLANDDRV_Settings_AddOneMode(screen_width, screen_height, 32, 60);
     //WAYLANDDRV_Settings_AddOneMode(1920, 1080, 32, 60);
-    //WAYLANDDRV_Settings_AddOneMode(screen_width, screen_height, 24, 60);    
+    
     for (i=0; i<ARRAY_SIZE(screen_sizes); i++)
     {
       if ( (screen_sizes[i].width != screen_width) || (screen_sizes[i].height != screen_height)  )
@@ -123,11 +114,7 @@ struct waylanddrv_mode_info *WAYLANDDRV_Settings_SetHandlers(const char *name,
     pGetCurrentMode = pNewGCM;
     pSetCurrentMode = pNewSCM;
     TRACE("Resolution settings now handled by: %s\n", name);
-    //if (reserve_depths)
-    //    /* leave room for other depths */
-    //    dd_max_modes = (3+1)*(nmodes);
-    //else 
-    //24 bit and 32bit  
+
     dd_max_modes = nmodes * 2;
 
     if (dd_modes) 
@@ -180,9 +167,53 @@ static int WAYLANDDRV_nores_GetCurrentMode(void)
 
 static LONG WAYLANDDRV_nores_SetCurrentMode(int mode)
 {
-    if (mode == 0) return DISP_CHANGE_SUCCESSFUL;
-    TRACE("Ignoring mode change request mode=%d\n", mode);
-    return DISP_CHANGE_SUCCESSFUL;
+  //TODO
+  int realMode = 0;
+  
+  TRACE("Requesting mode change request mode=%d\n", mode);
+  
+    if (mode == 0) 
+      return DISP_CHANGE_SUCCESSFUL;
+  
+  
+  
+  
+    //fshack
+  double width = dd_modes[global_current_mode].width;
+  double height = dd_modes[global_current_mode].height;
+  if(dd_modes[realMode].width / (double)dd_modes[realMode].height < width / height){ /* real mode is narrower than fake mode */
+      /* scale to fit width */
+      height = dd_modes[realMode].width * (height / width);
+      width = dd_modes[realMode].width;
+      offs_x = 0;
+      offs_y = (dd_modes[realMode].height - height) / 2;
+      fs_width = dd_modes[realMode].width;
+      fs_height = (int)height;
+  }else{
+      /* scale to fit height */
+      width = dd_modes[realMode].height * (width / height);
+      height = dd_modes[realMode].height;
+      offs_x = (dd_modes[realMode].width - width) / 2;
+      offs_y = 0;
+      fs_width = (int)width;
+      fs_height = dd_modes[realMode].height;
+  }
+  fs_hack_user_to_real_w = width / (double)dd_modes[global_current_mode].width;
+  fs_hack_user_to_real_h = height / (double)dd_modes[global_current_mode].height;
+  fs_hack_real_to_user_w = dd_modes[global_current_mode].width / (double)width;
+  fs_hack_real_to_user_h = dd_modes[global_current_mode].height / (double)height;
+  TRACE(" mode %d global_current_mode %d wxh %d %d fs w fs h   %f %f \n", 
+    mode, 
+    global_current_mode, 
+    dd_modes[global_current_mode].width,
+    dd_modes[global_current_mode].height,
+    fs_hack_real_to_user_w, 
+    fs_hack_real_to_user_h
+  );
+    //fshack
+  
+  TRACE("Ignoring mode change request mode=%d\n", mode);
+  return DISP_CHANGE_SUCCESSFUL;
 }
 
 /* default handler only gets the current X desktop resolution */
@@ -196,6 +227,7 @@ void WAYLANDDRV_Settings_Init(void)
     make_modes();
 }
 
+#if 0
 static BOOL get_display_device_reg_key(char *key, unsigned len)
 {
     static const char display_device_guid_prop[] = "__wine_display_device_guid";
@@ -251,7 +283,7 @@ static BOOL write_registry_settings(const DEVMODEW *dm)
     RegCloseKey(hkey);
     return ret;
 }
-
+#endif
 
 
 /***********************************************************************
@@ -321,7 +353,7 @@ LONG CDECL WAYLANDDRV_ChangeDisplaySettingsEx( LPCWSTR devname, LPDEVMODEW devmo
     DEVMODEW dm;
     BOOL def_mode = TRUE;
 
-    //TRACE("(%s,%p,%p,0x%08x,%p)\n",debugstr_w(devname),devmode,hwnd,flags,lpvoid);
+    TRACE(" - (%s,%p,%p,0x%08x,%p)\n",debugstr_w(devname),devmode,hwnd,flags,lpvoid);
     //TRACE("flags=%s\n",_CDS_flags(flags));
     if (devmode)
     {
@@ -415,7 +447,7 @@ LONG CDECL WAYLANDDRV_ChangeDisplaySettingsEx( LPCWSTR devname, LPDEVMODEW devmo
 
     /* we have a valid mode */
     TRACE("Requested display settings match mode %d (%s)\n", mode, handler_name);
-
+    global_current_mode = mode;
     //if (flags & CDS_UPDATEREGISTRY)
     //    write_registry_settings(devmode);
 
@@ -424,3 +456,128 @@ LONG CDECL WAYLANDDRV_ChangeDisplaySettingsEx( LPCWSTR devname, LPDEVMODEW devmo
 
     return DISP_CHANGE_SUCCESSFUL;
 }
+
+
+//fshack
+
+
+
+BOOL fs_hack_enabled(void)
+{
+    return TRUE;
+}
+
+
+
+void fs_hack_set_current_mode(int width, int height)
+{
+  DEVMODEW dm;
+  TRACE("fs_hack_set_current_mode %d %d \n", width, height);
+  for(int i = 0; i < dd_mode_count; ++i)
+  {
+      if(dd_modes[i].width == width &&
+              dd_modes[i].height == height)
+      {
+        global_current_mode = i;
+        xinerama_init(width, height);
+        WAYLANDDRV_nores_SetCurrentMode(i);
+        WAYLANDDRV_EnumDisplaySettingsEx(NULL, ENUM_REGISTRY_SETTINGS, &dm, 0);
+        dm.dmPelsWidth = dd_modes[i].width;
+        dm.dmPelsHeight = dd_modes[i].height;
+        ChangeDisplaySettingsExW(NULL, &dm, NULL, CDS_RESET, NULL);
+        break;
+     }
+  }
+    
+  
+}
+
+BOOL fs_hack_matches_real_mode(int w, int h)
+{
+  if(w == dd_modes[global_current_mode].width && h == dd_modes[global_current_mode].height) {
+    return TRUE;  
+  }
+  return FALSE;
+}
+
+BOOL fs_hack_matches_last_mode(int w, int h)
+{
+    return w == fs_width && h == fs_height;
+}
+
+void fs_hack_scale_user_to_real(POINT *pos)
+{
+  TRACE("from %d,%d\n", pos->x, pos->y);
+  pos->x = lround(pos->x * fs_hack_user_to_real_w);
+  pos->y = lround(pos->y * fs_hack_user_to_real_h);
+  TRACE("to %d,%d\n", pos->x, pos->y);
+}
+
+
+void fs_hack_user_to_real(POINT *pos)
+{
+    
+    
+  TRACE("from %d,%d\n", pos->x, pos->y);
+  fs_hack_scale_user_to_real(pos);
+  pos->x += offs_x;
+  pos->y += offs_y;
+  TRACE("to %d,%d\n", pos->x, pos->y);
+    
+  
+}
+
+void fs_hack_scale_real_to_user(POINT *pos)
+{
+  TRACE("from %d,%d\n", pos->x, pos->y);
+  pos->x = lround(pos->x * fs_hack_real_to_user_w);
+  pos->y = lround(pos->y * fs_hack_real_to_user_h);
+  TRACE("to %d,%d\n", pos->x, pos->y);
+}
+
+void fs_hack_real_to_user_relative(double *x, double *y)
+{
+  TRACE("REL pos from %f,%f\n", *x, *y);
+  *x = *x * fs_hack_real_to_user_w;
+  *y = *y * fs_hack_real_to_user_h;
+  TRACE("REL pos to %f,%f\n", *x, *y);
+  
+}
+
+void fs_hack_real_to_user(POINT *pos)
+{
+    
+        TRACE("from %d,%d\n", pos->x, pos->y);
+  
+        
+
+        if(pos->x <= offs_x)
+            pos->x = 0;
+        else
+            pos->x -= offs_x;
+
+        if(pos->y <= offs_y)
+            pos->y = 0;
+        else
+            pos->y -= offs_y;
+
+        if(pos->x >= fs_width)
+            pos->x = fs_width - 1;
+        if(pos->y >= fs_height)
+            pos->y = fs_height - 1;
+        
+        
+
+        fs_hack_scale_real_to_user(pos);
+
+        TRACE("to %d,%d\n", pos->x, pos->y);
+    
+}
+
+void fs_hack_rect_user_to_real(RECT *rect)
+{
+    fs_hack_user_to_real((POINT *)&rect->left);
+    fs_hack_user_to_real((POINT *)&rect->right);
+}
+
+//fshack

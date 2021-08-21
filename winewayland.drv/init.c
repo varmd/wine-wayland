@@ -37,7 +37,7 @@ Display *gdi_display;  /* display to use for all GDI functions */
 
 static int palette_size;
 
-static INIT_ONCE init_once = INIT_ONCE_STATIC_INIT;
+
 
 static const struct gdi_dc_funcs waylanddrv_funcs;
 
@@ -69,7 +69,7 @@ static inline void push_dc_driver2( PHYSDEV *dev, PHYSDEV physdev, const struct 
     *dev = physdev;
 }
 
-static WAYLANDDRV_PDEVICE *create_x11_physdev( /* Drawable drawable*/ )
+static WAYLANDDRV_PDEVICE *create_x11_physdev( void )
 {
     WAYLANDDRV_PDEVICE *physDev;
 
@@ -77,16 +77,7 @@ static WAYLANDDRV_PDEVICE *create_x11_physdev( /* Drawable drawable*/ )
     if (!(physDev = HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*physDev) ))) return NULL;
     return physDev;
 
-  /*
 
-    InitOnceExecuteOnce( &init_once, device_init, NULL, NULL );
-
-    if (!(physDev = HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*physDev) ))) return NULL;
-
-    //physDev->drawable = drawable;
-
-    return physDev;
-  */
 }
 
 /**********************************************************************
@@ -202,26 +193,6 @@ static INT CDECL WAYLANDDRV_GetDeviceCaps( PHYSDEV dev, INT cap )
 }
 
 
-/**********************************************************************
- *           WAYLANDDRV_wine_get_wgl_driver
-*/
-
-static struct opengl_funcs * CDECL WAYLANDDRV_wine_get_wgl_driver( PHYSDEV dev, UINT version )
-{
-    struct opengl_funcs *ret = NULL;
-
-    //re-enable for opengl
-
-    if (!(ret = get_wgl_driver( version )))
-    {
-      dev = GET_NEXT_PHYSDEV( dev, wine_get_wgl_driver );
-      ret = dev->funcs->wine_get_wgl_driver( dev, version );
-    }
-
-
-    return ret;
-
-}
 
 
 /**********************************************************************
@@ -239,42 +210,36 @@ static const struct vulkan_funcs * CDECL WAYLANDDRV_wine_get_vulkan_driver( PHYS
     return ret;
 }
 
-
-
-
 static const struct gdi_dc_funcs waylanddrv_funcs =
 {
     NULL,                               /* pAbortDoc */
     NULL,                               /* pAbortPath */
     NULL,                               /* pAlphaBlend */
     NULL,                               /* pAngleArc */
-    NULL,                         /* pArc */
+    NULL,                               /* pArc */
     NULL,                               /* pArcTo */
     NULL,                               /* pBeginPath */
     NULL,                               /* pBlendImage */
-    NULL,                       /* pChord */
+    NULL,                               /* pChord */
     NULL,                               /* pCloseFigure */
+  
     WAYLANDDRV_CreateCompatibleDC,          /* pCreateCompatibleDC */
     WAYLANDDRV_CreateDC,                    /* pCreateDC */
     WAYLANDDRV_DeleteDC,                    /* pDeleteDC */
+  
     NULL,                               /* pDeleteObject */
     NULL,                               /* pDeviceCapabilities */
-    NULL,                     /* pEllipse */
+    NULL,                               /* pEllipse */
     NULL,                               /* pEndDoc */
     NULL,                               /* pEndPage */
     NULL,                               /* pEndPath */
     NULL,                               /* pEnumFonts */
-    NULL,             /* pEnumICMProfiles */
-    NULL,                               /* pExcludeClipRect */
+    NULL,                               /* pEnumICMProfiles */
     NULL,                               /* pExtDeviceMode */
-    //WAYLANDDRV_ExtEscape,                   /* pExtEscape */
-    NULL,                   /* pExtEscape */
-    //WAYLANDDRV_ExtFloodFill,                /* pExtFloodFill */
-    NULL,                /* pExtFloodFill */
-    NULL,                               /* pExtSelectClipRgn */
+    NULL,                               /* pExtEscape */
+    NULL,                               /* pExtFloodFill */
     NULL,                               /* pExtTextOut */
-    //WAYLANDDRV_FillPath,                    /* pFillPath */
-    NULL,                    /* pFillPath */
+    NULL,                               /* pFillPath */
     NULL,                               /* pFillRgn */
     NULL,                               /* pFlattenPath */
     NULL,                               /* pFontIsLinked */
@@ -285,117 +250,75 @@ static const struct gdi_dc_funcs waylanddrv_funcs =
     NULL,                               /* pGetCharABCWidthsI */
     NULL,                               /* pGetCharWidth */
     NULL,                               /* pGetCharWidthInfo */
-    WAYLANDDRV_GetDeviceCaps,               /* pGetDeviceCaps */
-    //WAYLANDDRV_GetDeviceGammaRamp,          /* pGetDeviceGammaRamp */
-    NULL,          /* pGetDeviceGammaRamp */
+    WAYLANDDRV_GetDeviceCaps,                               /* pGetDeviceCaps */
+    NULL,                               /* pGetDeviceGammaRamp */
     NULL,                               /* pGetFontData */
     NULL,                               /* pGetFontRealizationInfo */
     NULL,                               /* pGetFontUnicodeRanges */
     NULL,                               /* pGetGlyphIndices */
     NULL,                               /* pGetGlyphOutline */
-    NULL,               /* pGetICMProfile */
-    NULL,                    /* pGetImage */
+    NULL,                               /* pGetICMProfile */
+    NULL,                               /* pGetImage */
     NULL,                               /* pGetKerningPairs */
-    NULL,             /* pGetNearestColor */
+    NULL,                               /* pGetNearestColor */
     NULL,                               /* pGetOutlineTextMetrics */
     NULL,                               /* pGetPixel */
-    NULL,     /* pGetSystemPaletteEntries */
+    NULL,                               /* pGetSystemPaletteEntries */
     NULL,                               /* pGetTextCharsetInfo */
     NULL,                               /* pGetTextExtentExPoint */
     NULL,                               /* pGetTextExtentExPointI */
     NULL,                               /* pGetTextFace */
     NULL,                               /* pGetTextMetrics */
-    //WAYLANDDRV_GradientFill,                /* pGradientFill */
-    NULL,                /* pGradientFill */
-    NULL,                               /* pIntersectClipRect */
+    NULL,                               /* pGradientFill */
     NULL,                               /* pInvertRgn */
-    //WAYLANDDRV_LineTo,                      /* pLineTo */
-    NULL,                      /* pLineTo */
-    NULL,                               /* pModifyWorldTransform */
+    NULL,                               /* pLineTo */
     NULL,                               /* pMoveTo */
-    NULL,                               /* pOffsetClipRgn */
-    NULL,                               /* pOffsetViewportOrg */
-    NULL,                               /* pOffsetWindowOrg */
-    NULL,                    /* pPaintRgn */
-    NULL,                      /* pPatBlt */
-    NULL,                         /* pPie */
+    NULL,                               /* pPaintRgn */
+    NULL,                               /* pPatBlt */
+    NULL,                               /* pPie */
     NULL,                               /* pPolyBezier */
     NULL,                               /* pPolyBezierTo */
     NULL,                               /* pPolyDraw */
-    NULL,                 /* pPolyPolygon */
-    NULL,                /* pPolyPolyline */
-    //WAYLANDDRV_Polygon,                     /* pPolygon */
-    NULL,                     /* pPolygon */
-    NULL,                               /* pPolyline */
+    NULL,                               /* pPolyPolygon */
+    NULL,                               /* pPolyPolyline */
     NULL,                               /* pPolylineTo */
-    NULL,                    /* pPutImage */
-    NULL,       /* pRealizeDefaultPalette */
-    NULL,              /* pRealizePalette */
-    NULL,                   /* pRectangle */
+    NULL,                               /* pPutImage */
+    NULL,                               /* pRealizeDefaultPalette */
+    NULL,                               /* pRealizePalette */
+    NULL,                               /* pRectangle */
     NULL,                               /* pResetDC */
     NULL,                               /* pRestoreDC */
-    NULL,                   /* pRoundRect */
-    NULL,                               /* pSaveDC */
-    NULL,                               /* pScaleViewportExt */
-    NULL,                               /* pScaleWindowExt */
+    NULL,                               /* pRoundRect */
     NULL,                               /* pSelectBitmap */
-    NULL,                 /* pSelectBrush */
+    NULL,                               /* pSelectBrush */
     NULL,                               /* pSelectClipPath */
-    NULL,                  /* pSelectFont */  //NULLED
-    NULL,                               /* pSelectPalette */
-    NULL,                   /* pSelectPen */
-    NULL,                               /* pSetArcDirection */
+    NULL,                               /* pSelectFont */
+    NULL,                               /* pSelectPen */
     NULL,                               /* pSetBkColor */
-    NULL,                               /* pSetBkMode */
-    //WAYLANDDRV_SetBoundsRect,               /* pSetBoundsRect */
-    NULL,               /* pSetBoundsRect */
-    //WAYLANDDRV_SetDCBrushColor,             /* pSetDCBrushColor */
-    NULL,             /* pSetDCBrushColor */
-    //WAYLANDDRV_SetDCPenColor,               /* pSetDCPenColor */
-    NULL,               /* pSetDCPenColor */
-    //NULL,               /* pSetDCPenColor */
+    NULL,                               /* pSetBoundsRect */
+    NULL,                               /* pSetDCBrushColor */
+    NULL,                               /* pSetDCPenColor */
     NULL,                               /* pSetDIBitsToDevice */
-    //WAYLANDDRV_SetDeviceClipping,           /* pSetDeviceClipping */
-    NULL,           /* pSetDeviceClipping */
-    //WAYLANDDRV_SetDeviceGammaRamp,          /* pSetDeviceGammaRamp */
-    NULL,          /* pSetDeviceGammaRamp */
-    NULL,                               /* pSetLayout */
-    NULL,                               /* pSetMapMode */
-    NULL,                               /* pSetMapperFlags */
-    NULL,                    /* pSetPixel */
-    NULL,                               /* pSetPolyFillMode */
-    NULL,                               /* pSetROP2 */
-    NULL,                               /* pSetRelAbs */
-    NULL,                               /* pSetStretchBltMode */
-    NULL,                               /* pSetTextAlign */
-    NULL,                               /* pSetTextCharacterExtra */
+    NULL,                               /* pSetDeviceClipping */
+    NULL,                               /* pSetDeviceGammaRamp */
+    NULL,                               /* pSetPixel */
     NULL,                               /* pSetTextColor */
-    NULL,                               /* pSetTextJustification */
-    NULL,                               /* pSetViewportExt */
-    NULL,                               /* pSetViewportOrg */
-    NULL,                               /* pSetWindowExt */
-    NULL,                               /* pSetWindowOrg */
-    NULL,                               /* pSetWorldTransform */
     NULL,                               /* pStartDoc */
     NULL,                               /* pStartPage */
-    NULL,                  /* pStretchBlt */ //WAYLANDDRV_StretchBlt,
+    NULL,                               /* pStretchBlt */
     NULL,                               /* pStretchDIBits */
-    NULL,           /* pStrokeAndFillPath */ //WAYLANDDRV_StrokeAndFillPath
-    NULL,                  /* pStrokePath */
-    NULL,            /* pUnrealizePalette */
+    NULL,                               /* pStrokeAndFillPath */
+    NULL,                               /* pStrokePath */
+    NULL,                               /* pUnrealizePalette */
     NULL,                               /* pWidenPath */
-    NULL,                                // D3D ??
-    NULL,                                // D3D ??
-    #ifdef OPENGL_TEST
-    WAYLANDDRV_wine_get_wgl_driver,         /* wine_get_wgl_driver */
-    #else
-    NULL,         /* WGL Not Supported */
-    #endif
-    WAYLANDDRV_wine_get_vulkan_driver,      /* wine_get_vulkan_driver */
-    GDI_PRIORITY_GRAPHICS_DRV           /* priority */
+    NULL,                               /* pD3DKMTCheckVidPnExclusiveOwnership */
+    NULL,                               /* pD3DKMTSetVidPnSourceOwner */
+    
+    NULL,                               /* WGL not supported */
+
+    WAYLANDDRV_wine_get_vulkan_driver,   /* wine_get_vulkan_driver */
+    GDI_PRIORITY_GRAPHICS_DRV            /* priority */
 };
-
-
 
 
 /******************************************************************************
@@ -403,11 +326,5 @@ static const struct gdi_dc_funcs waylanddrv_funcs =
  */
 const struct gdi_dc_funcs * CDECL WAYLANDDRV_get_gdi_driver( unsigned int version )
 {
-    /*
-    if (version != WINE_GDI_DRIVER_VERSION)
-    {
-        ERR( "version mismatch, gdi32 wants %u but winex11 has %u\n", version, WINE_GDI_DRIVER_VERSION );
-        return NULL;
-    }*/
     return &waylanddrv_funcs;
 }

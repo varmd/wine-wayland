@@ -77,10 +77,6 @@ static inline int monitor_to_index( HMONITOR handle )
     return index - 1;
 }
 
-static void query_work_area( RECT *rc_work )
-{
-
-}
 
 
 static inline int query_screens(void)

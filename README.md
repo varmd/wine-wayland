@@ -9,6 +9,7 @@ Wine-wayland allows running DX9/DX11/DX12 and Vulkan games using pure Wayland an
  * You want to experience potentially faster and smoother gaming on Wayland
  * You are concerned about insecure X11 games that can spy on other apps running on X11
  * You want to replace all the lib32 packages with only one package, and still be able to play most 32-bit games
+ * You want to use a launcher which does not require GTK, QT or Electron.
 
 ## Screenshot
 
@@ -63,25 +64,25 @@ In wine-wayland directory
 
 ## Using wineland launcher to run games
 
-From command line (or using file manager)
+From command line (or using file manager) create a wrapper folder for the game folder and DXVK, wine, logs, etc.
 
     mkdir -p ~/.local/share/wineland/your-game
     mv YourGameFolder ~/.local/share/wineland/your-game/
 
-"your-game" above should be lowercase, no spaces tag. For example, for Subnautica it would be subnautica. After, go to your launcher, click on the blue joystick icon. In the browser tab, click Edit below the card for your-game. Enter name for your game, YourGameFolder/game.exe for exe path. And -EpicPortal for game options (for EGS games). Set mangohud, fsync/esync, and other options if needed. See below screenshot for example of options for Subnautica.
+"your-name" above should be lowercase, no spaces tag. For example, for Subnautica it would be subnautica. Then go to your launcher, click on the blue joystick icon. In the browser tab, click Edit below the card for your-game. Enter name for your game, YourGameFolder/game.exe for exe path. And -EpicPortal for game options (for EGS games). Set mangohud, fsync/esync, and other options as needed. See below screenshot for example of options for Subnautica.
 
 ![screenshot](https://raw.githubusercontent.com/varmd/wine-wayland/master/wineland/wineland-screenshot-2.png "Screenshot")
 
-Afterwards, click Submit. Then click Launch.
+Click Submit. Then click Launch.
 
 You can obtain YourGameFolder from EGS, Steam or GOG. See the notes section below for links to command line downloaders and tools for these services.
 
-For troubleshooting you can check the logs at YourGameFolder/log.log
+For troubleshooting check the logs at your-game/log.log
 
 ## Using terminal to run games with wineland launcher
 
 After setting up your game with the steps above, you can
-also run your games from the terminal.
+run your games from the terminal.
 
     wineland your-game
 
@@ -109,6 +110,7 @@ Then in the terminal run sh start-your-game.sh
 * Use `export WINE_VK_NO_CLIP_CURSOR=1` to disable cursor locking for games that erroneously try to lock mouse cursor.
 * Use `export WINE_VK_FULLSCREEN_GRAB_CURSOR=1` to automatically enable cursor grab in fullscreen.
 * Use `export WINE_VK_ALWAYS_FULLSCREEN=1` to automatically set game to fullscreen without using F11.
+* Use `export WINE_VK_USE_FSR=1` to enable FSR. 
 * For best performance use kernel with the fsync patch, and add `export WINEFSYNC=1` variable
 
 ## Keyboard shortcuts
@@ -125,6 +127,7 @@ Then in the terminal run sh start-your-game.sh
 * You can use https://github.com/ValvePython/steamctl to download games from Steam
 * GOG games can be extracted with innoextract
 * If a game is not starting, try wineserver -k, and start again, or click Launch again in the wineland launcher
+* For FSR to work, in the game settings disable any in-game fullscreen option, set resolution to lower than monitor's resolution, and disable any dynamic resolution options. Then restart the game.
 
 
 ## Caveats and issues

@@ -1,6 +1,6 @@
 # Created by: varmd
 
-RELEASE=6.12
+RELEASE=6.15
 _pkgname=('wine-wayland')
 pkgname=('wineland' 'wine-wayland')
 
@@ -108,7 +108,8 @@ prepare() {
     #patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/0002-user32-sysparamsc-new2.patch
     #patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/0004-user32-sysparams-fix-valid-adapter.patch
     
-    patch programs/explorer/desktop.c < ../../winewayland.drv/patch/explorer-desktopc.patch
+    patch programs/explorer/desktop.c < ../../winewayland.drv/patch/explorer-desktopc.patch    
+    
 
 
     cd "${srcdir}"/"${_winesrcdir}"
@@ -136,13 +137,19 @@ prepare() {
       msg2 "Applying ${_f}"
       patch -Np1 < ${_f}
     done
+    
+    
+    patch -Np1 < ../../patches/fs-1.patch
+    patch -Np1 < ../../patches/fsr-1.patch
+    patch -Np1 < ../../patches/fsr-2.patch
+    patch -Np1 < ../../patches/fsr-3.patch
 
     #rm -rf programs/explorer
     #rm -rf programs/iexplore
 
     # speed up
 
-    #sed -i '/programs\/explorer/d' configure.ac
+    sed -i '/programs\/explorer/d' configure.ac
     sed -i '/programs\/iexplore/d' configure.ac
     sed -i '/programs\/dxdiag/d' configure.ac
 
@@ -162,8 +169,17 @@ prepare() {
     sed -i '/programs\/oleview/d' configure.ac
     sed -i '/programs\/progman/d' configure.ac
     sed -i '/programs\/clock/d' configure.ac
+    sed -i '/programs\/wmplayer/d' configure.ac
+    sed -i '/programs\/spoolsv/d' configure.ac
+    sed -i '/programs\/schtasks/d' configure.ac
     sed -i '/systeminfo/d' configure.ac
     
+    #misc exe
+    sed -i '/programs\/whoami/d' configure.ac
+    sed -i '/programs\/eject/d' configure.ac
+    sed -i '/programs\/shutdown/d' configure.ac
+    
+    sed -i '/dlls\/d3d8/d' configure.ac    
     sed -i '/dlls\/dxerr8/d' configure.ac
     sed -i '/dlls\/dx8vb/d' configure.ac
     sed -i '/dlls\/opencl/d' configure.ac
@@ -174,11 +190,15 @@ prepare() {
     sed -i '/dhtmled\.ocx/d' configure.ac
     sed -i '/inetcpl\.cpl/d' configure.ac
     
+    #mshtml
+    sed -i '/mshtml/d' configure.ac
+    sed -i '/actxprxy/d' configure.ac
+    
     #wlan
     sed -i '/dlls\/wlanui/d' configure.ac
 
     sed -i '/\/tests/d' configure.ac
-    #sed -i '/dlls\/d3d12/d' configure.ac
+    sed -i '/dlls\/d3d12/d' configure.ac
     sed -i '/dlls\/jscript/d' configure.ac
     sed -i '/dlls\/hhctrl/d' configure.ac
 
@@ -262,7 +282,7 @@ build() {
 
   CPUS=$(getconf _NPROCESSORS_ONLN)
   if ((CPUS > 10)); then
-    CPUS=9;
+    CPUS=8;
   fi
 	make -s -j $CPUS
 

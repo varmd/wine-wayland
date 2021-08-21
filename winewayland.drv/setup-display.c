@@ -499,7 +499,7 @@ void wayland_init_display_devices(BOOL force)
     /* Avoid unnecessary reinit */
     if (disposition != REG_CREATED_NEW_KEY) {
       TRACE("Display registry already created \n");
-      RegCloseKey(video_keyW);
+      RegCloseKey(video_hkey);
       release_display_devices_init_mutex(mutex);
       return;
     }   

@@ -420,11 +420,11 @@ build_mesa_32() {
     -D b_ndebug=true \
     -D b_lto=false \
     -D platforms=wayland \
-    -D gallium-drivers=zink \
+    -D gallium-drivers= \
     -D dri-drivers= \
     -D vulkan-drivers=amd \
-    -D egl=true \
-    -D opengl=true \
+    -D egl=false \
+    -D opengl=false \
     -D gallium-extra-hud=false \
     -D gallium-nine=false \
     -D gallium-omx=disabled \
@@ -435,9 +435,9 @@ build_mesa_32() {
     -D gallium-opencl=disabled \
     -D vulkan-overlay-layer=true \
     -D gbm=true \
-    -D gles1=true \
-    -D gles2=true \
-    -D gles3=true \
+    -D gles1=false \
+    -D gles2=false \
+    -D gles3=false \
     -D glvnd=false \
     -D glx=disabled \
     -D libunwind=false \
@@ -445,7 +445,7 @@ build_mesa_32() {
     -D microsoft-clc=disabled \
     -D lmsensors=false \
     -D osmesa=false \
-    -D shared-glapi=true \
+    -D shared-glapi=false \
     -D zstd=false \
     -D valgrind=false
 
@@ -651,15 +651,6 @@ build_32() {
 
   export LD_LIBRARY_PATH="/usr/lib32:$pkgdir/usr/lib32:$LD_LIBRARY_PATH"
 
-  #enable OPENGL for 32bit
-  cd $srcdir
-  cd ../winewayland.drv
-  sed -i "s~//#define OPENGL_TEST~#define OPENGL_TEST~" waylanddrv.h
-  sed -i "s~EXTRALIBS = -lwayland-client~#_TRALIBS = -lwayland-client~" Makefile.in
-  sed -i "s~#XTRALIBS = -lwayland-client~EXTRALIBS = -lwayland-client~" Makefile.in
-
-
-
   # create new build dirs
 	mkdir -p "${srcdir}"/wine-wayland-32-build
 
@@ -678,7 +669,7 @@ build_32() {
     --with-wine64="$srcdir/wine-wayland-64-build" \
 		--without-x \
     --without-gsm \
-    --with-opengl \
+    --without-opengl \
     --without-pcap \
     --without-cups \
     --without-cms \
@@ -795,12 +786,7 @@ package_lib32-wine-wayland() {
 	  dlldir="${pkgdir}/usr/lib32/wine" install
 
 
-  #Redisable Opengl
-  cd $srcdir
-  cd ../winewayland.drv
-  sed -i "s~#define OPENGL_TEST~//#define OPENGL_TEST~" waylanddrv.h
-  sed -i "s~EXTRALIBS = -lwayland-client~#XTRALIBS = -lwayland-client~" Makefile.in
-  sed -i "s~#_TRALIBS = -lwayland-client~EXTRALIBS = -lwayland-client~" Makefile.in
+  
   
   #cleanup
   rm -rf $pkgdir/usr/lib32/wine/i386-unix/*.a

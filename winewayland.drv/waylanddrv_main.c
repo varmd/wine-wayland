@@ -114,18 +114,18 @@ void create_desktop( int is_one )
     HDESK desktop = 0;
 
     HWND hwnd;
-    unsigned int width, height;
-    WCHAR *cmdline = NULL, *driver = NULL;
+    
+    
     const WCHAR *name = NULL;
 
     static const WCHAR desktopW[] = {'D','e','s','k','t','o','p',0};
     static const WCHAR desktopW1[] = {'D','e','s','k','t','o','p','1',0};
-    static const WCHAR *desktopw = NULL;;
-    desktopw = &desktopW;
+    static const WCHAR *desktopw = NULL;
+    desktopw = desktopW;
     //WCHAR desktopW[] = {'D','e','s','k','t','o','p',0};
     if(is_one)
-      desktopw = &desktopW1;
-    void (WINAPI *pShellDDEInit)( BOOL ) = NULL;
+      desktopw = desktopW1;
+    
 
 
         if (!(desktop = CreateDesktopW( desktopw, NULL, NULL, 0, DESKTOP_ALL_ACCESS, NULL )))
@@ -185,8 +185,12 @@ static BOOL process_attach(void)
 
 
   static WCHAR *current_exe = NULL;
+  char *env_width, *env_height;
   static const WCHAR zfgamebrowser_exe[] = {'Z','F','G','a','m','e','B','r','o','w','s','e','r','.','e','x','e', 0};
   static WCHAR current_exepath[MAX_PATH] = {0};
+  
+  int screen_width = 1920;
+  int screen_height = 1080;
 
   GetModuleFileNameW(NULL, current_exepath, ARRAY_SIZE(current_exepath));
   current_exe = (WCHAR *)get_basename(current_exepath);
@@ -196,11 +200,10 @@ static BOOL process_attach(void)
   TRACE("current exe path %s \n", debugstr_wn(current_exepath, strlenW( current_exepath )));
   TRACE("current exe %s \n", debugstr_wn(current_exe, strlenW( current_exe )));
 
-  char *env_width = getenv( "WINE_VK_WAYLAND_WIDTH" );
-  char *env_height = getenv( "WINE_VK_WAYLAND_HEIGHT" );
+  env_width = getenv( "WINE_VK_WAYLAND_WIDTH" );
+  env_height = getenv( "WINE_VK_WAYLAND_HEIGHT" );
 
-  int screen_width = 1600;
-  int screen_height = 900;
+  
 
   if(env_width) {
     screen_width = atoi(env_width);

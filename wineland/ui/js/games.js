@@ -23,6 +23,7 @@ ${options.fullscreen_grab ? 'WINE_VK_FULLSCREEN_GRAB_CURSOR=1' : '' }
 ${options.custom_cursors ? 'WINE_VK_USE_CUSTOM_CURSORS=1' : '' }
 ${options.winefsync ? 'WINEFSYNC=1' : 'WINEFSYNC=0' }
 ${options.wineesync ? 'WINEESYNC=1' : '' }
+${options.fsr ? 'WINE_VK_USE_FSR=1' : '' }
 
 MANGOHUD=${options.mangohud  ? 1 : ''}
 MANGOHUD_CONFIG="${options.mangohud_config  ? options.mangohud_config : ''}"
@@ -170,6 +171,13 @@ const DocForm = (obj) => `
                 <div class="custom-checkbox">
                   <input type="checkbox" name="custom_cursors" id="checkbox-custom-cursors" value="1" ${ obj.options.custom_cursors ? 'checked="checked"' : '' }>
                   <label for="checkbox-custom-cursors">Enable custom game cursors (disables cursor size)</label>
+                </div>
+              </div>  
+                  
+              <div class="form-group">  
+                <div class="custom-checkbox">
+                  <input type="checkbox" name="fsr" id="checkbox-fsr" value="1" ${ obj.options.fsr ? 'checked="checked"' : '' }>
+                  <label for="checkbox-fsr">Enable FSR (enabled Wayland fullscreen)</label>
                 </div>
               </div>  
           
@@ -428,10 +436,6 @@ function load_docs(){
   
   var objs = db.get('games').value();
   
-  
-  
-  console.log(objs);
-  
   $id("content-area").innerHTML = ListPage(objs);
   
   
@@ -464,9 +468,9 @@ function load_docs(){
         height: 1080,
         cursor_size: 32,
         custom_cursors: 0,
+        fsr: 0,
     };
     
-    console.log(obj);
     
     if(!obj.options){
       obj.options = defaults;
@@ -510,12 +514,9 @@ function load_docs(){
           height: el.height.value,
           cursor_size: el.cursor_size.value,
           custom_cursors: el.custom_cursors.checked,
-          
+          fsr: el.fsr.checked,          
         }
       
-        console.log("Test///");
-        
-        
         console.log("Updating data");
         db.get(tbl_name)
         .find({ name: el.name.value })

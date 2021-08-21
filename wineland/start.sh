@@ -2,8 +2,8 @@
 # Copyright 2020-2021 varmd
 #
 
-WINE_VK_DXVK_VERSION="1.9"
-WINE_WAYLAND_VERSION="6.12"
+WINE_VK_DXVK_VERSION="1.9.1"
+WINE_WAYLAND_VERSION="6.15"
 
 #partition check
 #df -P ~/.local/share/wineland/game/winebin/usr/bin/wine64 | tail -1 | cut -d' ' -f 1
@@ -86,9 +86,7 @@ if [[ -z "$IS_64_EXE" ]]; then
   echo "32bit exe"
   WINE_CMD="wine"
   export LD_LIBRARY_PATH="/usr/lib/wineland/lib32:$LD_LIBRARY_PATH"
-  export VK_ICD_FILENAMES="/usr/lib/wineland/vulkan/icd.d/intel_icd.i686.json:/usr/lib/wineland/vulkan/icd.d/radeon_icd.i686.json"
-  export MESA_LOADER_DRIVER_OVERRIDE=zink
-  export LIBGL_DRIVERS_PATH="/usr/lib/wineland/lib32/dri"
+  export VK_ICD_FILENAMES="/usr/lib/wineland/vulkan/icd.d/intel_icd.i686.json:/usr/lib/wineland/vulkan/icd.d/radeon_icd.i686.json"  
 fi
 
 cd "$PWD_PATH"
@@ -102,6 +100,7 @@ export MANGOHUD_CONFIG
 export WINEDLLOVERRIDES
 export WINE_VK_FULLSCREEN_GRAB_CURSOR
 export WINE_VK_VULKAN_ONLY
+export WINE_VK_USE_FSR
 export XCURSOR_SIZE
 export WINE_VK_USE_CUSTOM_CURSORS
 export WINE_VK_ALWAYS_FULLSCREEN
