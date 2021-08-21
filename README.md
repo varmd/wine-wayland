@@ -64,16 +64,16 @@ In wine-wayland directory
 
 ## Using wineland launcher to run games
 
-From command line (or using file manager) create a wrapper folder for the game folder and DXVK, wine, logs, etc.
+From command line (or using file manager)
 
     mkdir -p ~/.local/share/wineland/your-game
     mv YourGameFolder ~/.local/share/wineland/your-game/
 
-"your-name" above should be lowercase, no spaces tag. For example, for Subnautica it would be subnautica. Then go to your launcher, click on the blue joystick icon. In the browser tab, click Edit below the card for your-game. Enter name for your game, YourGameFolder/game.exe for exe path. And -EpicPortal for game options (for EGS games). Set mangohud, fsync/esync, and other options as needed. See below screenshot for example of options for Subnautica.
+"your-game" above should be lowercase, no spaces tag. For example, for Subnautica it would be subnautica. After, go to your launcher, click on the blue joystick icon. In the browser tab, click Edit below the card for your-game. Enter name for your game, YourGameFolder/game.exe for exe path. And -EpicPortal for game options (for EGS games). Set mangohud, fsync/esync, and other options if needed. See below screenshot for example of options for Subnautica.
 
 ![screenshot](https://raw.githubusercontent.com/varmd/wine-wayland/master/wineland/wineland-screenshot-2.png "Screenshot")
 
-Click Submit. Then click Launch.
+Afterwards, click Submit. Then click Launch.
 
 You can obtain YourGameFolder from EGS, Steam or GOG. See the notes section below for links to command line downloaders and tools for these services.
 
