@@ -1603,21 +1603,24 @@ void wayland_pointer_motion_cb_vulkan(void *data,
   global_input.u.mi.dy = wl_fixed_to_int(sy);
   
   
-  if(!global_vulkan_rect_flag) {
+  //It takes some time before correct rect is returned
+  if(global_vulkan_rect_flag < 3) {
+    global_vulkan_rect_flag++;
+    GetWindowRect(global_vulkan_hwnd, &global_vulkan_rect);    
+  }
+  
+  //SetWindowPos crashes Unity if used elsewhere
+  if(global_vulkan_rect.left != 0 || global_vulkan_rect.top != 0) {
+    SetWindowPos( global_vulkan_hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_NOSENDCHANGING);
     GetWindowRect(global_vulkan_hwnd, &global_vulkan_rect);
-    global_vulkan_rect_flag = 1;
   }
   
   if(global_fsr) {
     
-    
+    //RECT title_rect;
     //GetClientRect(global_vulkan_hwnd, &title_rect);
     
-    //TRACE("Motion x y %d %d %s %s  \n", wl_fixed_to_int(sx), wl_fixed_to_int(sy), wine_dbgstr_rect( &rect ), wine_dbgstr_rect( &title_rect ));
     
-    
-    //client_point.x = rect.left + title_rect.left;
-    //client_point.y = rect.top + title_rect.top;
     client_point.x = global_vulkan_rect.left;
     client_point.y = global_vulkan_rect.top;
     if(client_point.x != 0 || client_point.y != 0) {
@@ -1632,6 +1635,17 @@ void wayland_pointer_motion_cb_vulkan(void *data,
     fs_hack_real_to_user(&point);
     global_input.u.mi.dx = point.x;
     global_input.u.mi.dy = point.y;
+    
+    #if 0
+    TRACE("Motion (x y - x y %d %d %d %d) %s %s  \n", 
+      wl_fixed_to_int(sx),   
+      wl_fixed_to_int(sy),
+      global_input.u.mi.dx,
+      global_input.u.mi.dy,
+      wine_dbgstr_rect( &global_vulkan_rect ), 
+      wine_dbgstr_rect( &title_rect )
+    );
+    #endif
     
   } else {
     global_input.u.mi.dx = global_input.u.mi.dx + global_vulkan_rect.left;
@@ -4076,6 +4090,7 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
     SetWindowLongPtrW(global_vulkan_hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE);
     //For caching global_vulkan_hwnd rect
     global_vulkan_rect_flag = 0;
+    GetWindowRect(global_vulkan_hwnd, &global_vulkan_rect);
     return;
   }
 
@@ -4761,11 +4776,14 @@ static VkResult WAYLANDDRV_vkCreateSwapchainKHR(VkDevice device,
     VkSwapchainCreateInfoKHR create_info_host;
     RECT window_rect;
   
+    global_vulkan_rect_flag = 0;
+  
     //FSR
-    TRACE("%p %p %p %p\n", device, create_info, allocator, swapchain);  
-    if(global_vulkan_hwnd) {
+    //TRACE("%p %p %p %p\n", device, create_info, allocator, swapchain);  
+    if(global_vulkan_hwnd && global_fsr && !fs_hack_matches_real_mode(create_info->imageExtent.width, create_info->imageExtent.height) ) {
       GetClientRect(global_vulkan_hwnd, &window_rect);
-      TRACE("Vulkan hwnd rect %d %d \n", create_info->imageExtent.width,
+      TRACE("Vulkan hwnd rect %d %d \n", 
+        create_info->imageExtent.width,
         create_info->imageExtent.height
       );
       
@@ -4899,13 +4917,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
       }
       SERVER_END_REQ;
 
-
-      //SetWindowPos( global_vulkan_hwnd, HWND_TOP, 0, 0, screen_width, screen_height, 0);
-      //SetWindowPos( global_vulkan_hwnd, HWND_TOP, 0, 0, screen_width, screen_height, SWP_NOZORDER | SWP_NOSIZE | SWP_NOSENDCHANGING);
-
       TRACE("New global vulkan hwnd is %p \n", create_info->hwnd);
-
-
 
     } else {
       TRACE("Not visible for %p %p %p %p\n", instance, create_info, allocator, surface);
@@ -5279,11 +5291,13 @@ static VkBool32 WAYLANDDRV_query_fs_hack(VkSurfaceKHR surface, VkExtent2D *real_
 //static VkBool32 WAYLANDDRV_query_fs_hack(VkSurfaceKHR surface, VkExtent2D *real_sz, VkExtent2D *user_sz, VkRect2D *dst_blit, VkFilter *filter)
 {
   
-  TRACE("fshack test \n");  
-  
   RECT window_rect;
   char *env_width, *env_height;
   int screen_width = 0, screen_height = 0;
+  
+  TRACE("fshack test \n");
+  
+  global_vulkan_rect_flag = 0;
   
   env_width = getenv( "WINE_VK_WAYLAND_WIDTH" );
   env_height = getenv( "WINE_VK_WAYLAND_HEIGHT" );
@@ -5306,6 +5320,8 @@ static VkBool32 WAYLANDDRV_query_fs_hack(VkSurfaceKHR surface, VkExtent2D *real_
   if(env_height) {
     screen_height = atoi(env_height);
   }  
+  
+  fs_hack_set_real_mode(screen_width, screen_height);
     
   GetClientRect(global_vulkan_hwnd, &window_rect);
   
@@ -5316,7 +5332,7 @@ static VkBool32 WAYLANDDRV_query_fs_hack(VkSurfaceKHR surface, VkExtent2D *real_
   
   //real res equals user res
   if(window_rect.right == screen_width && window_rect.bottom == screen_height && 
-  fs_hack_matches_real_mode(window_rect.right, window_rect.bottom)  ) {
+  fs_hack_matches_current_mode(window_rect.right, window_rect.bottom)  ) {
     TRACE("Disabling FSR \n");
     global_fsr = 0;
     return VK_FALSE;

@@ -42,6 +42,7 @@ double fs_hack_real_to_user_w = 1., fs_hack_real_to_user_h = 1.;
 static int offs_x = 0, offs_y = 0;
 static int fs_width = 0, fs_height = 0;
 static int global_current_mode = 0;
+static int global_real_mode = 0;
 
 static struct screen_size {
     unsigned int width;
@@ -169,18 +170,19 @@ static LONG WAYLANDDRV_nores_SetCurrentMode(int mode)
 {
   //TODO
   int realMode = 0;
+  double width, height;
   
   TRACE("Requesting mode change request mode=%d\n", mode);
   
-    if (mode == 0) 
-      return DISP_CHANGE_SUCCESSFUL;
+  if (mode == 0) 
+    return DISP_CHANGE_SUCCESSFUL;
   
   
   
   
-    //fshack
-  double width = dd_modes[global_current_mode].width;
-  double height = dd_modes[global_current_mode].height;
+  //fshack
+  width = dd_modes[global_current_mode].width;
+  height = dd_modes[global_current_mode].height;
   if(dd_modes[realMode].width / (double)dd_modes[realMode].height < width / height){ /* real mode is narrower than fake mode */
       /* scale to fit width */
       height = dd_modes[realMode].width * (height / width);
@@ -212,14 +214,14 @@ static LONG WAYLANDDRV_nores_SetCurrentMode(int mode)
   );
     //fshack
   
-  TRACE("Ignoring mode change request mode=%d\n", mode);
+  //TRACE("Ignoring mode change request mode=%d\n", mode);
   return DISP_CHANGE_SUCCESSFUL;
 }
 
 /* default handler only gets the current X desktop resolution */
 void WAYLANDDRV_Settings_Init(void)
 {
-    RECT primary = get_primary_monitor_rect();
+    //RECT primary = get_primary_monitor_rect();
     WAYLANDDRV_Settings_SetHandlers("NoRes", 
                                 WAYLANDDRV_nores_GetCurrentMode, 
                                 WAYLANDDRV_nores_SetCurrentMode, 
@@ -227,63 +229,6 @@ void WAYLANDDRV_Settings_Init(void)
     make_modes();
 }
 
-#if 0
-static BOOL get_display_device_reg_key(char *key, unsigned len)
-{
-    static const char display_device_guid_prop[] = "__wine_display_device_guid";
-    static const char video_path[] = "System\\CurrentControlSet\\Control\\Video\\{";
-    static const char display0[] = "}\\0000";
-    ATOM guid_atom;
-
-    assert(len >= sizeof(video_path) + sizeof(display0) + 40);
-
-    guid_atom = HandleToULong(GetPropA(GetDesktopWindow(), display_device_guid_prop));
-    if (!guid_atom) return FALSE;
-
-    memcpy(key, video_path, sizeof(video_path));
-
-    if (!GlobalGetAtomNameA(guid_atom, key + strlen(key), 40))
-        return FALSE;
-
-    strcat(key, display0);
-
-    TRACE("display device key %s\n", wine_dbgstr_a(key));
-    return TRUE;
-}
-
-static BOOL write_registry_settings(const DEVMODEW *dm)
-{
-    char wine_x11_reg_key[128];
-    HKEY hkey;
-    BOOL ret = TRUE;
-
-    if (!get_display_device_reg_key(wine_x11_reg_key, sizeof(wine_x11_reg_key)))
-        return FALSE;
-
-    if (RegCreateKeyExA(HKEY_CURRENT_CONFIG, wine_x11_reg_key, 0, NULL,
-                        REG_OPTION_VOLATILE, KEY_WRITE, NULL, &hkey, NULL))
-        return FALSE;
-
-#define set_value(name, data) \
-    if (RegSetValueExA(hkey, name, 0, REG_DWORD, (const BYTE*)(data), sizeof(DWORD))) \
-        ret = FALSE
-
-    set_value("DefaultSettings.BitsPerPel", &dm->dmBitsPerPel);
-    set_value("DefaultSettings.XResolution", &dm->dmPelsWidth);
-    set_value("DefaultSettings.YResolution", &dm->dmPelsHeight);
-    set_value("DefaultSettings.VRefresh", &dm->dmDisplayFrequency);
-    set_value("DefaultSettings.Flags", &dm->u2.dmDisplayFlags);
-    set_value("DefaultSettings.XPanning", &dm->u1.s2.dmPosition.x);
-    set_value("DefaultSettings.YPanning", &dm->u1.s2.dmPosition.y);
-    set_value("DefaultSettings.Orientation", &dm->u1.s2.dmDisplayOrientation);
-    set_value("DefaultSettings.FixedOutput", &dm->u1.s2.dmDisplayFixedOutput);
-
-#undef set_value
-
-    RegCloseKey(hkey);
-    return ret;
-}
-#endif
 
 
 /***********************************************************************
@@ -469,6 +414,18 @@ BOOL fs_hack_enabled(void)
 
 
 
+void fs_hack_set_real_mode(int width, int height)
+{
+  for(int i = 0; i < dd_mode_count; ++i)
+  {
+    if(dd_modes[i].width == width &&
+            dd_modes[i].height == height)
+    {
+      global_real_mode = i;
+    }
+  }
+}
+  
 void fs_hack_set_current_mode(int width, int height)
 {
   DEVMODEW dm;
@@ -494,6 +451,14 @@ void fs_hack_set_current_mode(int width, int height)
 
 BOOL fs_hack_matches_real_mode(int w, int h)
 {
+  if(w == dd_modes[global_real_mode].width && h == dd_modes[global_real_mode].height) {
+    return TRUE;  
+  }
+  return FALSE;
+}
+
+BOOL fs_hack_matches_current_mode(int w, int h)
+{
   if(w == dd_modes[global_current_mode].width && h == dd_modes[global_current_mode].height) {
     return TRUE;  
   }
@@ -507,10 +472,10 @@ BOOL fs_hack_matches_last_mode(int w, int h)
 
 void fs_hack_scale_user_to_real(POINT *pos)
 {
-  TRACE("from %d,%d\n", pos->x, pos->y);
+  //TRACE("from %d,%d\n", pos->x, pos->y);
   pos->x = lround(pos->x * fs_hack_user_to_real_w);
   pos->y = lround(pos->y * fs_hack_user_to_real_h);
-  TRACE("to %d,%d\n", pos->x, pos->y);
+  //TRACE("to %d,%d\n", pos->x, pos->y);
 }
 
 
@@ -529,10 +494,10 @@ void fs_hack_user_to_real(POINT *pos)
 
 void fs_hack_scale_real_to_user(POINT *pos)
 {
-  TRACE("from %d,%d\n", pos->x, pos->y);
+  //TRACE("from %d,%d\n", pos->x, pos->y);
   pos->x = lround(pos->x * fs_hack_real_to_user_w);
   pos->y = lround(pos->y * fs_hack_real_to_user_h);
-  TRACE("to %d,%d\n", pos->x, pos->y);
+  //TRACE("to %d,%d\n", pos->x, pos->y);
 }
 
 void fs_hack_real_to_user_relative(double *x, double *y)
@@ -547,7 +512,7 @@ void fs_hack_real_to_user_relative(double *x, double *y)
 void fs_hack_real_to_user(POINT *pos)
 {
     
-        TRACE("from %d,%d\n", pos->x, pos->y);
+        //TRACE("from %d,%d\n", pos->x, pos->y);
   
         
 
@@ -570,7 +535,7 @@ void fs_hack_real_to_user(POINT *pos)
 
         fs_hack_scale_real_to_user(pos);
 
-        TRACE("to %d,%d\n", pos->x, pos->y);
+        //TRACE("to %d,%d\n", pos->x, pos->y);
     
 }
 

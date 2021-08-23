@@ -240,8 +240,10 @@ extern char *process_name DECLSPEC_HIDDEN;
 //fshack
 extern BOOL fs_hack_enabled(void) DECLSPEC_HIDDEN;
 extern BOOL fs_hack_mapping_required(void) DECLSPEC_HIDDEN;
+extern void fs_hack_set_real_mode(int width, int height) DECLSPEC_HIDDEN;
 extern void fs_hack_set_current_mode(int width, int height) DECLSPEC_HIDDEN;
 extern BOOL fs_hack_matches_real_mode(int w, int h) DECLSPEC_HIDDEN;
+extern BOOL fs_hack_matches_current_mode(int w, int h) DECLSPEC_HIDDEN;
 extern POINT fs_hack_current_mode(void) DECLSPEC_HIDDEN;
 extern POINT fs_hack_real_mode(void) DECLSPEC_HIDDEN;
 extern void fs_hack_user_to_real(POINT *pos) DECLSPEC_HIDDEN;
@@ -298,9 +300,8 @@ struct waylanddrv_win_data
 extern void release_win_data( struct waylanddrv_win_data *data ) DECLSPEC_HIDDEN;
 extern Window WAYLANDDRV_get_whole_window( HWND hwnd ) DECLSPEC_HIDDEN;
 
-extern void sync_gl_drawable( HWND hwnd ) DECLSPEC_HIDDEN;
-extern void set_gl_drawable_parent( HWND hwnd, HWND parent ) DECLSPEC_HIDDEN;
-extern void destroy_gl_drawable( HWND hwnd ) DECLSPEC_HIDDEN;
+
+
 extern void wine_vk_surface_destroy( HWND hwnd ) DECLSPEC_HIDDEN;
 
 extern void wait_for_withdrawn_state( HWND hwnd, BOOL set ) DECLSPEC_HIDDEN;
@@ -332,16 +333,8 @@ extern void ungrab_clipping_window(void) DECLSPEC_HIDDEN;
 extern void reset_clipping_window(void) DECLSPEC_HIDDEN;
 extern BOOL clip_fullscreen_window( HWND hwnd, BOOL reset ) DECLSPEC_HIDDEN;
 extern void move_resize_window( HWND hwnd, int dir ) DECLSPEC_HIDDEN;
-//extern void WAYLANDDRV_InitKeyboard( Display *display ) DECLSPEC_HIDDEN;
-extern DWORD CDECL WAYLANDDRV_MsgWaitForMultipleObjectsEx( DWORD count, const HANDLE *handles, DWORD timeout,
-//extern void CDECL WAYLANDDRV_MsgWaitForMultipleObjectsEx( DWORD count, const HANDLE *handles, DWORD timeout,
-                                                       DWORD mask, DWORD flags ) DECLSPEC_HIDDEN;
 
-//typedef int (*waylanddrv_error_callback)( Display *display, XErrorEvent *event, void *arg );
 
-//extern void WAYLANDDRV_expect_error( Display *display, waylanddrv_error_callback callback, void *arg ) DECLSPEC_HIDDEN;
-extern int WAYLANDDRV_check_error(void) DECLSPEC_HIDDEN;
-extern void WAYLANDDRV_X_to_window_rect( struct waylanddrv_win_data *data, RECT *rect ) DECLSPEC_HIDDEN;
 extern POINT virtual_screen_to_root( INT x, INT y ) DECLSPEC_HIDDEN;
 extern POINT root_to_virtual_screen( INT x, INT y ) DECLSPEC_HIDDEN;
 extern RECT get_virtual_screen_rect(void) DECLSPEC_HIDDEN;
