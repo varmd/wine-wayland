@@ -178,11 +178,14 @@ prepare() {
     sed -i '/programs\/whoami/d' configure.ac
     sed -i '/programs\/eject/d' configure.ac
     sed -i '/programs\/shutdown/d' configure.ac
+    sed -i '/programs\/csript/d' configure.ac
+    sed -i '/programs\/dplaysvr/d' configure.ac
     
     sed -i '/dlls\/d3d8/d' configure.ac    
     sed -i '/dlls\/dxerr8/d' configure.ac
     sed -i '/dlls\/dx8vb/d' configure.ac
     sed -i '/dlls\/opencl/d' configure.ac
+    sed -i '/msstyles/d' configure.ac
     
     #ie stuff
     #sed -i '/dlls\/shdocvw/d' configure.ac

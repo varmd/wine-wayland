@@ -10,7 +10,6 @@ makedepends+=(
     'lib32-libffi'
     'lib32-gcc-libs'
     'lib32-libdrm'
-    'lib32-libelf'
     'lib32-vulkan-icd-loader'
     'lib32-zlib'
     'automake'
@@ -38,6 +37,47 @@ url_libsystemd32="https://github.com/systemd/systemd-stable/archive/v247.2.zip"
 
 url_libjpegturbo="https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/2.1.0.zip"
 url_libpng="https://github.com/glennrp/libpng/archive/refs/tags/v1.6.37.zip"
+
+url_libelf="https://sourceware.org/elfutils/ftp/0.185/elfutils-0.185.tar.bz2"
+
+build_libelf_32() {
+  cd "${srcdir}"
+
+  rm -rf $(find . -maxdepth 1 -type d -name "*elfutils*" | sed 1q)
+
+  if [ ! -f elfutils.tar.bz2 ]; then
+    curl -L $url_libelf > elfutils.tar.bz2
+  fi
+  
+  tar xjf elfutils.tar.bz2
+
+  cd $(find . -maxdepth 1 -type d -name "*elfutils*"  | sed 1q)
+
+
+
+  export CC="gcc -m32"
+  export CXX="g++ -m32"
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig:$pkgdir/usr/lib32/pkgconfig"
+
+
+  export CC="gcc -m32"
+  export CXX="g++ -m32"
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"  
+
+  ./configure --prefix=/usr \
+    --sysconfdir=/etc \
+    --libdir=/usr/lib32 \
+    --disable-libdebuginfod \
+    --disable-debuginfod
+
+  CPUS=$(getconf _NPROCESSORS_ONLN)
+  make -j $CPUS
+  make DESTDIR="$pkgdir" install
+
+  cd $pkgdir/usr/lib32/pkgconfig
+  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libelf.pc
+  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libdw.pc
+}
 
 
 
@@ -724,6 +764,7 @@ package_lib32-wine-wayland() {
   provides=('lib32-wine')
 
   if [ -z "${WINE_BUILD_32_DEV:-}" ]; then
+    build_libelf_32
     build_systemd_32
     build_wayland_32
     build_sdl2_32
@@ -754,9 +795,9 @@ package_lib32-wine-wayland() {
   mkdir -p $pkgdir/usr/lib/wineland/vulkan/icd.d
   cp $pkgdir/usr/share/vulkan/icd.d/*i686* $pkgdir/usr/lib/wineland/vulkan/icd.d/
 
-  rm -rf $pkgdir/usr/share
-  rm -rf $pkgdir/usr/include
-  rm -rf $pkgdir/usr/bin
+  rm -rf  $pkgdir/usr/share
+  rm -rf  $pkgdir/usr/include
+  rm -rf  $pkgdir/usr/bin
   rm -rf  $pkgdir/usr/lib32/pkgconfig
   rm -rf  $pkgdir/usr/lib32/cmake
   rm -rf  $pkgdir/usr/lib32/*.a

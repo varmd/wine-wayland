@@ -4,6 +4,7 @@
 
 WINE_VK_DXVK_VERSION="1.9.1"
 WINE_WAYLAND_VERSION="6.15"
+WINE_WAYLAND_TAG_NUM="1"
 
 #partition check
 #df -P ~/.local/share/wineland/game/winebin/usr/bin/wine64 | tail -1 | cut -d' ' -f 1
@@ -173,7 +174,7 @@ if [[ "$USE_LOCAL_WINE" ]]; then
 
     if [ ! -f $PWD_PATH/../wine-wayland-${WINE_WAYLAND_VERSION}-1-x86_64.pkg.tar.zst ]; then
       echo "Downloading 64bit wine-wayland"
-      curl -L "https://github.com/varmd/wine-wayland/releases/download/v${WINE_WAYLAND_VERSION}.0/wine-wayland-${WINE_WAYLAND_VERSION}-1-x86_64.pkg.tar.zst" > $PWD_PATH/../wine-wayland-${WINE_WAYLAND_VERSION}-1-x86_64.pkg.tar.zst
+      curl -L "https://github.com/varmd/wine-wayland/releases/download/v${WINE_WAYLAND_VERSION}.${WINE_WAYLAND_TAG_NUM}/wine-wayland-${WINE_WAYLAND_VERSION}-1-x86_64.pkg.tar.zst" > $PWD_PATH/../wine-wayland-${WINE_WAYLAND_VERSION}-1-x86_64.pkg.tar.zst
     fi
 
     mkdir -p $PWD_PATH/winebin
