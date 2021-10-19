@@ -27,12 +27,9 @@
 #ifdef HAVE_SYS_EVENTFD_H
 # include <sys/eventfd.h>
 #endif
-#ifdef HAVE_SYS_MMAN_H
-# include <sys/mman.h>
-#endif
-#ifdef HAVE_SYS_STAT_H
-# include <sys/stat.h>
-#endif
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>
  
 #include "ntstatus.h"

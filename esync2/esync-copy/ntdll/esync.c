@@ -37,9 +37,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
-#ifdef HAVE_SYS_MMAN_H
-# include <sys/mman.h>
-#endif
+
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "ntstatus.h"
 #define WIN32_NO_STATUS

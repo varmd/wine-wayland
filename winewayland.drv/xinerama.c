@@ -42,7 +42,7 @@
 #include "wine/unicode.h"
 #include "waylanddrv.h"
 
-WINE_DEFAULT_DEBUG_CHANNEL(waylanddrv);
+//WINE_DEFAULT_DEBUG_CHANNEL(waylanddrv);
 
 static RECT virtual_screen_rect;
 
@@ -144,10 +144,7 @@ void xinerama_init( unsigned int width, unsigned int height )
         */
     }
 
-    /*
-    TRACE( "virtual size: %s primary: %s\n",
-           wine_dbgstr_rect(&virtual_screen_rect), wine_dbgstr_rect(&primary->rcMonitor) );
-    */
+    
 }
 
 

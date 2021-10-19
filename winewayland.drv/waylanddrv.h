@@ -29,9 +29,15 @@
 
 #include <limits.h>
 #include <stdarg.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <linux/input-event-codes.h>
 
 //Wayland
 #include <wayland-client.h>
+#include <wayland-cursor.h>
 
 typedef unsigned long Time;
 

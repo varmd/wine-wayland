@@ -1,0 +1,22 @@
+--- a/server/Makefile.in	2021-10-12 19:27:44.423657906 +0400
++++ b/server/Makefile.in	2021-10-12 19:27:58.073658007 +0400
+@@ -51,6 +51,6 @@
+ 	wineserver.fr.UTF-8.man.in \
+ 	wineserver.man.in
+ 
+-EXTRALIBS = $(LDEXECFLAGS) $(RT_LIBS) $(INOTIFY_LIBS)
++EXTRALIBS = $(LDEXECFLAGS) $(POLL_LIBS) $(INOTIFY_LIBS) -lrt
+ 
+ unicode_EXTRADEFS = -DNLSDIR="\"${nlsdir}\"" -DBIN_TO_NLSDIR=\"`$(MAKEDEP) -R ${bindir} ${nlsdir}`\"
+--- a/dlls/ntdll/Makefile.in	2021-10-12 19:28:58.583658451 +0400
++++ b/dlls/ntdll/Makefile.in	2021-10-12 19:29:11.920325214 +0400
+@@ -3,8 +3,8 @@
+ IMPORTLIB = ntdll
+ IMPORTS   = winecrt0
+ EXTRAINCL = $(UNWIND_CFLAGS)
+-EXTRALIBS = $(IOKIT_LIBS) $(COREFOUNDATION_LIBS) $(CORESERVICES_LIBS) $(RT_LIBS) $(PTHREAD_LIBS) $(UNWIND_LIBS) $(I386_LIBS) $(PROCSTAT_LIBS) -lm
++EXTRALIBS = $(IOKIT_LIBS) $(COREFOUNDATION_LIBS) $(CORESERVICES_LIBS) $(PTHREAD_LIBS) $(UNWIND_LIBS) $(I386_LIBS) $(PROCSTAT_LIBS) -lm -lrt
+ 
+ EXTRADLLFLAGS = -nodefaultlibs -Wl,--image-base,0x7bc00000
+ 
+ C_SRCS = \

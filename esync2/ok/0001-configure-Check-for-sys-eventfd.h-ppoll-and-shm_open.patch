@@ -27,12 +27,12 @@ index 51e3d7fc14..eb0a11ca86 100755
  	sys/ioctl.h \
  	sys/ipc.h \
 @@ -16552,6 +16553,7 @@ for ac_func in \
- 	poll \
  	popen \
  	port_create \
+ 	posix_fadvise \
+ 	posix_fallocate \
 +	ppoll \
  	prctl \
- 	pread \
  	proc_pidinfo \
 @@ -16964,6 +16966,72 @@ fi
  
@@ -120,13 +120,14 @@ index b64d99e9d1..fae1a1a228 100644
  	sys/ioctl.h \
  	sys/ipc.h \
 @@ -2176,6 +2177,7 @@ AC_CHECK_FUNCS(\
- 	poll \
  	popen \
  	port_create \
+ 	posix_fadvise \
+ 	posix_fallocate \
 +	ppoll \
  	prctl \
- 	pread \
  	proc_pidinfo \
+ 	readlink \
 @@ -2256,6 +2258,16 @@ AC_SEARCH_LIBS(clock_gettime, rt,
                  test "$ac_res" = "none required" || AC_SUBST(RT_LIBS,"$ac_res")])
  LIBS=$ac_save_LIBS

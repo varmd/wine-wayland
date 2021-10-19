@@ -18,20 +18,14 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
+#include <stdarg.h>
+
 #include "config.h"
 #include "wine/port.h"
 
-#include <stdarg.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <fcntl.h>
-#include <sys/mman.h>
 
 #define NONAMELESSUNION
 #define OEMRESOURCE
-#include "windef.h"
-#include "winbase.h"
-#include "winreg.h"
 
 
 #include "winternl.h"
@@ -43,9 +37,6 @@
 
 
 #include "wine/gdi_driver.h"
-
-
-
 
 #include "waylanddrv.h"
 #include "wine/heap.h"
@@ -68,13 +59,12 @@
 #include "wine/vulkan.h"
 #include "wine/vulkan_driver.h"
 
-#include <wayland-client.h>
-#include <wayland-cursor.h>
 
 
 
 
-#include <linux/input-event-codes.h>
+
+
 #include "pointer-constraints-unstable-v1-client-protocol.h"
 #include "relative-pointer-unstable-v1-client-protocol.h"
 

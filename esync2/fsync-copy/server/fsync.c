@@ -26,12 +26,9 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdarg.h>
-#ifdef HAVE_SYS_MMAN_H
-# include <sys/mman.h>
-#endif
-#ifdef HAVE_SYS_STAT_H
-# include <sys/stat.h>
-#endif
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #ifdef HAVE_SYS_SYSCALL_H
 # include <sys/syscall.h>
 #endif
@@ -45,6 +42,10 @@
 #include "handle.h"
 #include "request.h"
 #include "fsync.h"
+
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "pshpack4.h"
 struct futex_wait_block
@@ -203,7 +204,7 @@ static void *get_shm( unsigned int idx )
     int entry  = (idx * 8) / pagesize;
     int offset = (idx * 8) % pagesize;
 
-  
+
     if (entry >= shm_addrs_size)
     {
         if (!(shm_addrs = realloc( shm_addrs, (entry + 1) * sizeof(shm_addrs[0]) )))

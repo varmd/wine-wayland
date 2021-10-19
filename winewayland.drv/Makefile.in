@@ -4,7 +4,8 @@ DELAYIMPORTS = comctl32 ole32 shell32 imm32
 EXTRAINCL =
 
 EXTRALIBS = -lwayland-client  -lwayland-cursor
-#XTRALIBS = -lwayland-client  -lwayland-cursor -lwayland-egl -lEGL -lGLESv2
+
+EXTRADLLFLAGS = -mcygwin
 
 C_SRCS = \
 	init.c \

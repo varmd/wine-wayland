@@ -27,7 +27,9 @@
 #include "windef.h"
 #include "winbase.h"
 #include "winreg.h"
+
 #include "waylanddrv.h"
+
 #include "wine/debug.h"
 #include <stdlib.h>
 
@@ -35,7 +37,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(waylanddrv);
 
 Display *gdi_display;  /* display to use for all GDI functions */
 
-static int palette_size;
+static int palette_size = 16777216;
 
 
 
@@ -43,7 +45,7 @@ static const struct gdi_dc_funcs waylanddrv_funcs;
 
 ColorShifts global_palette_default_shifts = { {0,0,0,}, {0,0,0}, {0,0,0}, {0,0,0}, {0,0,0}, {0,0,0} };
 
-
+#if 0
 /**********************************************************************
  *	     device_init
  *
@@ -52,12 +54,12 @@ ColorShifts global_palette_default_shifts = { {0,0,0,}, {0,0,0}, {0,0,0}, {0,0,0
 static BOOL WINAPI device_init( INIT_ONCE *once, void *param, void **context )
 {
 
-    palette_size = 16777216 ;
+     ;
 
 
     return TRUE;
 }
-
+#endif
 
 static inline void push_dc_driver2( PHYSDEV *dev, PHYSDEV physdev, const struct gdi_dc_funcs *funcs )
 {
@@ -83,7 +85,7 @@ static WAYLANDDRV_PDEVICE *create_x11_physdev( void )
 /**********************************************************************
  *	     WAYLANDDRV_CreateDC
  */
-static BOOL CDECL WAYLANDDRV_CreateDC( PHYSDEV *pdev, LPCWSTR driver, LPCWSTR device,
+static BOOL CDECL WAYLANDDRV_CreateDC( PHYSDEV *pdev, LPCWSTR device,
                              LPCWSTR output, const DEVMODEW* initData )
 {
 
@@ -228,29 +230,26 @@ static const struct gdi_dc_funcs waylanddrv_funcs =
     WAYLANDDRV_DeleteDC,                    /* pDeleteDC */
   
     NULL,                               /* pDeleteObject */
-    NULL,                               /* pDeviceCapabilities */
+
     NULL,                               /* pEllipse */
     NULL,                               /* pEndDoc */
     NULL,                               /* pEndPage */
     NULL,                               /* pEndPath */
     NULL,                               /* pEnumFonts */
-    NULL,                               /* pEnumICMProfiles */
-    NULL,                               /* pExtDeviceMode */
+
     NULL,                               /* pExtEscape */
     NULL,                               /* pExtFloodFill */
     NULL,                               /* pExtTextOut */
     NULL,                               /* pFillPath */
     NULL,                               /* pFillRgn */
-    NULL,                               /* pFlattenPath */
     NULL,                               /* pFontIsLinked */
     NULL,                               /* pFrameRgn */
-    NULL,                               /* pGdiComment */
     NULL,                               /* pGetBoundsRect */
     NULL,                               /* pGetCharABCWidths */
     NULL,                               /* pGetCharABCWidthsI */
     NULL,                               /* pGetCharWidth */
     NULL,                               /* pGetCharWidthInfo */
-    WAYLANDDRV_GetDeviceCaps,                               /* pGetDeviceCaps */
+    WAYLANDDRV_GetDeviceCaps,           /* pGetDeviceCaps */
     NULL,                               /* pGetDeviceGammaRamp */
     NULL,                               /* pGetFontData */
     NULL,                               /* pGetFontRealizationInfo */
@@ -287,11 +286,9 @@ static const struct gdi_dc_funcs waylanddrv_funcs =
     NULL,                               /* pRealizePalette */
     NULL,                               /* pRectangle */
     NULL,                               /* pResetDC */
-    NULL,                               /* pRestoreDC */
     NULL,                               /* pRoundRect */
     NULL,                               /* pSelectBitmap */
     NULL,                               /* pSelectBrush */
-    NULL,                               /* pSelectClipPath */
     NULL,                               /* pSelectFont */
     NULL,                               /* pSelectPen */
     NULL,                               /* pSetBkColor */
@@ -310,7 +307,7 @@ static const struct gdi_dc_funcs waylanddrv_funcs =
     NULL,                               /* pStrokeAndFillPath */
     NULL,                               /* pStrokePath */
     NULL,                               /* pUnrealizePalette */
-    NULL,                               /* pWidenPath */
+    
     NULL,                               /* pD3DKMTCheckVidPnExclusiveOwnership */
     NULL,                               /* pD3DKMTSetVidPnSourceOwner */
     

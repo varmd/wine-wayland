@@ -2,8 +2,9 @@
 # Copyright 2020-2021 varmd
 #
 
-WINE_VK_DXVK_VERSION="1.9.1"
-WINE_WAYLAND_VERSION="6.15"
+WINE_VK_DXVK_VERSION="1.9.2"
+WINE_WAYLAND_VERSION="6.19"
+VKD3D_VERSION="2.5"
 WINE_WAYLAND_TAG_NUM="1"
 
 #partition check
@@ -84,10 +85,13 @@ IS_64_EXE=`file $GAME_EXE | grep PE32+`
 
 
 if [[ -z "$IS_64_EXE" ]]; then
-  echo "32bit exe"
+  echo "32bit"
   WINE_CMD="wine"
   export LD_LIBRARY_PATH="/usr/lib/wineland/lib32:$LD_LIBRARY_PATH"
-  export VK_ICD_FILENAMES="/usr/lib/wineland/vulkan/icd.d/intel_icd.i686.json:/usr/lib/wineland/vulkan/icd.d/radeon_icd.i686.json"  
+  export VK_ICD_FILENAMES="/usr/lib/wineland/vulkan/icd.d/intel_icd.i686.json:/usr/lib/wineland/vulkan/icd.d/radeon_icd.i686.json"
+else
+  echo "64bit game"
+  export LD_LIBRARY_PATH="/usr/lib/wineland/lib:$LD_LIBRARY_PATH"
 fi
 
 cd "$PWD_PATH"
@@ -184,6 +188,8 @@ if [[ "$USE_LOCAL_WINE" ]]; then
 
     if [[ "$IS_64_EXE" ]]; then
       echo ""
+      #copy sdl2
+      cp $PWD_PATH/winebin/usr/lib/wineland/lib/* $PWD_PATH/winebin/usr/lib/
     else
 
 
@@ -198,6 +204,8 @@ if [[ "$USE_LOCAL_WINE" ]]; then
       #copy vulkan json files to backups
       mkdir $PWD_PATH/winebin/usr/lib/wineland/vulkan/orig
       cp $PWD_PATH/winebin/usr/lib/wineland/vulkan/icd.d/*json $PWD_PATH/winebin/usr/lib/wineland/vulkan/orig/
+
+
 
     fi
 
@@ -303,6 +311,7 @@ fi
 cd "$PWD_PATH"
 
 if [ ! -d $PWD_PATH/dxvk ]; then
+    echo "Downloading dxvk"
     mkdir dxvk
     cd dxvk
     echo "https://github.com/doitsujin/dxvk/releases/download/v${WINE_VK_DXVK_VERSION}/dxvk-${WINE_VK_DXVK_VERSION}.tar.gz";
@@ -310,6 +319,18 @@ if [ ! -d $PWD_PATH/dxvk ]; then
     tar xf dxvk-$WINE_VK_DXVK_VERSION.tar.gz
     cd "$PWD_PATH"
     REFRESH_DXVK=1
+fi
+
+if [ ! -d $PWD_PATH/vkd3d ]; then
+    echo "Downloading vkd3d"
+    mkdir vkd3d
+    cd vkd3d
+
+
+    curl  -L "https://github.com/HansKristian-Work/vkd3d-proton/releases/download/v${VKD3D_VERSION}/vkd3d-proton-${VKD3D_VERSION}.tar.zst" > vkd3d-${VKD3D_VERSION}.tar.zst
+    tar xf vkd3d-${VKD3D_VERSION}.tar.zst
+    cd "$PWD_PATH"
+    REFRESH_VKD3D=1
 fi
 
 if [ ! -d $WINEPREFIX ]; then
@@ -351,6 +372,17 @@ else
   else
     echo "refreshing 64bit dxvk"
     cp -r dxvk/dxvk-${WINE_VK_DXVK_VERSION}/x64/* wine/drive_c/windows/system32/
+  fi
+fi
+
+if [[ -z "$REFRESH_VKD3D" ]]; then
+  echo -n ""
+else
+  if [[ -z "$IS_64_EXE" ]]; then
+    echo "d3d12 not supported for 32bit"
+  else
+    echo "refreshing 64bit vkd3d for Directx12 to Vulkan"
+    cp -r vkd3d/vkd3d-proton-${VKD3D_VERSION}/x64/* wine/drive_c/windows/system32/
   fi
 fi
 

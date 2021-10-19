@@ -1,3 +1,29 @@
+install_libffi_32() {
+  cd "${srcdir}"
+
+  cd $(find . -maxdepth 1 -type d -name "*libffi*"  | sed 1q)
+
+
+  make DESTDIR="$pkgdir" install
+
+  cd $pkgdir/usr/lib32/pkgconfig
+  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libffi.pc
+}
+
+install_libelf_32() {
+  cd "${srcdir}"
+
+  
+  cd $(find . -maxdepth 1 -type d -name "*elfutils*"  | sed 1q)
+
+  make DESTDIR="$pkgdir" install
+
+  cd $pkgdir/usr/lib32/pkgconfig
+  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libelf.pc
+  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libdw.pc
+}
+
+
 install_systemd_32() {
   cd "${srcdir}"
 
@@ -89,6 +115,7 @@ install_sdl2_32() {
 
   cd $pkgdir/usr/lib32/pkgconfig
   sed -i "s~\${exec_prefix}/lib32~$pkgdir/usr/lib32~g" sdl2.pc
+  sed -i "s~=/usr~=$pkgdir/usr/~g" sdl2.pc
 }
 
 

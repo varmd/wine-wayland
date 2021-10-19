@@ -594,10 +594,10 @@ index 588459aa49..d7418d085a 100644
 
 @@ -70,6 +71,7 @@ static const struct object_ops irp_call_ops =
      remove_queue,                     /* remove_queue */
-     irp_call_signaled,                /* signaled */
+     NULL,                             /* signaled */
      NULL,                             /* get_esync_fd */
 +    NULL,                             /* get_fsync_idx */
-     no_satisfied,                     /* satisfied */
+     NULL,                             /* satisfied */
      no_signal,                        /* signal */
      no_get_fd,                        /* get_fd */
 @@ -96,11 +98,13 @@ struct device_manager

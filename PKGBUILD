@@ -1,8 +1,8 @@
 # Created by: varmd
 
-RELEASE=6.15
+RELEASE=6.19
 _pkgname=('wine-wayland')
-pkgname=('wineland' 'wine-wayland')
+pkgname=('wine-wayland' 'wineland' )
 
 pkgver=`echo $RELEASE | sed s~-~~`
 pkgrel=1
@@ -33,8 +33,8 @@ depends=(
   'alsa-lib'
   'mesa'
   'vulkan-icd-loader'
-  'faudio'
-  'sdl2'
+  #'faudio'
+
   'wayland'
   'wayland-protocols'
 )
@@ -55,9 +55,11 @@ makedepends=(
 source=(
   "https://github.com/wine-mirror/wine/archive/wine-$RELEASE.zip"
   "https://github.com/civetweb/civetweb/archive/v1.12.zip"
+  "https://github.com/libsdl-org/SDL/archive/refs/tags/release-2.0.16.zip"
+  "https://github.com/FNA-XNA/FAudio/archive/refs/tags/21.10.zip"
 )
 
-sha256sums=('SKIP' 'SKIP')
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP')
 
 
 STRBUILD32="builder"
@@ -80,6 +82,89 @@ fi
 
 OPTIONS=(!strip !docs !libtool !zipman !purge !debug)
 makedepends=(${makedepends[@]} ${depends[@]})
+
+
+
+
+build_sdl2() {
+  cd "${srcdir}"
+
+  cd $(find . -maxdepth 1 -type d -name "*SDL*" | sed 1q)
+
+  mkdir -p $srcdir/sdl2-install
+  
+  mkdir -p build
+  cd build
+
+
+  export PKG_CONFIG_PATH="$srcdir/sdl2-install/usr/lib/pkgconfig"
+
+  cmake .. \
+      -DCMAKE_INSTALL_PREFIX=/usr \
+      -DSDL_STATIC=OFF \
+      -DSDL_DLOPEN=ON \
+      -DSDL_USE_LIBDBUS=OFF \
+      -DARTS=OFF \
+      -DESD=OFF \
+      -DNAS=OFF \
+      -DALSA=ON \
+      -DJACK=OFF \
+      -DDBUS=OFF \
+      -DHAPTIC=ON \
+      -DJOYSTICK=ON \
+      -DJOYSTICK_HIDAPI=ON \
+      -DPULSEAUDIO=OFF \
+      -DPULSEAUDIO_SHARED=OFF \
+      -DVIDEO_WAYLAND=OFF \
+      -DVIDEO_X11=OFF \
+      -DVIDEO_OPENGL=OFF \
+      -DVIDEO_VULKAN=OFF \
+      -DVIDEO_KMSDRM=OFF \
+      -DVIDEO_OPENGLES=OFF \
+      -DX11_SHARED=OFF \
+      -DRPATH=OFF \
+      -DCLOCK_GETTIME=ON
+
+  CPUS=$(getconf _NPROCESSORS_ONLN)
+
+  make -j $CPUS
+  make DESTDIR="${srcdir}/sdl2-install/" install
+
+  cd ${srcdir}/sdl2-install/usr/lib/pkgconfig
+  sed -i "s~/usr/lib~${srcdir}/sdl2-install/usr/lib~g" sdl2.pc
+  sed -i "s~/usr/include~${srcdir}/sdl2-install/usr/include~g" sdl2.pc
+}
+
+build_faudio() {
+  cd "${srcdir}"
+
+  cd $(find . -maxdepth 1 -type d -name "*FAudio*" | sed 1q)
+
+  mkdir -p $srcdir/faudio-install
+  
+  mkdir -p build
+  cd build
+
+
+  export PKG_CONFIG_PATH="$srcdir/sdl2-install/usr/lib/pkgconfig"
+  export LD_LIBRARY_PATH="/usr/lib:${srcdir}/sdl2-install/usr/lib:$LD_LIBRARY_PATH"
+
+  cmake .. -G Ninja \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DSDL2_INCLUDE_DIRS=$srcdir/sdl2-install/usr/include/SDL2 \
+    -DSDL2_LIBRARIES=$srcdir/sdl2-install/usr/lib/libSDL2.so \
+    -DCMAKE_INSTALL_LIBDIR=lib
+
+  CPUS=$(getconf _NPROCESSORS_ONLN)
+
+  ninja -j $CPUS
+  DESTDIR="${srcdir}/faudio-install/" ninja install
+
+  cd ${srcdir}/faudio-install/usr/lib/pkgconfig
+  sed -i "s~/usr~${srcdir}/faudio-install/usr~g" FAudio.pc
+}
+
 
 
 
@@ -138,6 +223,9 @@ prepare() {
       patch -Np1 < ${_f}
     done
     
+    #fix -lrt compilation
+    patch -Np1 < ../../esync2/fix-rt.patch
+    
     
     patch -Np1 < ../../patches/fs-1.patch
     patch -Np1 < ../../patches/fsr-1.patch
@@ -160,6 +248,7 @@ prepare() {
     
     sed -i '/programs\/winedbg/d' configure.ac
     sed -i '/programs\/winemine/d' configure.ac
+    sed -i '/wineps/d' configure.ac
     
     sed -i '/programs\/taskmgr/d' configure.ac
     sed -i '/winhlp32/d' configure.ac
@@ -173,6 +262,8 @@ prepare() {
     sed -i '/programs\/spoolsv/d' configure.ac
     sed -i '/programs\/schtasks/d' configure.ac
     sed -i '/systeminfo/d' configure.ac
+    
+    
     
     #misc exe
     sed -i '/programs\/whoami/d' configure.ac
@@ -196,13 +287,19 @@ prepare() {
     #mshtml
     sed -i '/mshtml/d' configure.ac
     sed -i '/actxprxy/d' configure.ac
+    sed -i '/msscript\.ocx/d' configure.ac
+    sed -i '/wshom\.ocx/d' configure.ac
     
     #wlan
     sed -i '/dlls\/wlanui/d' configure.ac
 
+    #misc dll
+    
+    sed -i '/\/adsldp/d' configure.ac
     sed -i '/\/tests/d' configure.ac
     sed -i '/dlls\/d3d12/d' configure.ac
     sed -i '/dlls\/jscript/d' configure.ac
+    sed -i '/dlls\/vbscript/d' configure.ac
     sed -i '/dlls\/hhctrl/d' configure.ac
 
 
@@ -210,6 +307,8 @@ prepare() {
     autoconf
 
     mkdir -p "${srcdir}"/"${_pkgname}"-64-build
+    
+    
 
   fi
 
@@ -227,13 +326,17 @@ build() {
     return 0;
   fi
 
-
+  #build sdl2 here to avoid x11 dependencies from official archlinux sdl2
+  build_sdl2
   
-  export CC=cc
+  #build faudio here to avoid x11 dependencies from official archlinux
+  build_faudio
+
+  export PKG_CONFIG_PATH="${srcdir}/sdl2-install/usr/lib/pkgconfig:${srcdir}/faudio-install/usr/lib/pkgconfig:/usr/lib/pkgconfig"
+  export LD_LIBRARY_PATH="/usr/lib:${srcdir}/sdl2-install/usr/lib:${srcdir}/faudio-install/usr/lib:$LD_LIBRARY_PATH"
 
   msg2 'Building Wine-64...'
 	cd  "${srcdir}"/${_pkgname}-64-build
-
 
   if [ -e Makefile ]; then
     echo "Already configured"
@@ -275,9 +378,9 @@ build() {
     --without-xshm \
     --without-v4l2 \
     --without-usb \
+    --with-sdl2 \
     --with-vulkan \
     --with-faudio \
-    --with-sdl \
     --disable-win16 \
 		--enable-win64 \
 		--disable-tests
@@ -305,8 +408,7 @@ package_wineland() {
     'alsa-lib'
     'mesa'
     'vulkan-icd-loader'
-    'faudio'
-    'sdl2'
+    #'faudio'
     'libpng'
     'libxml2'
     'lib32-glibc'
@@ -335,6 +437,8 @@ package_wineland() {
 
 package_wine-wayland() {
 
+  
+
   if [ -z "${WINE_BUILD_32_DEV_SKIP_64:-}" ]; then
     echo "Building 64bit"
   else
@@ -355,8 +459,7 @@ package_wine-wayland() {
     'alsa-lib'
     'mesa'
     'vulkan-icd-loader'
-    'faudio'
-    'sdl2'
+    #'faudio'
   )
 
   conflicts=('wine' 'wine-staging' 'wine-esync')
@@ -375,5 +478,16 @@ package_wine-wayland() {
   rm -rf $pkgdir/usr/lib/wine/x86_64-unix/*.def
   cd $pkgdir/usr/lib/wine/x86_64-unix/
   strip -s *
+  
+  #SDL2
+  mkdir -p $pkgdir/usr/lib/wineland/lib
+  rm -rf $pkgdir/usr/include/SDL2*
+  rm -rf $pkgdir/usr/bin/sdl2*
+  rm -rf $pkgdir/usr/lib/cmake
+  rm -rf $pkgdir/usr/lib/pkgconfig
+  rm -rf $pkgdir/usr/share/aclocal
+  rm -rf $pkgdir/usr/share/applications
+  cp --preserve=links ${srcdir}/sdl2-install/usr/lib/libSDL2* $pkgdir/usr/lib/wineland/lib/
+  rm -rf $pkgdir/usr/lib/libSDL2*
   
 }

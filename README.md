@@ -23,7 +23,6 @@ Wine-wayland allows running DX9/DX11/DX12 and Vulkan games using pure Wayland an
  * GPU with Vulkan and Wayland support, 2GB+ VRAM, AMD or Intel, Nvidia not tested
  * Mesa 21 or later with Wayland and Vulkan support
  * Weston based compositor (tested on wayward), wlroots based compositor (tested on sway), Gnome not tested
- * SDL and Faudio
 
 ## Installation with wineland
 
