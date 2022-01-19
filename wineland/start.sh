@@ -5,7 +5,7 @@
 WINE_VK_DXVK_VERSION="1.9.3"
 WINE_WAYLAND_VERSION="7.0"
 VKD3D_VERSION="2.5"
-WINE_WAYLAND_TAG_NUM="1"
+WINE_WAYLAND_TAG_NUM="2"
 
 #partition check
 #df -P ~/.local/share/wineland/game/winebin/usr/bin/wine64 | tail -1 | cut -d' ' -f 1

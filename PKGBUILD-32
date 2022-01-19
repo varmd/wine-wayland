@@ -26,7 +26,7 @@ pkgname+=('lib32-wine-wayland')
 
 
 url_libffi="https://github.com/libffi/libffi/archive/refs/tags/v3.4.2.zip"
-url_wayland="https://github.com/wayland-project/wayland/archive/refs/tags/1.19.0.zip"
+url_wayland="https://github.com/wayland-project/wayland/archive/refs/tags/1.20.0.zip"
 url_mpg123="https://mpg123.de/download/mpg123-1.27.2.tar.bz2"
 url_openal="https://github.com/kcat/openal-soft/archive/refs/tags/1.21.1.zip"
 url_mesa="https://github.com/mesa3d/mesa/archive/1378c67bcf9e16aea98ddb8cb6bd37b9ed4e3a81.zip"
