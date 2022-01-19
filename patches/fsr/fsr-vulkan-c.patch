@@ -1,0 +1,96 @@
+--- a/dlls/winevulkan/vulkan.c
++++ b/dlls/winevulkan/vulkan.c
+@@ -22,6 +22,7 @@
+ #endif
+ 
+ #include "config.h"
++#include <math.h>
+ #include <time.h>
+ #include <stdlib.h>
+ 
+@@ -698,6 +699,8 @@
+     struct VkDevice_T *object;
+     unsigned int i;
+     VkResult res;
++    // Enable shaderStorageImageWriteWithoutFormat for fshack
++    VkPhysicalDeviceFeatures features = {0};
+ 
+     TRACE("%p, %p, %p, %p\n", phys_dev, create_info, allocator, device);
+ 
+@@ -725,6 +728,24 @@
+     if (res != VK_SUCCESS)
+         goto fail;
+ 
++    
++     //
++    if (create_info_host.pEnabledFeatures)
++    {
++        features = *create_info_host.pEnabledFeatures;
++        features.shaderStorageImageWriteWithoutFormat = VK_TRUE;
++        create_info_host.pEnabledFeatures = &features;
++    }
++    //if ((features2 = wine_vk_find_struct(&create_info_host, PHYSICAL_DEVICE_FEATURES_2)))
++    //{
++    //    features2->features.shaderStorageImageWriteWithoutFormat = VK_TRUE;
++    //}
++    else if (!create_info_host.pEnabledFeatures)
++    {
++        features.shaderStorageImageWriteWithoutFormat = VK_TRUE;
++        create_info_host.pEnabledFeatures = &features;
++    }
++
+     res = phys_dev->instance->funcs.p_vkCreateDevice(phys_dev->phys_dev,
+             &create_info_host, NULL /* allocator */, &object->device);
+     wine_vk_device_free_create_info(&create_info_host);
+@@ -1600,6 +1621,7 @@
+     VkSurfaceKHR surface = params->surface;
+     VkSurfaceCapabilitiesKHR *capabilities = params->pSurfaceCapabilities;
+     VkResult res;
++    VkExtent2D user_res;
+ 
+     TRACE("%p, 0x%s, %p\n", phys_dev, wine_dbgstr_longlong(surface), capabilities);
+ 
+@@ -1608,6 +1630,13 @@
+     if (res == VK_SUCCESS)
+         adjust_max_image_count(phys_dev, capabilities);
+ 
++    if (res == VK_SUCCESS && vk_funcs->query_fs_hack &&
++            vk_funcs->query_fs_hack(wine_surface_from_handle(surface)->driver_surface, NULL, &user_res, NULL, NULL, NULL, NULL)){
++        capabilities->currentExtent = user_res;
++        capabilities->minImageExtent = user_res;
++        capabilities->maxImageExtent = user_res;
++    }
++
+     return res;
+ }
+ 
+@@ -1618,6 +1647,7 @@
+     const VkPhysicalDeviceSurfaceInfo2KHR *surface_info = params->pSurfaceInfo;
+     VkSurfaceCapabilities2KHR *capabilities = params->pSurfaceCapabilities;
+     VkResult res;
++    VkExtent2D user_res;
+ 
+     TRACE("%p, %p, %p\n", phys_dev, surface_info, capabilities);
+ 
+@@ -1626,6 +1656,13 @@
+     if (res == VK_SUCCESS)
+         adjust_max_image_count(phys_dev, &capabilities->surfaceCapabilities);
+ 
++    if (res == VK_SUCCESS && vk_funcs->query_fs_hack &&
++            vk_funcs->query_fs_hack(wine_surface_from_handle(surface_info->surface)->driver_surface, NULL, &user_res, NULL, NULL, NULL, NULL)){
++        capabilities->surfaceCapabilities.currentExtent = user_res;
++        capabilities->surfaceCapabilities.minImageExtent = user_res;
++        capabilities->surfaceCapabilities.maxImageExtent = user_res;
++    }
++
+     return res;
+ }
+ 
+@@ -1767,3 +1804,6 @@
+ {
+     return !!vk_funcs->p_vkGetDeviceProcAddr(device->device, name);
+ }
++
++
++#include "vulkan-fsr-include.c"
+\ No newline at end of file

@@ -39,9 +39,20 @@
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 
+#include "winternl.h"
+
+#include "windef.h"
+#include "winbase.h"
+#include "wingdi.h"
+#include "winuser.h"
+
 typedef unsigned long Time;
 
 #define FSHACK_TEST 1
+
+
+//Wayland keyboard arrays
+//https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
 
 //End Wayland
 
@@ -74,11 +85,74 @@ typedef int Colormap;
 #include "windef.h"
 #include "winbase.h"
 #include "wingdi.h"
-#include "winuser.h"
+//#include "winuser.h"
 #include "wine/gdi_driver.h"
 #include "wine/list.h"
 
 #define MAX_DASHLEN 16
+
+/* Externs for 6.22 */
+extern void init_user_driver(void) DECLSPEC_HIDDEN;
+
+extern BOOL CDECL WAYLANDDRV_ActivateKeyboardLayout(HKL hkl, UINT flags) DECLSPEC_HIDDEN;
+//extern void CDECL WAYLANDDRV_Beep(void) DECLSPEC_HIDDEN;
+extern LONG CDECL WAYLANDDRV_ChangeDisplaySettingsEx(LPCWSTR devname, LPDEVMODEW devmode,
+                                                 HWND hwnd, DWORD flags, LPVOID lpvoid) DECLSPEC_HIDDEN;
+extern void CDECL WAYLANDDRV_UpdateDisplayDevices( const struct gdi_device_manager *device_manager, BOOL force, void *param ) DECLSPEC_HIDDEN;
+
+extern BOOL CDECL WAYLANDDRV_EnumDisplaySettingsEx(LPCWSTR devname, DWORD mode,
+                                               LPDEVMODEW devmode, DWORD flags) DECLSPEC_HIDDEN;
+//extern BOOL CDECL WAYLANDDRV_GetDeviceGammaRamp(PHYSDEV dev, LPVOID ramp) DECLSPEC_HIDDEN;
+//extern BOOL CDECL WAYLANDDRV_SetDeviceGammaRamp(PHYSDEV dev, LPVOID ramp) DECLSPEC_HIDDEN;
+extern BOOL CDECL WAYLANDDRV_ClipCursor(LPCRECT clip) DECLSPEC_HIDDEN;
+//extern BOOL CDECL WAYLANDDRV_CreateDesktopWindow(HWND hwnd) DECLSPEC_HIDDEN;
+extern BOOL CDECL WAYLANDDRV_CreateWindow(HWND hwnd) DECLSPEC_HIDDEN;
+extern void CDECL WAYLANDDRV_DestroyWindow(HWND hwnd) DECLSPEC_HIDDEN;
+extern void CDECL WAYLANDDRV_SetFocus(HWND hwnd) DECLSPEC_HIDDEN;
+//extern void CDECL WAYLANDDRV_SetLayeredWindowAttributes(HWND hwnd, COLORREF key, BYTE alpha,
+//                                                    DWORD flags) DECLSPEC_HIDDEN;
+//extern void CDECL WAYLANDDRV_SetParent(HWND hwnd, HWND parent, HWND old_parent) DECLSPEC_HIDDEN;
+//extern void CDECL WAYLANDDRV_SetWindowRgn(HWND hwnd, HRGN hrgn, BOOL redraw) DECLSPEC_HIDDEN;
+//extern void CDECL WAYLANDDRV_SetWindowStyle(HWND hwnd, INT offset, STYLESTRUCT *style) DECLSPEC_HIDDEN;
+//extern void CDECL WAYLANDDRV_SetWindowText(HWND hwnd, LPCWSTR text) DECLSPEC_HIDDEN;
+extern UINT CDECL WAYLANDDRV_ShowWindow(HWND hwnd, INT cmd, RECT *rect, UINT swp) DECLSPEC_HIDDEN;
+extern LRESULT CDECL WAYLANDDRV_SysCommand(HWND hwnd, WPARAM wparam, LPARAM lparam) DECLSPEC_HIDDEN;
+//extern BOOL CDECL WAYLANDDRV_UpdateLayeredWindow(HWND hwnd, const UPDATELAYEREDWINDOWINFO *info,
+//                                             const RECT *window_rect) DECLSPEC_HIDDEN;
+//extern LRESULT CDECL WAYLANDDRV_WindowMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) DECLSPEC_HIDDEN;
+extern BOOL CDECL WAYLANDDRV_WindowPosChanging(HWND hwnd, HWND insert_after, UINT swp_flags,
+                                           const RECT *window_rect, const RECT *client_rect,
+                                           RECT *visible_rect, struct window_surface **surface) DECLSPEC_HIDDEN;
+extern void CDECL WAYLANDDRV_WindowPosChanged(HWND hwnd, HWND insert_after, UINT swp_flags,
+                                          const RECT *window_rect, const RECT *client_rect,
+                                          const RECT *visible_rect, const RECT *valid_rects,
+                                          struct window_surface *surface) DECLSPEC_HIDDEN;
+//extern void CDECL WAYLANDDRV_DestroyCursorIcon(HCURSOR cursor) DECLSPEC_HIDDEN;
+extern BOOL CDECL WAYLANDDRV_ClipCursor(LPCRECT clip) DECLSPEC_HIDDEN;
+extern BOOL CDECL WAYLANDDRV_GetCursorPos(LPPOINT pos) DECLSPEC_HIDDEN;
+//extern void CDECL WAYLANDDRV_SetCapture(HWND hwnd, UINT flags) DECLSPEC_HIDDEN;
+extern void CDECL WAYLANDDRV_SetCursor(HCURSOR cursor) DECLSPEC_HIDDEN;
+//extern BOOL CDECL WAYLANDDRV_SetCursorPos(INT x, INT y) DECLSPEC_HIDDEN;
+//extern BOOL CDECL WAYLANDDRV_RegisterHotKey(HWND hwnd, UINT mod_flags, UINT vkey) DECLSPEC_HIDDEN;
+//extern void CDECL WAYLANDDRV_UnregisterHotKey(HWND hwnd, UINT modifiers, UINT vkey) DECLSPEC_HIDDEN;
+extern SHORT CDECL WAYLANDDRV_VkKeyScanEx(WCHAR wChar, HKL hkl) DECLSPEC_HIDDEN;
+extern UINT CDECL WAYLANDDRV_MapVirtualKeyEx(UINT wCode, UINT wMapType, HKL hkl) DECLSPEC_HIDDEN;
+extern INT CDECL WAYLANDDRV_ToUnicodeEx(UINT virtKey, UINT scanCode, const BYTE *lpKeyState,
+                                    LPWSTR bufW, int bufW_size, UINT flags, HKL hkl) DECLSPEC_HIDDEN;
+//extern UINT CDECL WAYLANDDRV_GetKeyboardLayoutList(INT size, HKL *list) DECLSPEC_HIDDEN;
+extern INT CDECL WAYLANDDRV_GetKeyNameText(LONG lparam, LPWSTR buffer, INT size) DECLSPEC_HIDDEN;
+//extern BOOL CDECL WAYLANDDRV_SystemParametersInfo(UINT action, UINT int_param, void *ptr_param,
+//                                              UINT flags) DECLSPEC_HIDDEN;
+extern DWORD CDECL WAYLANDDRV_MsgWaitForMultipleObjectsEx(DWORD count, const HANDLE *handles,
+                                                      DWORD timeout, DWORD mask, DWORD flags) DECLSPEC_HIDDEN;
+//extern void CDECL WAYLANDDRV_ThreadDetach(void) DECLSPEC_HIDDEN;
+
+//extern BOOL CDECL WAYLANDDRV_EnumDisplayMonitors( HDC hdc, LPRECT rect, MONITORENUMPROC proc, LPARAM lp ) DECLSPEC_HIDDEN;
+//extern BOOL CDECL WAYLANDDRV_GetMonitorInfo( HMONITOR handle, LPMONITORINFO info ) DECLSPEC_HIDDEN;
+
+/* Externs for 6.22 */
+
+
 
 typedef struct {
     int shift;
@@ -92,19 +166,17 @@ typedef struct
     ChannelShift logicalRed, logicalGreen, logicalBlue;
 } ColorShifts;
 
-  /* X physical device */
+  
 typedef struct
 {
     struct gdi_physdev dev;
-    //GC            gc;          /* X Window GC */
-    //Drawable      drawable;
+    
     RECT          dc_rect;       /* DC rectangle relative to drawable */
     RECT         *bounds;        /* Graphics bounds */
     HRGN          region;        /* Device region (visible region & clip region) */
-//    X_PHYSPEN     pen;
-//    X_PHYSBRUSH   brush;
+
     int           depth;       /* bit depth of the DC */
-    //ColorShifts  *color_shifts; /* color shifts of the DC */
+    
     int           exposures;   /* count of graphics exposures operations */
 } WAYLANDDRV_PDEVICE;
 
@@ -230,7 +302,7 @@ extern BOOL use_system_cursors DECLSPEC_HIDDEN;
 
 extern BOOL grab_pointer DECLSPEC_HIDDEN;
 extern BOOL grab_fullscreen DECLSPEC_HIDDEN;
-extern BOOL usexcomposite DECLSPEC_HIDDEN;
+
 extern BOOL managed_mode DECLSPEC_HIDDEN;
 extern BOOL decorated_mode DECLSPEC_HIDDEN;
 extern BOOL private_color_map DECLSPEC_HIDDEN;
@@ -304,7 +376,7 @@ struct waylanddrv_win_data
 
 //extern struct waylanddrv_win_data *get_win_data( HWND hwnd ) DECLSPEC_HIDDEN;
 extern void release_win_data( struct waylanddrv_win_data *data ) DECLSPEC_HIDDEN;
-extern Window WAYLANDDRV_get_whole_window( HWND hwnd ) DECLSPEC_HIDDEN;
+
 
 
 

@@ -1,5 +1,5 @@
 MODULE    = winewayland.drv
-IMPORTS   = uuid user32 gdi32 advapi32 setupapi rpcrt4
+IMPORTS   = uuid user32 gdi32 advapi32 setupapi rpcrt4 win32u
 DELAYIMPORTS = comctl32 ole32 shell32 imm32
 EXTRAINCL =
 

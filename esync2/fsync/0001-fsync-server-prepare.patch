@@ -24,17 +24,3 @@ index 2b604a15a8..59ffed8d7b 100644
      }
      else set_error( STATUS_PENDING );
 
-diff --git a/server/process.c b/server/process.c
-index 41c26e11d8..8f5b4f52e5 100644
---- a/server/process.c
-+++ b/server/process.c
-@@ -539,8 +539,8 @@ struct process *create_process( int fd, struct process *parent, int inherit_all,
-     process->trace_data      = 0;
-     process->rawinput_mouse  = NULL;
-     process->rawinput_kbd    = NULL;
--    process->esync_fd        = -1;
-     list_init( &process->kernel_object );
-+    process->esync_fd        = -1;
-     list_init( &process->thread_list );
-     list_init( &process->locks );
-     list_init( &process->asyncs );

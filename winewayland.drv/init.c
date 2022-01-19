@@ -41,7 +41,7 @@ static int palette_size = 16777216;
 
 
 
-static const struct gdi_dc_funcs waylanddrv_funcs;
+static const struct user_driver_funcs waylanddrv_funcs;
 
 ColorShifts global_palette_default_shifts = { {0,0,0,}, {0,0,0}, {0,0,0}, {0,0,0}, {0,0,0}, {0,0,0} };
 
@@ -86,7 +86,8 @@ static WAYLANDDRV_PDEVICE *create_x11_physdev( void )
  *	     WAYLANDDRV_CreateDC
  */
 static BOOL CDECL WAYLANDDRV_CreateDC( PHYSDEV *pdev, LPCWSTR device,
-                             LPCWSTR output, const DEVMODEW* initData )
+                             LPCWSTR output, 
+  const DEVMODEW* initData )
 {
 
     WAYLANDDRV_PDEVICE *physDev = create_x11_physdev( /*root_window*/ );
@@ -110,7 +111,7 @@ static BOOL CDECL WAYLANDDRV_CreateDC( PHYSDEV *pdev, LPCWSTR device,
       exit(1);
     }
 
-    push_dc_driver2( pdev, &physDev->dev, &waylanddrv_funcs );
+    push_dc_driver2( pdev, &physDev->dev, &waylanddrv_funcs.dc_funcs );
 
     return TRUE;
 }
@@ -127,8 +128,8 @@ static BOOL CDECL WAYLANDDRV_CreateCompatibleDC( PHYSDEV orig, PHYSDEV *pdev )
 
     physDev->depth  = 1;
     SetRect( &physDev->dc_rect, 0, 0, 1, 1 );
-    push_dc_driver( pdev, &physDev->dev, &waylanddrv_funcs );
-    if (orig) return TRUE;  /* we already went through Xrender if we have an orig device */
+    push_dc_driver( pdev, &physDev->dev, &waylanddrv_funcs.dc_funcs );
+    
     return TRUE;
 }
 
@@ -200,128 +201,68 @@ static INT CDECL WAYLANDDRV_GetDeviceCaps( PHYSDEV dev, INT cap )
 /**********************************************************************
  *           WAYLANDDRV_wine_get_vulkan_driver
  */
-static const struct vulkan_funcs * CDECL WAYLANDDRV_wine_get_vulkan_driver( PHYSDEV dev, UINT version )
+static const struct vulkan_funcs * CDECL WAYLANDDRV_wine_get_vulkan_driver( UINT version )
 {
-    const struct vulkan_funcs *ret;
-
-    if (!(ret = get_vulkan_driver( version )))
-    {
-        dev = GET_NEXT_PHYSDEV( dev, wine_get_vulkan_driver );
-        ret = dev->funcs->wine_get_vulkan_driver( dev, version );
-    }
-    return ret;
+    return get_vulkan_driver( version );
 }
 
-static const struct gdi_dc_funcs waylanddrv_funcs =
+
+
+static const struct user_driver_funcs waylanddrv_funcs =
 {
-    NULL,                               /* pAbortDoc */
-    NULL,                               /* pAbortPath */
-    NULL,                               /* pAlphaBlend */
-    NULL,                               /* pAngleArc */
-    NULL,                               /* pArc */
-    NULL,                               /* pArcTo */
-    NULL,                               /* pBeginPath */
-    NULL,                               /* pBlendImage */
-    NULL,                               /* pChord */
-    NULL,                               /* pCloseFigure */
-  
-    WAYLANDDRV_CreateCompatibleDC,          /* pCreateCompatibleDC */
-    WAYLANDDRV_CreateDC,                    /* pCreateDC */
-    WAYLANDDRV_DeleteDC,                    /* pDeleteDC */
-  
-    NULL,                               /* pDeleteObject */
-
-    NULL,                               /* pEllipse */
-    NULL,                               /* pEndDoc */
-    NULL,                               /* pEndPage */
-    NULL,                               /* pEndPath */
-    NULL,                               /* pEnumFonts */
-
-    NULL,                               /* pExtEscape */
-    NULL,                               /* pExtFloodFill */
-    NULL,                               /* pExtTextOut */
-    NULL,                               /* pFillPath */
-    NULL,                               /* pFillRgn */
-    NULL,                               /* pFontIsLinked */
-    NULL,                               /* pFrameRgn */
-    NULL,                               /* pGetBoundsRect */
-    NULL,                               /* pGetCharABCWidths */
-    NULL,                               /* pGetCharABCWidthsI */
-    NULL,                               /* pGetCharWidth */
-    NULL,                               /* pGetCharWidthInfo */
-    WAYLANDDRV_GetDeviceCaps,           /* pGetDeviceCaps */
-    NULL,                               /* pGetDeviceGammaRamp */
-    NULL,                               /* pGetFontData */
-    NULL,                               /* pGetFontRealizationInfo */
-    NULL,                               /* pGetFontUnicodeRanges */
-    NULL,                               /* pGetGlyphIndices */
-    NULL,                               /* pGetGlyphOutline */
-    NULL,                               /* pGetICMProfile */
-    NULL,                               /* pGetImage */
-    NULL,                               /* pGetKerningPairs */
-    NULL,                               /* pGetNearestColor */
-    NULL,                               /* pGetOutlineTextMetrics */
-    NULL,                               /* pGetPixel */
-    NULL,                               /* pGetSystemPaletteEntries */
-    NULL,                               /* pGetTextCharsetInfo */
-    NULL,                               /* pGetTextExtentExPoint */
-    NULL,                               /* pGetTextExtentExPointI */
-    NULL,                               /* pGetTextFace */
-    NULL,                               /* pGetTextMetrics */
-    NULL,                               /* pGradientFill */
-    NULL,                               /* pInvertRgn */
-    NULL,                               /* pLineTo */
-    NULL,                               /* pMoveTo */
-    NULL,                               /* pPaintRgn */
-    NULL,                               /* pPatBlt */
-    NULL,                               /* pPie */
-    NULL,                               /* pPolyBezier */
-    NULL,                               /* pPolyBezierTo */
-    NULL,                               /* pPolyDraw */
-    NULL,                               /* pPolyPolygon */
-    NULL,                               /* pPolyPolyline */
-    NULL,                               /* pPolylineTo */
-    NULL,                               /* pPutImage */
-    NULL,                               /* pRealizeDefaultPalette */
-    NULL,                               /* pRealizePalette */
-    NULL,                               /* pRectangle */
-    NULL,                               /* pResetDC */
-    NULL,                               /* pRoundRect */
-    NULL,                               /* pSelectBitmap */
-    NULL,                               /* pSelectBrush */
-    NULL,                               /* pSelectFont */
-    NULL,                               /* pSelectPen */
-    NULL,                               /* pSetBkColor */
-    NULL,                               /* pSetBoundsRect */
-    NULL,                               /* pSetDCBrushColor */
-    NULL,                               /* pSetDCPenColor */
-    NULL,                               /* pSetDIBitsToDevice */
-    NULL,                               /* pSetDeviceClipping */
-    NULL,                               /* pSetDeviceGammaRamp */
-    NULL,                               /* pSetPixel */
-    NULL,                               /* pSetTextColor */
-    NULL,                               /* pStartDoc */
-    NULL,                               /* pStartPage */
-    NULL,                               /* pStretchBlt */
-    NULL,                               /* pStretchDIBits */
-    NULL,                               /* pStrokeAndFillPath */
-    NULL,                               /* pStrokePath */
-    NULL,                               /* pUnrealizePalette */
     
-    NULL,                               /* pD3DKMTCheckVidPnExclusiveOwnership */
-    NULL,                               /* pD3DKMTSetVidPnSourceOwner */
-    
-    NULL,                               /* WGL not supported */
+  
+    .dc_funcs.pCreateCompatibleDC = WAYLANDDRV_CreateCompatibleDC,                    /* pCreateDC */
+    .dc_funcs.pCreateDC = WAYLANDDRV_CreateDC,                    /* pCreateDC */
+    .dc_funcs.pDeleteDC = WAYLANDDRV_DeleteDC,                    /* pDeleteDC */
+  
+    .dc_funcs.pGetDeviceCaps = WAYLANDDRV_GetDeviceCaps,
+   
 
-    WAYLANDDRV_wine_get_vulkan_driver,   /* wine_get_vulkan_driver */
-    GDI_PRIORITY_GRAPHICS_DRV            /* priority */
+    .pwine_get_vulkan_driver = WAYLANDDRV_wine_get_vulkan_driver,   /* wine_get_vulkan_driver */
+    .dc_funcs.priority = GDI_PRIORITY_GRAPHICS_DRV,
+  
+   .pActivateKeyboardLayout = WAYLANDDRV_ActivateKeyboardLayout,
+    //.pBeep = WAYLANDDRV_Beep,
+    .pChangeDisplaySettingsEx = WAYLANDDRV_ChangeDisplaySettingsEx,
+    .pClipCursor = WAYLANDDRV_ClipCursor,
+    //.pCreateDesktopWindow = WAYLANDDRV_CreateDesktopWindow,
+    .pCreateWindow = WAYLANDDRV_CreateWindow,
+    //.pDestroyCursorIcon = WAYLANDDRV_DestroyCursorIcon,
+    .pDestroyWindow = WAYLANDDRV_DestroyWindow,
+    .pEnumDisplaySettingsEx = WAYLANDDRV_EnumDisplaySettingsEx,
+    .pUpdateDisplayDevices = WAYLANDDRV_UpdateDisplayDevices,
+    .pGetCursorPos = WAYLANDDRV_GetCursorPos,
+    //.pGetKeyboardLayoutList = WAYLANDDRV_GetKeyboardLayoutList,
+    .pGetKeyNameText = WAYLANDDRV_GetKeyNameText,
+    .pMapVirtualKeyEx = WAYLANDDRV_MapVirtualKeyEx,
+    .pMsgWaitForMultipleObjectsEx = WAYLANDDRV_MsgWaitForMultipleObjectsEx,
+    //.pRegisterHotKey = WAYLANDDRV_RegisterHotKey,
+    //.pSetCapture = WAYLANDDRV_SetCapture,
+    .pSetCursor = WAYLANDDRV_SetCursor,
+    //.pSetCursorPos = WAYLANDDRV_SetCursorPos,
+    //.pSetFocus = WAYLANDDRV_SetFocus,
+    
+    //.pSetParent = WAYLANDDRV_SetParent,
+    //.pSetWindowRgn = WAYLANDDRV_SetWindowRgn,
+    //.pSetWindowStyle = WAYLANDDRV_SetWindowStyle,
+    //.pSetWindowText = WAYLANDDRV_SetWindowText,
+    .pShowWindow = WAYLANDDRV_ShowWindow,
+    .pSysCommand = WAYLANDDRV_SysCommand,
+    //.pEnumDisplayMonitors = WAYLANDDRV_EnumDisplayMonitors,
+    //.pGetMonitorInfo = WAYLANDDRV_GetMonitorInfo,
+    
+    .pToUnicodeEx = WAYLANDDRV_ToUnicodeEx,
+    //.pUnregisterHotKey = WAYLANDDRV_UnregisterHotKey,
+    //.pUpdateClipboard = WAYLANDDRV_UpdateClipboard,
+    //.pUpdateLayeredWindow = WAYLANDDRV_UpdateLayeredWindow,
+    .pVkKeyScanEx = WAYLANDDRV_VkKeyScanEx,
+    //.pWindowMessage = WAYLANDDRV_WindowMessage,
+    .pWindowPosChanged = WAYLANDDRV_WindowPosChanged,
+    .pWindowPosChanging = WAYLANDDRV_WindowPosChanging,
 };
 
-
-/******************************************************************************
- *      WAYLANDDRV_get_gdi_driver
- */
-const struct gdi_dc_funcs * CDECL WAYLANDDRV_get_gdi_driver( unsigned int version )
+void init_user_driver(void)
 {
-    return &waylanddrv_funcs;
+  __wine_set_user_driver( &waylanddrv_funcs, WINE_GDI_DRIVER_VERSION );
 }

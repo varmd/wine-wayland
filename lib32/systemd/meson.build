@@ -43,9 +43,7 @@ conf.set('BUILD_MODE', 'BUILD_MODE_' + get_option('mode').to_upper(),
 
 want_ossfuzz = get_option('oss-fuzz')
 want_libfuzzer = get_option('llvm-fuzz')
-if want_ossfuzz + want_libfuzzer > 1
-        error('only one of oss-fuzz or llvm-fuzz can be specified')
-endif
+
 
 skip_deps = want_ossfuzz or want_libfuzzer
 fuzzer_build = want_ossfuzz or want_libfuzzer

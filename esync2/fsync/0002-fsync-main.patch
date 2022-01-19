@@ -4,25 +4,6 @@ Date: Tue, 25 Jun 2019 15:23:54 -0500
 Subject: ntdll: Fastpath null esync handles
 
 
-diff --git a/dlls/ntdll/unix/esync.c b/dlls/ntdll/unix/esync.c
-index f5687d61d8..6152fa679d 100644
---- a/dlls/ntdll/unix/esync.c
-+++ b/dlls/ntdll/unix/esync.c
-@@ -263,6 +263,13 @@ static NTSTATUS get_object( HANDLE handle, struct esync **obj )
-         return STATUS_NOT_IMPLEMENTED;
-     }
-
-+    if (!handle)
-+    {
-+        /* Shadow of the Tomb Raider really likes passing in NULL handles to
-+         * various functions. Concerning, but let's avoid a server call. */
-+        return STATUS_INVALID_HANDLE;
-+    }
-+
-     /* We need to try grabbing it from the server. */
-     server_enter_uninterrupted_section( &fd_cache_section, &sigset );
-     if (!(*obj = get_cached_object( handle )))
-
 diff --git a/dlls/ntdll/Makefile.in b/dlls/ntdll/Makefile.in
 index b75e8308ac..26d1fb537e 100644
 --- a/dlls/ntdll/Makefile.in
@@ -35,27 +16,6 @@ index b75e8308ac..26d1fb537e 100644
 	unix/socket.c \
 	unix/sync.c \
 	unix/system.c \
-diff --git a/dlls/ntdll/unix/esync.c b/dlls/ntdll/unix/esync.c
-index 6152fa679d..8ec7fb342e 100644
---- a/dlls/ntdll/unix/esync.c
-+++ b/dlls/ntdll/unix/esync.c
-@@ -48,6 +48,7 @@
-
- #include "unix_private.h"
- #include "esync.h"
-+#include "fsync.h"
-
- WINE_DEFAULT_DEBUG_CHANNEL(esync);
-
-@@ -57,7 +58,7 @@ int do_esync(void)
-     static int do_esync_cached = -1;
-
-     if (do_esync_cached == -1)
--        do_esync_cached = getenv("WINEESYNC") && atoi(getenv("WINEESYNC"));
-+        do_esync_cached = getenv("WINEESYNC") && atoi(getenv("WINEESYNC")) && !do_fsync();
-
-     return do_esync_cached;
- #else
 diff --git a/dlls/ntdll/unix/server.c b/dlls/ntdll/unix/server.c
 index de39ee5553..d956a3d76a 100644
 --- a/dlls/ntdll/unix/server.c
@@ -702,44 +662,6 @@ index 55cbad3286..991e2bf5d6 100644
      NULL,                         /* satisfied */
      no_signal,                    /* signal */
      no_get_fd,                    /* get_fd */
-diff --git a/server/esync.c b/server/esync.c
-index 7aa112feef..4e0f8818d1 100644
---- a/server/esync.c
-+++ b/server/esync.c
-@@ -45,6 +45,7 @@
- #include "request.h"
- #include "file.h"
- #include "esync.h"
-+#include "fsync.h"
-
- int do_esync(void)
- {
-@@ -52,7 +53,7 @@ int do_esync(void)
-     static int do_esync_cached = -1;
-
-     if (do_esync_cached == -1)
--        do_esync_cached = getenv("WINEESYNC") && atoi(getenv("WINEESYNC"));
-+        do_esync_cached = getenv("WINEESYNC") && atoi(getenv("WINEESYNC")) && !do_fsync();
-
-     return do_esync_cached;
- #else
-@@ -101,6 +102,8 @@ void esync_init(void)
-     if (ftruncate( shm_fd, shm_size ) == -1)
-         perror( "ftruncate" );
-
-+    fprintf( stderr, "esync: up and running.\n" );
-+
-     atexit( shm_cleanup );
- }
-
-@@ -126,6 +129,7 @@ const struct object_ops esync_ops =
-     NULL,                      /* remove_queue */
-     NULL,                      /* signaled */
-     esync_get_esync_fd,        /* get_esync_fd */
-+    NULL,                      /* get_fsync_idx */
-     NULL,                      /* satisfied */
-     no_signal,                 /* signal */
-     no_get_fd,                 /* get_fd */
 diff --git a/server/event.c b/server/event.c
 index 510a42bf28..1aa6b47eaf 100644
 --- a/server/event.c
@@ -1212,9 +1134,9 @@ index 64a4aae5e9..c341bd82e2 100644
      list_init( &process->kernel_object );
      process->esync_fd        = -1;
 +    process->fsync_idx       = 0;
+     memset( &process->image_info, 0, sizeof(process->image_info) );
      list_init( &process->thread_list );
      list_init( &process->locks );
-     list_init( &process->asyncs );
 @@ -584,6 +590,9 @@ struct process *create_process( int fd, struct process *parent, int inherit_all,
      if (!token_assign_label( process->token, security_high_label_sid ))
          goto error;

@@ -20,7 +20,7 @@
  */
 
 #include "config.h"
-#include "wine/port.h"
+
 
 #include <stdarg.h>
 #include <stdlib.h>
@@ -151,20 +151,19 @@ void xinerama_init( unsigned int width, unsigned int height )
 /***********************************************************************
  *		WAYLANDDRV_GetMonitorInfo  (WAYLANDDRV.@)
  */
-BOOL CDECL WAYLANDDRV_GetMonitorInfo( HMONITOR handle, LPMONITORINFO info )
-{
-    int i = monitor_to_index( handle );
-
-    if(i == -1)
-      return FALSE;
-
-    info->rcMonitor = monitors[0].rcMonitor;
-    info->rcWork = monitors[0].rcWork;
-    info->dwFlags = monitors[0].dwFlags;
-    if (info->cbSize >= sizeof(MONITORINFOEXW))
-      lstrcpyW( ((MONITORINFOEXW *)info)->szDevice, monitors[0].szDevice );
-
-    return TRUE;
+void CDECL WAYLANDDRV_UpdateDisplayDevices( const struct gdi_device_manager *device_manager, BOOL force, void *param ) {
+    static int force_display_devices_refresh = TRUE;
+    if (force || force_display_devices_refresh)
+    {
+        struct gdi_monitor gdi_monitor =
+        {
+            .rc_monitor = monitors[0].rcMonitor,
+            .rc_work = monitors[0].rcWork,
+            .state_flags = DISPLAY_DEVICE_ACTIVE | DISPLAY_DEVICE_ATTACHED,
+        };
+        device_manager->add_monitor( &gdi_monitor, param );
+        force_display_devices_refresh = FALSE;
+    }
 }
 
 

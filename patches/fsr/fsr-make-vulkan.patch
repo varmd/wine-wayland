@@ -1,0 +1,41 @@
+--- a/dlls/winevulkan/make_vulkan
++++ b/dlls/winevulkan/make_vulkan
+@@ -227,10 +227,12 @@
+     "vkGetPhysicalDeviceWin32PresentationSupportKHR" : {"dispatch" : True, "driver" : True, "thunk" : ThunkType.PUBLIC},
+ 
+     # VK_KHR_swapchain
+-    "vkCreateSwapchainKHR" : {"dispatch" : True, "driver" : True, "thunk" : ThunkType.PUBLIC},
+-    "vkDestroySwapchainKHR" : {"dispatch" : True, "driver" : True, "thunk" : ThunkType.PUBLIC},
+-    "vkGetSwapchainImagesKHR": {"dispatch" : True, "driver" : True, "thunk" : ThunkType.PUBLIC},
+-    "vkQueuePresentKHR": {"dispatch" : True, "driver" : True, "thunk" : ThunkType.PUBLIC},
++    "vkAcquireNextImageKHR" : {"dispatch" : True, "driver" : True, "thunk" : ThunkType.PUBLIC},
++    "vkAcquireNextImage2KHR": {"dispatch" : True, "driver" : True, "thunk" : ThunkType.NONE},
++    "vkCreateSwapchainKHR" : {"dispatch" : True, "driver" : True, "thunk" : ThunkType.NONE},
++    "vkDestroySwapchainKHR" : {"dispatch" : True, "driver" : True, "thunk" : ThunkType.NONE},
++    "vkGetSwapchainImagesKHR": {"dispatch" : True, "driver" : True, "thunk" : ThunkType.NONE},
++    "vkQueuePresentKHR": {"dispatch" : True, "driver" : True, "thunk" : ThunkType.NONE},
+ 
+     # VK_KHR_external_fence_capabilities
+     "vkGetPhysicalDeviceExternalFencePropertiesKHR" : {"dispatch" : False, "driver" : False, "thunk" : ThunkType.NONE},
+@@ -1081,6 +1083,8 @@
+     def native_handle(self, name):
+         """ Provide access to the native handle of a wrapped object. """
+ 
++        if self.name == "VkSwapchainKHR":
++            return "((struct VkSwapchainKHR_T *)(uintptr_t) ({0}))->swapchain".format(name)
+         if self.name == "VkCommandPool":
+             return "wine_cmd_pool_from_handle({0})->command_pool".format(name)
+         if self.name == "VkDebugUtilsMessengerEXT":
+@@ -3189,6 +3193,12 @@
+         f.write("\n")
+         f.write("    /* winevulkan specific functions */\n")
+         f.write("    VkSurfaceKHR (*p_wine_get_native_surface)(VkSurfaceKHR);\n")
++        f.write("\n    /* Optional. Returns TRUE if FS hack is active, otherwise returns FALSE. If\n")
++        f.write("     * it returns TRUE, then real_sz will contain the actual display\n")
++        f.write("     * resolution; user_sz will contain the app's requested mode; and dst_blit\n")
++        f.write("     * will contain the area to blit the user image to in real coordinates.\n")
++        f.write("     * All parameters are optional. */\n")
++        f.write("    VkBool32 (*query_fs_hack)(VkSurfaceKHR surface, VkExtent2D *real_sz, VkExtent2D *user_sz, VkRect2D *dst_blit, VkFilter *filter, BOOL *fsr, float *sharpness);\n")
+         f.write("};\n\n")
+ 
+         f.write("extern const struct vulkan_funcs * CDECL __wine_get_vulkan_driver(UINT version);\n\n")

@@ -21,7 +21,7 @@
  */
 
 #include "config.h"
-#include "wine/port.h"
+
 
 #include <fcntl.h>
 #include <stdarg.h>
@@ -183,6 +183,10 @@ static const WCHAR *get_basename( const WCHAR *name )
 static BOOL process_attach(void)
 {
 
+  
+  printf("Entering wayland \n");
+  
+  
 
   static WCHAR *current_exe = NULL;
   char *env_width, *env_height;
@@ -230,9 +234,9 @@ static BOOL process_attach(void)
 //    TRACE( "Creating desktop done %d %d \n\n", screen_width , screen_height );
 //  }
 
-  if ((thread_data_tls_index = TlsAlloc()) == TLS_OUT_OF_INDEXES) {
-    return FALSE;
-  }
+  //if ((thread_data_tls_index = TlsAlloc()) == TLS_OUT_OF_INDEXES) {
+  //  return FALSE;
+  //}
 
 
   //Hack for GenshinImpact ZFGameBrowser
@@ -242,6 +246,8 @@ static BOOL process_attach(void)
     create_desktop( 0 );
   }
 
+  
+  printf("Entering wayland 2 \n");
   return TRUE;
 }
 
@@ -266,29 +272,6 @@ struct waylanddrv_thread_data *waylanddrv_init_thread_data(void)
 
     return NULL;
 
-  /*
-
-    if (!(data = HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*data) )))
-    {
-        ERR( "could not create data\n" );
-        ExitProcess(1);
-    }
-    if (!(data->display = XOpenDisplay(NULL)))
-    {
-        ERR_(winediag)( "waylanddrv: Can't open display: %s. Please ensure that your X server is running and that $DISPLAY is set correctly.\n", XDisplayName(NULL));
-        //ExitProcess(1);
-    }
-
-    fcntl( ConnectionNumber(data->display), F_SETFD, 1 ); // set close on exec flag
-
-
-
-    TlsSetValue( thread_data_tls_index, data );
-
-
-
-    return data;
-    */
 }
 
 
@@ -302,9 +285,11 @@ BOOL WINAPI DllMain( HINSTANCE hinst, DWORD reason, LPVOID reserved )
     switch(reason)
     {
     case DLL_PROCESS_ATTACH:
+        init_user_driver();
         DisableThreadLibraryCalls( hinst );
         waylanddrv_module = hinst;
         ret = process_attach();
+        
         break;
     }
     return ret;

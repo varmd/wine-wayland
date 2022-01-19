@@ -2,10 +2,10 @@
 # Copyright 2020-2021 varmd
 #
 
-WINE_VK_DXVK_VERSION="1.9.2"
-WINE_WAYLAND_VERSION="6.19"
+WINE_VK_DXVK_VERSION="1.9.3"
+WINE_WAYLAND_VERSION="7.0"
 VKD3D_VERSION="2.5"
-WINE_WAYLAND_TAG_NUM="2"
+WINE_WAYLAND_TAG_NUM="1"
 
 #partition check
 #df -P ~/.local/share/wineland/game/winebin/usr/bin/wine64 | tail -1 | cut -d' ' -f 1
@@ -52,7 +52,7 @@ LOG_PATH=$PWD/$1/log.log
 
 
 
-WINEDLLOVERRIDES="d3dcompiler_47,d3d9,dxgi,d3d11,d3d12=n,b;dinput=d;winedbg=d;winemenubuilder.exe=d;mscoree=d;mshtml=d;cchromaeditorlibrary64=d;$WINEDLLOVERRIDES"
+WINEDLLOVERRIDES="d3dcompiler_47,d3d9,dxgi,d3d11,d3d12=n,b;gameux=d;dinput=d;winedbg=d;winemenubuilder.exe=d;mscoree=d;mshtml=d;cchromaeditorlibrary64=d;$WINEDLLOVERRIDES"
 
 WINE_VK_WAYLAND_WIDTH=1920
 WINE_VK_WAYLAND_HEIGHT=1080
@@ -110,7 +110,7 @@ export XCURSOR_SIZE
 export WINE_VK_USE_CUSTOM_CURSORS
 export WINE_VK_ALWAYS_FULLSCREEN
 export WINEFSYNC
-export WINEESYNC
+
 
 
 export WINEPREFIX=$PWD_PATH/wine
@@ -157,7 +157,8 @@ fi
   export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d:"$PWD_PATH/mangohud"
   export VK_LAYER_PATH="$PWD_PATH/mangohud"
   #disable wined3d which runs even with dxvk on and crashes due to opengl
-  WINEDLLOVERRIDES="wined3d=d;$WINEDLLOVERRIDES"
+  #wined3d=d disabled as it crashes witcher1
+  #WINEDLLOVERRIDES="gameux=d;wined3d=d;$WINEDLLOVERRIDES"
 
 fi #end mangohud
 
@@ -195,7 +196,7 @@ if [[ "$USE_LOCAL_WINE" ]]; then
 
       if [ ! -f $PWD_PATH/../lib32-wine-wayland-${WINE_WAYLAND_VERSION}-1-x86_64.pkg.tar.zst ]; then
         echo "Downloading 32bit wine wayland"
-        curl -L "https://github.com/varmd/wine-wayland/releases/download/v${WINE_WAYLAND_VERSION}.0/lib32-wine-wayland-${WINE_WAYLAND_VERSION}-1-x86_64.pkg.tar.zst" > $PWD_PATH/../lib32-wine-wayland-${WINE_WAYLAND_VERSION}-1-x86_64.pkg.tar.zst
+        curl -L "https://github.com/varmd/wine-wayland/releases/download/v${WINE_WAYLAND_VERSION}.${WINE_WAYLAND_TAG_NUM}/lib32-wine-wayland-${WINE_WAYLAND_VERSION}-1-x86_64.pkg.tar.zst" > $PWD_PATH/../lib32-wine-wayland-${WINE_WAYLAND_VERSION}-1-x86_64.pkg.tar.zst
       fi
 
       cp $PWD_PATH/../lib32-wine-wayland-${WINE_WAYLAND_VERSION}-1-x86_64.pkg.tar.zst .

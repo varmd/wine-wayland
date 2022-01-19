@@ -22,7 +22,7 @@ ${options.fullscreen ? 'WINE_VK_ALWAYS_FULLSCREEN=1' : '' }
 ${options.fullscreen_grab ? 'WINE_VK_FULLSCREEN_GRAB_CURSOR=1' : '' }
 ${options.custom_cursors ? 'WINE_VK_USE_CUSTOM_CURSORS=1' : '' }
 ${options.winefsync ? 'WINEFSYNC=1' : 'WINEFSYNC=0' }
-${options.wineesync ? 'WINEESYNC=1' : '' }
+
 ${options.fsr ? 'WINE_VK_USE_FSR=1' : '' }
 
 MANGOHUD=${options.mangohud  ? 1 : ''}
@@ -133,18 +133,13 @@ const DocForm = (obj) => `
                   
               <div class="form-group">                  
                 <div class="custom-radio">
-                  <input type="radio" name="winesync" id="winefsync" value="winefsync" ${ obj.options.winefsync && !obj.options.wineesync && !obj.options.winenosync ? 'checked="checked"' : '' } >
+                  <input type="radio" name="winesync" id="winefsync" value="winefsync" ${ obj.options.winefsync && !obj.options.winenosync ? 'checked="checked"' : '' } >
                   <label for="winefsync">FSYNC</label>
                 </div>
 
                 <div class="custom-radio">
-                  <input type="radio" name="winesync" id="wineesync" ${ !obj.options.winefsync && obj.options.wineesync && !obj.options.winenosync ? 'checked="checked"' : '' } value="wineesync">
-                  <label for="wineesync">ESYNC</label>
-                </div>
-                  
-                <div class="custom-radio">
-                  <input type="radio" name="winesync" id="winenosync" ${ !obj.options.winefsync && !obj.options.wineesync && obj.options.winenosync ? 'checked="checked"' : '' } value="winenosync">
-                  <label for="winenosync">Disable FSYNC/ESYNC</label>
+                  <input type="radio" name="winesync" id="winenosync" ${ !obj.options.winefsync && obj.options.winenosync ? 'checked="checked"' : '' } value="winenosync">
+                  <label for="winenosync">Disable FSYNC</label>
                 </div>
               </div>
 
@@ -462,7 +457,6 @@ function load_docs(){
         gdi: 0,
         dxvk_hud: 0,
         winefsync: 1,
-        wineesync: 0,
         winenosync: 0,
         width: 1920,
         height: 1080,
@@ -508,7 +502,6 @@ function load_docs(){
           mangohud_config: el.mangohud_config.value,          
           gdi: el.gdi.checked,          
           winefsync: el.winesync.value == "winefsync" ? '1' : 0,
-          wineesync: el.winesync.value == "wineesync" ? '1' : 0,
           winenosync: el.winesync.value == "winenosync" ? '1' : 0,
           width: el.width.value,
           height: el.height.value,

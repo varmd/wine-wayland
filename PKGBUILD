@@ -1,6 +1,6 @@
 # Created by: varmd
 
-RELEASE=6.19
+RELEASE=7.0
 _pkgname=('wine-wayland')
 pkgname=('wine-wayland' 'wineland' )
 
@@ -175,6 +175,10 @@ prepare() {
     exit;
   else
     cd ..
+    
+    #rm -rf  "${srcdir}"/"${_winesrcdir}"/dlls/winevulkan
+    #ln -s $PWD/winevulkan "${srcdir}"/"${_winesrcdir}"/dlls/
+    
     rm -f "${srcdir}"/"${_winesrcdir}"/dlls/winewayland*
 
     ln -s $PWD/winewayland* "${srcdir}"/"${_winesrcdir}"/dlls/
@@ -227,14 +231,22 @@ prepare() {
     patch -Np1 < ../../esync2/fix-rt.patch
     
     
-    patch -Np1 < ../../patches/fs-1.patch
-    patch -Np1 < ../../patches/fsr-1.patch
-    patch -Np1 < ../../patches/fsr-2.patch
-    patch -Np1 < ../../patches/fsr-3.patch
-
-    #rm -rf programs/explorer
-    #rm -rf programs/iexplore
-
+    
+    msg2 "Applying FSR patches"
+    for _f in ../../patches/fsr/*.patch; do
+      msg2 "Applying ${_f}"
+      patch -Np1 < ${_f}
+    done
+    cp '../../patches/fsr/vulkan-fsr-include.c' dlls/winevulkan/
+    
+    #patch -Np1 < '../../patches/fsr/fsr-wine-include.patch'
+    #patch -Np1 < '../../patches/fsr/fsr-vulkanc.patch'
+    #patch -Np1 < '../../patches/fsr/fsr-make-vulkan.patch'
+    #patch -Np1 < '../../patches/fsr/fsr-vulkan_thunks.patch'
+    #patch -Np1 < '../../patches/fsr/fsr-Makefile.patch'
+    
+    
+    
     # speed up
 
     sed -i '/programs\/explorer/d' configure.ac
@@ -301,6 +313,8 @@ prepare() {
     sed -i '/dlls\/jscript/d' configure.ac
     sed -i '/dlls\/vbscript/d' configure.ac
     sed -i '/dlls\/hhctrl/d' configure.ac
+    
+    sed -i '/dlls\/gameux/d' configure.ac
 
 
     rm configure
@@ -350,12 +364,9 @@ build() {
 		--without-gphoto \
 		--without-gssapi \
 		--without-netapi \
-		--without-hal \
-    --without-gsm \
     --without-opencl \
     --without-opengl \
     --without-cups \
-    --without-cms \
     --without-vkd3d \
     --without-xinerama \
     --without-xrandr \

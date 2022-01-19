@@ -20,7 +20,7 @@
 
 #include "config.h"
 #include <stdarg.h>
-#include "wine/port.h"
+#include <dlfcn.h>
 
 
 #define NONAMELESSUNION
@@ -148,14 +148,7 @@ int global_output_height = 0;
   Examples
   https://github.com/SaschaWillems/Vulkan/blob/b4fb49504e714ecbd4485dfe98514a47b4e9c2cc/external/vulkan/vulkan_wayland.h
 */
-
-
-
-
-
-//Wayland keyboard arrays
-//https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
-static const UINT keycode_to_vkey[] =
+const UINT keycode_to_vkey[] =
 {
     0,                   /* reserved */
     VK_ESCAPE,                   /* KEY_ESC			1 */
@@ -173,7 +166,7 @@ static const UINT keycode_to_vkey[] =
     VK_OEM_PLUS,                 /* KEY_EQUAL		13 */
     VK_BACK,                 /* KEY_BACKSPACE		14 */
     VK_TAB,                 /* KEY_TAB			15 */
-    0x51,                 /* KEY_Q			16 */
+    'Q',                 /* KEY_Q			16 */
     'W',                   /* KEY_W			17 */
     'E',                   /* KEY_E			18 */
     'R',               /* KEY_R			19 */
@@ -382,7 +375,7 @@ static const UINT keycode_to_vkey[] =
     0,                   /* AKEYCODE_ASSIST */
 };
 
-static const WORD vkey_to_scancode[] =
+const WORD vkey_to_scancode[] =
 {
     0,     /* 0x00 undefined */
     0,     /* VK_LBUTTON */
@@ -643,7 +636,6 @@ static const WORD vkey_to_scancode[] =
     0x59,  /* VK_OEM_CLEAR */
     0,     /* 0xff undefined */
 };
-
 
 
 
@@ -1119,11 +1111,11 @@ HKL CDECL WAYLANDDRV_LoadKeyboardLayout(LPCWSTR name, UINT flags)
 /***********************************************************************
  *		ActivateKeyboardLayout (WAYLANDDRV.@)
  */
-HKL CDECL WAYLANDDRV_ActivateKeyboardLayout(HKL hkl, UINT flags)
+BOOL CDECL WAYLANDDRV_ActivateKeyboardLayout(HKL hkl, UINT flags)
 {
-    HKL oldHkl = 0;
-    oldHkl = get_locale_kbd_layout();
-    return oldHkl;
+    //HKL oldHkl = 0;
+    //oldHkl = get_locale_kbd_layout();
+    return TRUE;
 
 
 
@@ -1867,12 +1859,7 @@ void wayland_pointer_button_cb(void *data,
     return wayland_pointer_button_cb_vulkan(data, pointer, serial, time, button, state);
   }
 
-
-
-
-
   input.type = INPUT_MOUSE;
-
   input.u.mi.dx          = (int)global_sx;
   input.u.mi.dy          = (int)global_sy;
   input.u.mi.mouseData   = 0;
@@ -2021,12 +2008,6 @@ void wayland_pointer_axis_cb(void *data,
 
 
 }
-
-
-
-
-
-
 
 //relative pointer for locked surface
 static void
@@ -2629,13 +2610,11 @@ static void set_queue_display_fd( int esync_fd )
     }
 
     done = 1;
-    TRACE("Setting esync fd \n");
+    
 
 
 
-    #if HAS_ESYNC
-      wine_esync_set_queue_fd( esync_fd );
-    #endif
+    
 
     if (wine_server_fd_to_handle( esync_fd, GENERIC_READ | SYNCHRONIZE, 0, &handle ))
     {
@@ -4030,7 +4009,7 @@ static inline BOOL get_surface_rect( const RECT *visible_rect, RECT *surface_rec
 /***********************************************************************
  *		WindowPosChanging   (WAYLANDDRV.@)
  */
-void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
+BOOL CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
                                      const RECT *window_rect, const RECT *client_rect, RECT *visible_rect,
                                      struct window_surface **surface )
 {
@@ -4080,7 +4059,7 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
     //For caching global_vulkan_hwnd rect
     global_vulkan_rect_flag = 0;
     GetWindowRect(global_vulkan_hwnd, &global_vulkan_rect);
-    return;
+    return TRUE;
   }
 
 
@@ -4088,14 +4067,14 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
 
 
   if(hwnd == GetDesktopWindow()) {
-    return;
+    return TRUE;
   }
 
 
   parent = GetAncestor(hwnd, GA_PARENT);
 
   if( !parent || parent != GetDesktopWindow()) {
-    return;
+    return TRUE;
   }
 
 
@@ -4106,43 +4085,43 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
   if(RealGetWindowClassW(hwnd, class_name, ARRAY_SIZE(class_name))) {
 
     if(!lstrcmpiW(class_name, msg_class)) {
-      return;
+      return TRUE;
     }
     if(!lstrcmpiW(class_name, ole_class)) {
-      return;
+      return TRUE;
     }
     if(!lstrcmpiW(class_name, ime_class)) {
-      return;
+      return TRUE;
     }
     if(!lstrcmpiW(class_name, desktop_class)) {
-      return;
+      return TRUE;
     }
     if(!lstrcmpiW(class_name, tooltip_class)) {
-      return;
+      return TRUE;
     }
     if(!lstrcmpiW(class_name, sdl_class)) {
-      return;
+      return TRUE;
     }
     if(!lstrcmpiW(class_name, unreal_class)) {
-      return;
+      return TRUE;
     }
     if(!lstrcmpiW(class_name, poe_class)) {
-      return;
+      return TRUE;
     }
     if(!lstrcmpiW(class_name, ogre_class)) {
-      return;
+      return TRUE;
     }
     if(!lstrcmpiW(class_name, unity_class)) {
-      return;
+      return TRUE;
     }
     if(!lstrcmpiW(class_name, unreal_splash_class)) {
-      return;
+      return TRUE;
     }
     if(!lstrcmpiW(class_name, shogun2_frame_class)) {
-      return;
+      return TRUE;
     }
     if(!lstrcmpiW(class_name, flstudio_hwnd_class)) {
-      return;
+      return TRUE;
     }
 
 
@@ -4164,19 +4143,19 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
   do_create_surface = do_create_win_data( hwnd, window_rect, client_rect );
 
   if (!do_create_surface) {
-    return;
+    return TRUE;
   }
 
 
 
   if (!(swp_flags & SWP_SHOWWINDOW) && !(GetWindowLongW( hwnd, GWL_STYLE ) & WS_VISIBLE)) {
-    return;
+    return TRUE;
   }
 
 
   if (swp_flags & SWP_HIDEWINDOW) {
     TRACE("Window Should be hidden %s \n", debugstr_wn(title_name, strlenW( title_name )));
-    return;
+    return TRUE;
   }
 
 
@@ -4225,7 +4204,7 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
 
     if(!data) {
       TRACE("NO DATA \n");
-      return;
+      return TRUE;
     } else {
 
 
@@ -4239,7 +4218,7 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
         window_surface_add_ref( data->surface );
         if (*surface) window_surface_release( *surface );
         *surface = data->surface;
-        return;
+        return TRUE;
 
       }
 
@@ -4259,8 +4238,9 @@ void CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
 
 
     }
-
-}
+  
+  return TRUE;
+}  
 
 /***********************************************************************
  *           ShowWindow   (WAYLANDDRV.@)
@@ -5284,7 +5264,7 @@ static VkBool32 WAYLANDDRV_query_fs_hack(VkSurfaceKHR surface, VkExtent2D *real_
   char *env_width, *env_height;
   int screen_width = 0, screen_height = 0;
 
-  TRACE("fshack test \n");
+  TRACE("fshack test %d \n", global_fsr);
 
   global_vulkan_rect_flag = 0;
 
@@ -5354,11 +5334,13 @@ static VkBool32 WAYLANDDRV_query_fs_hack(VkSurfaceKHR surface, VkExtent2D *real_
   if(filter)
     *filter = VK_FILTER_NEAREST;
 
+  
   if(fsr)
     *fsr = TRUE;
 
   if(sharpness)
     *sharpness = (float) 2 / 10.0f;
+  
 
   TRACE("getting  fsr fshack \n");
   return VK_TRUE;

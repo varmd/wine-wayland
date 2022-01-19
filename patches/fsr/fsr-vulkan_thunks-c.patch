@@ -1,0 +1,66 @@
+--- a/dlls/winevulkan/vulkan_thunks.c
++++ b/dlls/winevulkan/vulkan_thunks.c
+@@ -4842,7 +4842,7 @@
+     s->pNext = NULL;
+ }
+ 
+-static NTSTATUS wine_vkAcquireNextImage2KHR(void *args)
++static NTSTATUS wine_vkAcquireNextImage2KHR_disabled(void *args)
+ {
+     struct vkAcquireNextImage2KHR_params *params = args;
+ #if defined(USE_STRUCT_CONVERSION)
+@@ -4864,7 +4864,7 @@
+ {
+     struct vkAcquireNextImageKHR_params *params = args;
+     TRACE("%p, 0x%s, 0x%s, 0x%s, 0x%s, %p\n", params->device, wine_dbgstr_longlong(params->swapchain), wine_dbgstr_longlong(params->timeout), wine_dbgstr_longlong(params->semaphore), wine_dbgstr_longlong(params->fence), params->pImageIndex);
+-    return params->device->funcs.p_vkAcquireNextImageKHR(params->device->device, params->swapchain, params->timeout, params->semaphore, params->fence, params->pImageIndex);
++    return params->device->funcs.p_vkAcquireNextImageKHR(params->device->device, ((struct VkSwapchainKHR_T *)(uintptr_t) (params->swapchain))->swapchain, params->timeout, params->semaphore, params->fence, params->pImageIndex);
+ }
+ 
+ static NTSTATUS wine_vkAcquirePerformanceConfigurationINTEL(void *args)
+@@ -7080,7 +7080,7 @@
+     return params->device->funcs.p_vkCreateShaderModule(params->device->device, params->pCreateInfo, NULL, params->pShaderModule);
+ }
+ 
+-static NTSTATUS wine_vkCreateSwapchainKHR(void *args)
++static NTSTATUS wine_vkCreateSwapchainKHR_disabled(void *args)
+ {
+     struct vkCreateSwapchainKHR_params *params = args;
+ #if defined(USE_STRUCT_CONVERSION)
+@@ -7398,7 +7398,7 @@
+     return STATUS_SUCCESS;
+ }
+ 
+-static NTSTATUS wine_vkDestroySwapchainKHR(void *args)
++static NTSTATUS wine_vkDestroySwapchainKHR_disabled(void *args)
+ {
+     struct vkDestroySwapchainKHR_params *params = args;
+     TRACE("%p, 0x%s, %p\n", params->device, wine_dbgstr_longlong(params->swapchain), params->pAllocator);
+@@ -8593,7 +8593,7 @@
+     return params->device->funcs.p_vkGetShaderInfoAMD(params->device->device, params->pipeline, params->shaderStage, params->infoType, params->pInfoSize, params->pInfo);
+ }
+ 
+-static NTSTATUS wine_vkGetSwapchainImagesKHR(void *args)
++static NTSTATUS wine_vkGetSwapchainImagesKHR_disabled(void *args)
+ {
+     struct vkGetSwapchainImagesKHR_params *params = args;
+     TRACE("%p, 0x%s, %p, %p\n", params->device, wine_dbgstr_longlong(params->swapchain), params->pSwapchainImageCount, params->pSwapchainImages);
+@@ -8697,7 +8697,7 @@
+     return STATUS_SUCCESS;
+ }
+ 
+-static NTSTATUS wine_vkQueuePresentKHR(void *args)
++static NTSTATUS wine_vkQueuePresentKHR_disabled(void *args)
+ {
+     struct vkQueuePresentKHR_params *params = args;
+     TRACE("%p, %p\n", params->queue, params->pPresentInfo);
+@@ -9309,7 +9309,8 @@
+         type == VK_OBJECT_TYPE_INSTANCE ||
+         type == VK_OBJECT_TYPE_PHYSICAL_DEVICE ||
+         type == VK_OBJECT_TYPE_QUEUE ||
+-        type == VK_OBJECT_TYPE_SURFACE_KHR;
++        type == VK_OBJECT_TYPE_SURFACE_KHR ||
++        type == VK_OBJECT_TYPE_SWAPCHAIN_KHR;
+ }
+ 
+ uint64_t wine_vk_unwrap_handle(VkObjectType type, uint64_t handle)

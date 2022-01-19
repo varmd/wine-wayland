@@ -1,0 +1,21 @@
+--- a/include/wine/vulkan_driver.h
+--- b/include/wine/vulkan_driver.h
+@@ -21,6 +21,9 @@
+      * needs to provide. Other function calls will be provided indirectly by dispatch
+      * tables part of dispatchable Vulkan objects such as VkInstance or vkDevice.
+      */
++    VkResult (*p_vkAcquireNextImage2KHR)(VkDevice, const VkAcquireNextImageInfoKHR *, uint32_t *);
++    VkResult (*p_vkAcquireNextImageKHR)(VkDevice, VkSwapchainKHR, uint64_t, VkSemaphore, VkFence, uint32_t *);
++
+     VkResult (*p_vkCreateInstance)(const VkInstanceCreateInfo *, const VkAllocationCallbacks *, VkInstance *);
+     VkResult (*p_vkCreateSwapchainKHR)(VkDevice, const VkSwapchainCreateInfoKHR *, const VkAllocationCallbacks *, VkSwapchainKHR *);
+     VkResult (*p_vkCreateWin32SurfaceKHR)(VkInstance, const VkWin32SurfaceCreateInfoKHR *, const VkAllocationCallbacks *, VkSurfaceKHR *);
+@@ -44,6 +47,8 @@
+ 
+     /* winevulkan specific functions */
+     VkSurfaceKHR (*p_wine_get_native_surface)(VkSurfaceKHR);
++
++    VkBool32 (*query_fs_hack)(VkSurfaceKHR surface, VkExtent2D *real_sz, VkExtent2D *user_sz, VkRect2D *dst_blit, VkFilter *filter, BOOL *fsr, float *sharpness);
+ };
+ 
+ extern const struct vulkan_funcs * CDECL __wine_get_vulkan_driver(UINT version);
