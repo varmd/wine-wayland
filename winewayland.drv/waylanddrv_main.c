@@ -80,7 +80,7 @@ int xrender_error_base = 0;
 HMODULE waylanddrv_module = 0;
 char *process_name = NULL;
 
-//static waylanddrv_error_callback err_callback;   /* current callback for error */
+
 
 
 #define IS_OPTION_TRUE(ch) \
@@ -107,15 +107,15 @@ static inline DWORD get_config_key( HKEY defkey, HKEY appkey, const char *name,
 
 
 
-
+#if 0
 void create_desktop( int is_one )
 {
     static const WCHAR messageW[] = {'M','e','s','s','a','g','e',0};
     HDESK desktop = 0;
 
     HWND hwnd;
-    
-    
+
+    GUID guid;
     const WCHAR *name = NULL;
 
     static const WCHAR desktopW[] = {'D','e','s','k','t','o','p',0};
@@ -125,22 +125,23 @@ void create_desktop( int is_one )
     //WCHAR desktopW[] = {'D','e','s','k','t','o','p',0};
     if(is_one)
       desktopw = desktopW1;
-    
+
 
 
         if (!(desktop = CreateDesktopW( desktopw, NULL, NULL, 0, DESKTOP_ALL_ACCESS, NULL )))
         {
-            WINE_ERR( "failed to create desktop %s error %d\n", wine_dbgstr_w(name), GetLastError() );
+            TRACE( "failed to create desktop %s error %d\n", wine_dbgstr_w(name), GetLastError() );
             ExitProcess( 1 );
         }
         SetThreadDesktop( desktop );
 
 
 
-
+    UuidCreate( &guid );
     /* create the desktop window */
     hwnd = CreateWindowExW( 0, DESKTOP_CLASS_ATOM, NULL,
-                            WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN, 0, 0, 0, 0, 0, 0, 0, NULL );
+                            WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
+                            0, 0, 0, 0, 0, 0, 0, &guid );
 
     if (hwnd)
     {
@@ -156,10 +157,12 @@ void create_desktop( int is_one )
 
 
 
+    } else {
+       TRACE( "failed to create desktop hwnd %s error %d\n", wine_dbgstr_w(name), GetLastError() );
     }
 
 }
-
+#endif
 
 /***************************************************************************
  *	get_basename
@@ -183,23 +186,20 @@ static const WCHAR *get_basename( const WCHAR *name )
 static BOOL process_attach(void)
 {
 
-  
-  printf("Entering wayland \n");
-  
-  
+
+  TRACE("Entering wayland \n");
 
   static WCHAR *current_exe = NULL;
   char *env_width, *env_height;
   static const WCHAR zfgamebrowser_exe[] = {'Z','F','G','a','m','e','B','r','o','w','s','e','r','.','e','x','e', 0};
   static WCHAR current_exepath[MAX_PATH] = {0};
-  
+
   int screen_width = 1920;
   int screen_height = 1080;
 
   GetModuleFileNameW(NULL, current_exepath, ARRAY_SIZE(current_exepath));
   current_exe = (WCHAR *)get_basename(current_exepath);
 
-//  const char *is_vulkan_desktop_only = getenv( "WINE_VK_VULKAN_DESKTOP_ONLY" );
 
   TRACE("current exe path %s \n", debugstr_wn(current_exepath, strlenW( current_exepath )));
   TRACE("current exe %s \n", debugstr_wn(current_exe, strlenW( current_exe )));
@@ -207,7 +207,7 @@ static BOOL process_attach(void)
   env_width = getenv( "WINE_VK_WAYLAND_WIDTH" );
   env_height = getenv( "WINE_VK_WAYLAND_HEIGHT" );
 
-  
+
 
   if(env_width) {
     screen_width = atoi(env_width);
@@ -225,8 +225,8 @@ static BOOL process_attach(void)
 
 
   WAYLANDDRV_Settings_Init();
-  
-  
+
+
   //setup registry for display devices
   wayland_init_display_devices(1);
 
@@ -240,14 +240,14 @@ static BOOL process_attach(void)
 
 
   //Hack for GenshinImpact ZFGameBrowser
-  if(!lstrcmpiW(current_exe, zfgamebrowser_exe)) {
-    create_desktop(1);
-  } else {
-    create_desktop( 0 );
-  }
+//  if(!lstrcmpiW(current_exe, zfgamebrowser_exe)) {
+//    create_desktop(1);
+//  } else {
+//    create_desktop( 0 );
+//  }
 
-  
-  printf("Entering wayland 2 \n");
+
+  TRACE("Entering wayland 2 \n");
   return TRUE;
 }
 
@@ -289,7 +289,7 @@ BOOL WINAPI DllMain( HINSTANCE hinst, DWORD reason, LPVOID reserved )
         DisableThreadLibraryCalls( hinst );
         waylanddrv_module = hinst;
         ret = process_attach();
-        
+
         break;
     }
     return ret;

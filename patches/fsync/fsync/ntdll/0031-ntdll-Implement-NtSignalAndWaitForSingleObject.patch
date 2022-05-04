@@ -1,0 +1,27 @@
+From 8b168387ec4cb74303f62ea55e3df47250ecf668 Mon Sep 17 00:00:00 2001
+From: Zebediah Figura <z.figura12@gmail.com>
+Date: Sat, 9 Jun 2018 23:34:27 -0500
+Subject: [PATCH 31/83] ntdll: Implement NtSignalAndWaitForSingleObject().
+
+Signed-off-by: Zebediah Figura <z.figura12@gmail.com>
+---
+ dlls/ntdll/unix/sync.c  |  3 +++
+ 3 files changed, 33 insertions(+)
+
+diff --git a/dlls/ntdll/unix/sync.c b/dlls/ntdll/unix/sync.c
+index 0040da4ffa..132b8688ea 100644
+--- a/dlls/ntdll/unix/sync.c
++++ b/dlls/ntdll/unix/sync.c
+@@ -1099,6 +1099,9 @@ NTSTATUS WINAPI NtSignalAndWaitForSingleObject( HANDLE signal, HANDLE wait,
+     select_op_t select_op;
+     UINT flags = SELECT_INTERRUPTIBLE;
+
++    if (do_fsync())
++        return fsync_signal_and_wait( signal, wait, alertable, timeout );
++
+     if (!signal) return STATUS_INVALID_HANDLE;
+
+     if (alertable) flags |= SELECT_ALERTABLE;
+--
+2.19.1
+

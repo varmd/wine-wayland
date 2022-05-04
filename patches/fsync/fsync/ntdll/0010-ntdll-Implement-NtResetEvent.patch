@@ -1,0 +1,30 @@
+From fabbc9888f6e850334a014270180e7f84955dabc Mon Sep 17 00:00:00 2001
+From: Zebediah Figura <z.figura12@gmail.com>
+Date: Fri, 8 Jun 2018 15:44:49 -0500
+Subject: [PATCH 10/83] ntdll: Implement NtResetEvent().
+
+Signed-off-by: Zebediah Figura <z.figura12@gmail.com>
+---
+ dlls/ntdll/unix/sync.c  |  3 +++
+ 3 files changed, 19 insertions(+)
+
+diff --git a/dlls/ntdll/sync.c b/dlls/ntdll/sync.c
+index c8047bfa3e..2e9142290d 100644
+--- a/dlls/ntdll/unix/sync.c
++++ b/dlls/ntdll/unix/sync.c
+@@ -382,7 +382,11 @@ NTSTATUS WINAPI NtResetEvent( HANDLE handle, LONG *prev_state )
+ NTSTATUS WINAPI NtResetEvent( HANDLE handle, LONG *prev_state )
+ {
+     NTSTATUS ret;
++
++    if (do_fsync())
++        return fsync_reset_event( handle, prev_state );
++
+
+     SERVER_START_REQ( event_op )
+     {
+         req->handle = wine_server_obj_handle( handle );
+
+--
+2.19.1
+

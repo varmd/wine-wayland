@@ -27,7 +27,7 @@ Wine-wayland allows running DX9/DX11/DX12 and Vulkan games using pure Wayland an
 ## Installation with wineland
 
 From v6.11, it's possible to install only the wineland launcher, without system-wide installation of wine-wayland. The launcher
-will then download wine-wayland, dxvk and mangohud from Github and run games without system-wide installation of wine-wayland. 
+will then download wine-wayland, dxvk and mangohud from Github and run games without system-wide installation of wine-wayland.
 
 You can download the wineland launcher package from https://github.com/varmd/wine-wayland/releases. This version is automatically built via Github Actions. cd to download folder and install. After installation, refer to the section below on how to configure games for the wineland launcher.
 
@@ -109,7 +109,7 @@ Then in the terminal run sh start-your-game.sh
 * Use `export WINE_VK_NO_CLIP_CURSOR=1` to disable cursor locking for games that erroneously try to lock mouse cursor.
 * Use `export WINE_VK_FULLSCREEN_GRAB_CURSOR=1` to automatically enable cursor grab in fullscreen.
 * Use `export WINE_VK_ALWAYS_FULLSCREEN=1` to automatically set game to fullscreen without using F11.
-* Use `export WINE_VK_USE_FSR=1` to enable FSR. 
+* Use `export WINE_VK_USE_FSR=1` to enable FSR.
 * Use `export WINEFSYNC=1` to enable FSYNC for better performance in most games.
 
 ## Keyboard shortcuts
@@ -164,6 +164,8 @@ Then in the terminal run sh start-your-game.sh
 * Torchlight2
 * Civilization 6 - use SidMeiersCivilizationVI/Base/Binaries/Win64EOS/CivilizationVI.exe for exe path (EGS version)
 * GTA 5
+* Thea 2: The Shattering
+
 
 ## Apps tested
 

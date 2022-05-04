@@ -1,11 +1,11 @@
 #
-# Copyright 2020-2021 varmd
+# Copyright 2020-2022 varmd
 #
 
-WINE_VK_DXVK_VERSION="1.9.3"
-WINE_WAYLAND_VERSION="7.0"
-VKD3D_VERSION="2.5"
-WINE_WAYLAND_TAG_NUM="2"
+WINE_VK_DXVK_VERSION="1.10.1"
+WINE_WAYLAND_VERSION="7.7"
+VKD3D_VERSION="2.6"
+WINE_WAYLAND_TAG_NUM="1"
 
 #partition check
 #df -P ~/.local/share/wineland/game/winebin/usr/bin/wine64 | tail -1 | cut -d' ' -f 1
@@ -31,7 +31,7 @@ pgrep -f "\.exe" | xargs -L1 kill -9 &> /dev/null
 
 export WINE_VK_WAYLAND_WIDTH=1920
 export WINE_VK_WAYLAND_HEIGHT=1080
-export WAYLAND_DISPLAY=wayland-0
+
 
 export XDG_RUNTIME_DIR=/run/user/$UID
 

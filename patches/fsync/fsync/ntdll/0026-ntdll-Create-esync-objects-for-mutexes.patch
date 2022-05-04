@@ -1,0 +1,27 @@
+From 335d68a918df7ee8cf53d00d8791c4518d717c04 Mon Sep 17 00:00:00 2001
+From: Zebediah Figura <z.figura12@gmail.com>
+Date: Sat, 9 Jun 2018 15:48:46 -0500
+Subject: [PATCH 26/83] ntdll: Create fsync objects for mutexes.
+
+Signed-off-by: Zebediah Figura <z.figura12@gmail.com>
+---
+ dlls/ntdll/unix/sync.c              |  3 +++
+ 5 files changed, 46 insertions(+)
+
+diff --git a/dlls/ntdll/unix/sync.c b/dlls/ntdll/unix/sync.c
+index 754e9e0d57..76004d613c 100644
+--- a/dlls/ntdll/unix/sync.c
++++ b/dlls/ntdll/unix/sync.c
+@@ -622,6 +622,9 @@ NTSTATUS WINAPI NtCreateMutant(HANDLE *handle, ACCESS_MASK access, const OBJECT_ATTRIBUTES *attr,
+     struct object_attributes *objattr;
+
+     *handle = 0;
++    if (do_fsync())
++        return fsync_create_mutex( handle, access, attr, owned );
++
+     if ((ret = alloc_object_attributes( attr, &objattr, &len ))) return ret;
+
+     SERVER_START_REQ( create_mutex )
+--
+2.19.1
+

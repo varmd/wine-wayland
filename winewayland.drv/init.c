@@ -76,7 +76,7 @@ static WAYLANDDRV_PDEVICE *create_x11_physdev( void )
     WAYLANDDRV_PDEVICE *physDev;
 
 
-    if (!(physDev = HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*physDev) ))) return NULL;
+    if (!(physDev = calloc( 1, sizeof(*physDev) ))) return NULL;
     return physDev;
 
 
@@ -86,7 +86,7 @@ static WAYLANDDRV_PDEVICE *create_x11_physdev( void )
  *	     WAYLANDDRV_CreateDC
  */
 static BOOL CDECL WAYLANDDRV_CreateDC( PHYSDEV *pdev, LPCWSTR device,
-                             LPCWSTR output, 
+                             LPCWSTR output,
   const DEVMODEW* initData )
 {
 
@@ -129,7 +129,7 @@ static BOOL CDECL WAYLANDDRV_CreateCompatibleDC( PHYSDEV orig, PHYSDEV *pdev )
     physDev->depth  = 1;
     SetRect( &physDev->dc_rect, 0, 0, 1, 1 );
     push_dc_driver( pdev, &physDev->dev, &waylanddrv_funcs.dc_funcs );
-    
+
     return TRUE;
 }
 
@@ -141,7 +141,7 @@ static BOOL CDECL WAYLANDDRV_DeleteDC( PHYSDEV dev )
 {
     WAYLANDDRV_PDEVICE *physDev = get_waylanddrv_dev( dev );
 
-    HeapFree( GetProcessHeap(), 0, physDev );
+    free( physDev );
     return TRUE;
 }
 
@@ -201,7 +201,7 @@ static INT CDECL WAYLANDDRV_GetDeviceCaps( PHYSDEV dev, INT cap )
 /**********************************************************************
  *           WAYLANDDRV_wine_get_vulkan_driver
  */
-static const struct vulkan_funcs * CDECL WAYLANDDRV_wine_get_vulkan_driver( UINT version )
+static const struct vulkan_funcs * WAYLANDDRV_wine_get_vulkan_driver( UINT version )
 {
     return get_vulkan_driver( version );
 }
@@ -210,18 +210,18 @@ static const struct vulkan_funcs * CDECL WAYLANDDRV_wine_get_vulkan_driver( UINT
 
 static const struct user_driver_funcs waylanddrv_funcs =
 {
-    
-  
+
+
     .dc_funcs.pCreateCompatibleDC = WAYLANDDRV_CreateCompatibleDC,                    /* pCreateDC */
     .dc_funcs.pCreateDC = WAYLANDDRV_CreateDC,                    /* pCreateDC */
     .dc_funcs.pDeleteDC = WAYLANDDRV_DeleteDC,                    /* pDeleteDC */
-  
+
     .dc_funcs.pGetDeviceCaps = WAYLANDDRV_GetDeviceCaps,
-   
+
 
     .pwine_get_vulkan_driver = WAYLANDDRV_wine_get_vulkan_driver,   /* wine_get_vulkan_driver */
     .dc_funcs.priority = GDI_PRIORITY_GRAPHICS_DRV,
-  
+
    .pActivateKeyboardLayout = WAYLANDDRV_ActivateKeyboardLayout,
     //.pBeep = WAYLANDDRV_Beep,
     .pChangeDisplaySettingsEx = WAYLANDDRV_ChangeDisplaySettingsEx,
@@ -242,7 +242,7 @@ static const struct user_driver_funcs waylanddrv_funcs =
     .pSetCursor = WAYLANDDRV_SetCursor,
     //.pSetCursorPos = WAYLANDDRV_SetCursorPos,
     //.pSetFocus = WAYLANDDRV_SetFocus,
-    
+
     //.pSetParent = WAYLANDDRV_SetParent,
     //.pSetWindowRgn = WAYLANDDRV_SetWindowRgn,
     //.pSetWindowStyle = WAYLANDDRV_SetWindowStyle,
@@ -251,7 +251,7 @@ static const struct user_driver_funcs waylanddrv_funcs =
     .pSysCommand = WAYLANDDRV_SysCommand,
     //.pEnumDisplayMonitors = WAYLANDDRV_EnumDisplayMonitors,
     //.pGetMonitorInfo = WAYLANDDRV_GetMonitorInfo,
-    
+
     .pToUnicodeEx = WAYLANDDRV_ToUnicodeEx,
     //.pUnregisterHotKey = WAYLANDDRV_UnregisterHotKey,
     //.pUpdateClipboard = WAYLANDDRV_UpdateClipboard,

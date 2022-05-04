@@ -1,0 +1,18 @@
+@@ -959,6 +959,17 @@
+     DWORD size;
+     UINT guid_atom;
+
++    void *ret_ptr;
++    ULONG ret_len;
++
++    static const WCHAR drv_formatW[] = {'w','i','n','e',
++      'w','a','y','l','a','n','d',
++      '.','d','r','v',0};
++
++    KeUserModeCallback( NtUserLoadDriver, drv_formatW, sizeof(drv_formatW), &ret_ptr, &ret_len );
++
++    return TRUE;
++
+     static const WCHAR prop_nameW[] =
+         {'_','_','w','i','n','e','_','d','i','s','p','l','a','y','_','d','e','v','i','c','e',
+          '_','g','u','i','d',0};

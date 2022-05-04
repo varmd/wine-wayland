@@ -1,0 +1,26 @@
+From 051fd9fec9293edaeaaa0f1858a713e0f8dba1d6 Mon Sep 17 00:00:00 2001
+From: Zebediah Figura <z.figura12@gmail.com>
+Date: Thu, 7 Jun 2018 21:07:51 -0500
+Subject: [PATCH 06/83] ntdll: Close esync objects.
+
+Signed-off-by: Zebediah Figura <z.figura12@gmail.com>
+---
+ dlls/ntdll/unix/server.c    |  4 ++++
+ 3 files changed, 24 insertions(+)
+
+diff --git a/dlls/ntdll/unix/server.c b/dlls/ntdll/unix/server.c
+index 0b56251348..6c74ce535d 100644
+--- a/dlls/ntdll/unix/server.c
++++ b/dlls/ntdll/unix/server.c
+@@ -1751,6 +1751,8 @@
+     /* always remove the cached fd; if the server request fails we'll just
+      * retrieve it again */
+     fd = remove_fd_from_cache( handle );
++    if (do_fsync())
++        fsync_close( handle );
+
+     SERVER_START_REQ( close_handle )
+     {
+--
+2.19.1
+

@@ -1,0 +1,54 @@
+From 1a490228fab2168251f90f5884ac98083d959299 Mon Sep 17 00:00:00 2001
+From: Zebediah Figura <z.figura12@gmail.com>
+Date: Mon, 13 Aug 2018 21:35:06 -0500
+Subject: [PATCH 79/83] ntdll, server: Revert to old implementation of hung
+ queue detection.
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+By manually notifying the server every time we enter and exit a message wait.
+
+The hung queue logic keeps breaking. In the case of bug #9 it was breaking
+because we were waiting for more than 5 seconds on our queue and then someone
+sent us a message with SMTO_ABORTIFHUNG. Just stop fighting against the
+server and try to coöperate with it instead. It takes two extra server calls,
+but ideally the GUI thread isn't going to be in the same sort of performance-
+critical code that this patchset was written for.
+
+Signed-off-by: Zebediah Figura <z.figura12@gmail.com>
+---
+ include/wine/server_protocol.h | 16 +++++++++-
+ server/protocol.def            |  6 +++-
+ server/queue.c                 | 35 +++++++++++++++++-----
+ server/request.h               |  5 +++-
+ server/trace.c                 |  8 +++++
+ 6 files changed, 100 insertions(+), 23 deletions(-)
+
+diff --git a/server/queue.c b/server/queue.c
+index e76203cc73..66c1a642e0 100644
+--- a/server/queue.c
++++ b/server/queue.c
+@@ -915,12 +930,6 @@ static int msg_queue_add_queue( struct object *obj, struct wait_queue_entry *ent
+     }
+     if (process->idle_event && !(queue->wake_mask & QS_SMRESULT)) set_event( process->idle_event );
+
+-    /* On Windows, we are considered hung iff we have not somehow processed
+-     * messages OR done a MsgWait call in the last 5 seconds. Note that in the
+-     * latter case repeatedly waiting for 0 seconds is not hung, but waiting
+-     * forever is hung, so this is correct. */
+-    queue->last_get_msg = current_time;
+-
+     if (queue->fd && list_empty( &obj->wait_queue ))  /* first on the queue */
+         set_fd_events( queue->fd, POLLIN );
+     add_queue( obj, entry );
+@@ -1566,6 +1575,7 @@ static int send_hook_ll_message( struct desktop *desktop, struct message *hardwa
+
+     if (!(hook_thread = get_first_global_hook( id ))) return 0;
+     if (!(queue = hook_thread->queue)) return 0;
++    if (is_queue_hung( queue )) return 0;
+
+     if (!(msg = mem_alloc( sizeof(*msg) ))) return 0;
+
+
+

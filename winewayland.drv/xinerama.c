@@ -144,14 +144,14 @@ void xinerama_init( unsigned int width, unsigned int height )
         */
     }
 
-    
+
 }
 
 
 /***********************************************************************
  *		WAYLANDDRV_GetMonitorInfo  (WAYLANDDRV.@)
  */
-void CDECL WAYLANDDRV_UpdateDisplayDevices( const struct gdi_device_manager *device_manager, BOOL force, void *param ) {
+void WAYLANDDRV_UpdateDisplayDevices( const struct gdi_device_manager *device_manager, BOOL force, void *param ) {
     static int force_display_devices_refresh = TRUE;
     if (force || force_display_devices_refresh)
     {

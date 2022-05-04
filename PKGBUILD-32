@@ -27,16 +27,16 @@ pkgname+=('lib32-wine-wayland')
 
 url_libffi="https://github.com/libffi/libffi/archive/refs/tags/v3.4.2.zip"
 url_wayland="https://github.com/wayland-project/wayland/archive/refs/tags/1.20.0.zip"
-url_mpg123="https://mpg123.de/download/mpg123-1.27.2.tar.bz2"
+
 url_openal="https://github.com/kcat/openal-soft/archive/refs/tags/1.21.1.zip"
 url_mesa="https://github.com/mesa3d/mesa/archive/1378c67bcf9e16aea98ddb8cb6bd37b9ed4e3a81.zip"
 url_sdl2="https://github.com/libsdl-org/SDL/archive/refs/tags/release-2.0.12.zip"
 url_freetype2="https://download.savannah.gnu.org/releases/freetype/freetype-2.10.1.tar.xz"
-url_libxml2="https://github.com/GNOME/libxml2/archive/v2.9.10.zip"
+
 url_libsystemd32="https://github.com/systemd/systemd-stable/archive/v247.2.zip"
 
-url_libjpegturbo="https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/2.1.0.zip"
-url_libpng="https://github.com/glennrp/libpng/archive/refs/tags/v1.6.37.zip"
+
+
 
 url_libelf="https://sourceware.org/elfutils/ftp/0.185/elfutils-0.185.tar.bz2"
 
@@ -49,7 +49,7 @@ build_libffi_32() {
   if [ ! -f libffi.zip ]; then
     curl -L $url_libffi > libffi.zip
   fi
-  
+
   unzip -q libffi.zip
 
   cd $(find . -maxdepth 1 -type d -name "*libffi*"  | sed 1q)
@@ -60,7 +60,7 @@ build_libffi_32() {
   export PKG_CONFIG_PATH="/usr/lib32/pkgconfig:$pkgdir/usr/lib32/pkgconfig"
 
   ./autogen.sh
-  
+
   ./configure \
     --build=i686-pc-linux-gnu \
     --prefix=/usr \
@@ -69,9 +69,9 @@ build_libffi_32() {
     --disable-multi-os-directory \
     --disable-exec-static-tramp \
     --enable-pax_emutramp
-  
-  
-  
+
+
+
   CPUS=$(getconf _NPROCESSORS_ONLN)
   make -j $CPUS
   make DESTDIR="$pkgdir" install
@@ -88,7 +88,7 @@ build_libelf_32() {
   if [ ! -f libelf.tar.bz2 ]; then
     curl -L $url_libelf > libelf.tar.bz2
   fi
-  
+
   tar xjf libelf.tar.bz2
 
   cd $(find . -maxdepth 1 -type d -name "*elfutils*"  | sed 1q)
@@ -326,86 +326,7 @@ build_wayland_32() {
 }
 
 
-build_libxml2_32() {
-  cd "${srcdir}"
 
-  rm -rf $(find . -maxdepth 1 -type d -name "*libxml2*" | sed 1q)
-
-  if [ ! -f libxml2.zip ]; then
-    curl -L $url_libxml2 > libxml2.zip
-  fi
-
-  unzip -q libxml2.zip
-
-  cd $(find . -maxdepth 1 -type d -name "*libxml2*"  | sed 1q)
-
-
-
-  export CC="gcc -m32"
-  export CXX="g++ -m32"
-  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig:$pkgdir/usr/lib32/pkgconfig"
-
-
-
-  mkdir -p build
-
-  NOCONFIGURE=1 ./autogen.sh
-
-
-  cd build
-  ../configure \
-    --prefix=/usr \
-    --libdir=/usr/lib32 \
-    --without-python \
-    --without-ftp \
-    --without-lzma \
-    --without-docbook \
-    --without-readline \
-    --without-debug \
-    --without-icu
-
-  sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0 /g' libtool
-  CPUS=$(getconf _NPROCESSORS_ONLN)
-  make -j $CPUS
-  make DESTDIR="$pkgdir" install
-
-  cd $pkgdir/usr/lib32/pkgconfig
-  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libxml-2.0.pc
-
-
-}
-
-
-build_mpg123_32() {
-  cd "${srcdir}"
-
-  if [ ! -f mpg123.tar.bz2 ]; then
-    curl -L $url_mpg123 > mpg123.tar.bz2
-  fi
-  
-  rm -rf $(find . -maxdepth 1 -type d -name "mpg123*" | sed 1q)
-  
-  tar xjf mpg123.tar.bz2
-  
-  cd $(find . -maxdepth 1 -type d -name "mpg123*"  | sed 1q)
-
-  export CC="gcc -m32"
-  export CXX="g++ -m32"
-  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig:$pkgdir/usr/lib32/pkgconfig"
-
-
-  
-
-  ./configure --prefix=/usr --with-audio="alsa" --with-cpu=i586 --libdir=/usr/lib32
-
-  CPUS=$(getconf _NPROCESSORS_ONLN)
-
-  make -j $CPUS
-  make -j $CPUS DESTDIR="${pkgdir}" install
-
-  cd $pkgdir/usr/lib32/pkgconfig
-  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" *123.pc
-}
 
 build_openal_32() {
   if [ -f $pkgdir/libopenal.so ]; then
@@ -627,83 +548,9 @@ build_freetype2_32() {
   sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" freetype2.pc
 }
 
-build_jpegturbo_32() {
-  cd "${srcdir}"
-
-  rm -rf $(find . -maxdepth 1 -type d -name "*jpeg-*" | sed 1q)
-
-  if [ ! -f jpegturbo.zip ]; then
-    curl -L $url_libjpegturbo > jpegturbo.zip
-  fi
 
 
 
-  unzip -q jpegturbo.zip
-
-
-  cd $(find . -maxdepth 1 -type d -name "*libjpeg-*" | sed 1q)
-
-
-  export CC="gcc -m32"
-  export CXX="g++ -m32"
-  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig/"
-  
-  cmake -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_INSTALL_LIBDIR=/usr/lib32 \
-        -DCMAKE_BUILD_TYPE='None' \
-        -DWITH_JPEG8=ON \
-        -DWITH_SIMD=FALSE \
-        -W no-dev \
-        -B build \
-        -S .
-
-
-  CPUS=$(getconf _NPROCESSORS_ONLN)
-
-  cd build
-  make -j $CPUS
-  make DESTDIR="${pkgdir}" install
-
-  cd $pkgdir/usr/lib32/pkgconfig
-  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libturbojpeg.pc
-  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libjpeg.pc
-}
-
-build_libpng_32() {
-  cd "${srcdir}"
-
-  rm -rf $(find . -maxdepth 1 -type d -name "*libpng-*" | sed 1q)
-
-  if [ ! -f libpng.zip ]; then
-    curl -L $url_libpng > libpng.zip
-  fi
-
-
-
-  unzip -q libpng.zip
-
-
-  cd $(find . -maxdepth 1 -type d -name "*libpng-*" | sed 1q)
-
-
-  export CC="gcc -m32"
-  export CXX="g++ -m32"
-  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig/"
-  
-  ./configure \
-    --prefix=/usr \
-    --libdir=/usr/lib32 \
-    --program-suffix=-32 \
-    --disable-static
-
-
-  CPUS=$(getconf _NPROCESSORS_ONLN)
-  make -j $CPUS
-  make DESTDIR="${pkgdir}" install
-
-  cd $pkgdir/usr/lib32/pkgconfig
-  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libpng16.pc  
-}
 
 build_32() {
   cd "${srcdir}"
@@ -744,8 +591,6 @@ build_32() {
     --without-opengl \
     --without-pcap \
     --without-cups \
-    --without-cms \
-    --without-vkd3d \
     --without-xinerama \
     --without-xrandr \
     --without-dbus \
@@ -771,9 +616,8 @@ build_32() {
     --with-freetype \
     --with-vulkan \
     --with-sdl \
-    --with-mpg123 \
+    --with-alsa \
     --with-openal \
-    --without-faudio \
     --without-netapi \
     --without-ldap \
 		--disable-tests
@@ -800,13 +644,14 @@ package_lib32-wine-wayland() {
     build_systemd_32
     build_wayland_32
     build_sdl2_32
-    build_libxml2_32
+
+
+
     build_mesa_32
-    build_mpg123_32
+
     build_openal_32
     build_freetype2_32
-    build_jpegturbo_32
-    build_libpng_32
+
     build_32
   else
     source ../pkgbuild-32-dev
@@ -815,13 +660,11 @@ package_lib32-wine-wayland() {
     install_systemd_32
     install_wayland_32
     install_sdl2_32
-    install_libxml2_32
+
     install_mesa_32
-    install_mpg123_32
     install_openal_32
     install_freetype2_32
-    install_jpegturbo_32
-    install_libpng_32
+
     build_32
   fi
 
@@ -835,6 +678,7 @@ package_lib32-wine-wayland() {
   rm -rf  $pkgdir/usr/lib32/pkgconfig
   rm -rf  $pkgdir/usr/lib32/cmake
   rm -rf  $pkgdir/usr/lib32/*.a
+  rm -rf  $pkgdir/usr/lib32/libdl*
   rm -rf  $pkgdir/usr/lib32/libasan*
   rm -rf  $pkgdir/usr/lib32/libicu*
   rm -rf  $pkgdir/usr/lib32/libubsan*
@@ -861,8 +705,8 @@ package_lib32-wine-wayland() {
 	  dlldir="${pkgdir}/usr/lib32/wine" install
 
 
-  
-  
+
+
   #cleanup
   rm -rf $pkgdir/usr/lib32/wine/i386-unix/*.a
   rm -rf $pkgdir/usr/lib32/wine/i386-unix/*.def

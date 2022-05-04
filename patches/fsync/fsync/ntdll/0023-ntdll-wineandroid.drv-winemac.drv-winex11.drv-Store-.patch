@@ -1,0 +1,13 @@
+diff --git a/dlls/ntdll/unix/unix_private.h b/dlls/ntdll/unix/unix_private.h
+index eea1387863..0ce1f32b70 100644
+--- a/dlls/ntdll/unix/unix_private.h
++++ b/dlls/ntdll/unix/unix_private.h
+@@ -236,6 +236,7 @@ struct ntdll_thread_data
+     int                wait_fd[2];    /* fd for sleeping server requests */
+     BOOL               wow64_redir;   /* Wow64 filesystem redirection flag */
+     pthread_t          pthread_id;    /* pthread thread id */
++    int                *fsync_apc_futex;/* fd to wait on for driver events */
+     struct list        entry;         /* entry in TEB list */
+ };
+
+

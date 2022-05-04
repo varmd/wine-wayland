@@ -1,0 +1,34 @@
+From bb66efd021b11706bbc65a2d26204572e39f97d1 Mon Sep 17 00:00:00 2001
+From: Zebediah Figura <z.figura12@gmail.com>
+Date: Thu, 7 Jun 2018 21:23:52 -0500
+Subject: [PATCH 07/83] ntdll: Implement waiting on esync objects.
+
+This is the most basic case: WAIT_ANY. We use poll() (actually ppoll(), for
+the better granularity) to select on all of the handles that we can.
+
+Signed-off-by: Zebediah Figura <z.figura12@gmail.com>
+---
+ dlls/ntdll/sync.c  |   7 ++
+ 3 files changed, 171 insertions(+)
+
+diff --git a/dlls/unix/ntdll/sync.c b/dlls/ntdll/unix/sync.c
+index 2c8ef9bd6b..7955e540aa 100644
+--- a/dlls/ntdll/unix/sync.c
++++ b/dlls/ntdll/unix/sync.c
+@@ -1038,6 +1038,13 @@ static NTSTATUS NtWaitForMultipleObjects( DWORD count, const HANDLE *handles,
+
+     if (!count || count > MAXIMUM_WAIT_OBJECTS) return STATUS_INVALID_PARAMETER_1;
+
++    if (do_fsync())
++    {
++        NTSTATUS ret = fsync_wait_objects( count, handles, wait_any, alertable, timeout );
++        if (ret != STATUS_NOT_IMPLEMENTED)
++            return ret;
++    }
++
+     if (alertable) flags |= SELECT_ALERTABLE;
+     select_op.wait.op = wait_any ? SELECT_WAIT : SELECT_WAIT_ALL;
+     for (i = 0; i < count; i++) select_op.wait.handles[i] = wine_server_obj_handle( handles[i] );
+--
+2.19.1
+

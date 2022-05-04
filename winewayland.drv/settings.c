@@ -22,6 +22,7 @@
 #include "config.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <assert.h>
 
 #define NONAMELESSUNION
@@ -70,10 +71,10 @@ static struct screen_size {
 /* create the mode structures */
 static void make_modes(void)
 {
-  
-  
-    
-  
+
+
+
+
     RECT primary_rect = get_primary_monitor_rect();
     unsigned int i;
     unsigned int screen_width = primary_rect.right - primary_rect.left;
@@ -82,13 +83,13 @@ static void make_modes(void)
     /* original specified desktop size */
     WAYLANDDRV_Settings_AddOneMode(screen_width, screen_height, 32, 60);
     //WAYLANDDRV_Settings_AddOneMode(1920, 1080, 32, 60);
-    
+
     for (i=0; i<ARRAY_SIZE(screen_sizes); i++)
     {
       if ( (screen_sizes[i].width != screen_width) || (screen_sizes[i].height != screen_height)  )
         WAYLANDDRV_Settings_AddOneMode(screen_sizes[i].width, screen_sizes[i].height, 32, 60);
     }
-   
+
 }
 
 static struct waylanddrv_mode_info *dd_modes = NULL;
@@ -118,12 +119,12 @@ struct waylanddrv_mode_info *WAYLANDDRV_Settings_SetHandlers(const char *name,
 
     dd_max_modes = nmodes * 2;
 
-    if (dd_modes) 
+    if (dd_modes)
     {
         TRACE("Destroying old display modes array\n");
-        HeapFree(GetProcessHeap(), 0, dd_modes);
+        free(dd_modes);
     }
-    dd_modes = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*dd_modes) * dd_max_modes);
+    dd_modes = calloc(1, sizeof(*dd_modes) * dd_max_modes);
     dd_mode_count = 0;
     TRACE("Initialized new display modes array\n");
     return dd_modes;
@@ -144,7 +145,7 @@ void WAYLANDDRV_Settings_AddOneMode(unsigned int width, unsigned int height, uns
     info->height        = height;
     info->refresh_rate  = freq;
     info->bpp           = bpp;
-    
+
     //TRACE("Resolution initialized mode %d: %dx%dx%d @%d Hz (%s)\n",          dd_mode_count, width, height, bpp, freq, handler_name);
     dd_mode_count++;
 }
@@ -171,15 +172,15 @@ static LONG WAYLANDDRV_nores_SetCurrentMode(int mode)
   //TODO
   int realMode = 0;
   double width, height;
-  
+
   TRACE("Requesting mode change request mode=%d\n", mode);
-  
-  if (mode == 0) 
+
+  if (mode == 0)
     return DISP_CHANGE_SUCCESSFUL;
-  
-  
-  
-  
+
+
+
+
   //fshack
   width = dd_modes[global_current_mode].width;
   height = dd_modes[global_current_mode].height;
@@ -204,16 +205,16 @@ static LONG WAYLANDDRV_nores_SetCurrentMode(int mode)
   fs_hack_user_to_real_h = height / (double)dd_modes[global_current_mode].height;
   fs_hack_real_to_user_w = dd_modes[global_current_mode].width / (double)width;
   fs_hack_real_to_user_h = dd_modes[global_current_mode].height / (double)height;
-  TRACE(" mode %d global_current_mode %d wxh %d %d fs w fs h   %f %f \n", 
-    mode, 
-    global_current_mode, 
+  TRACE(" mode %d global_current_mode %d wxh %d %d fs w fs h   %f %f \n",
+    mode,
+    global_current_mode,
     dd_modes[global_current_mode].width,
     dd_modes[global_current_mode].height,
-    fs_hack_real_to_user_w, 
+    fs_hack_real_to_user_w,
     fs_hack_real_to_user_h
   );
     //fshack
-  
+
   //TRACE("Ignoring mode change request mode=%d\n", mode);
   return DISP_CHANGE_SUCCESSFUL;
 }
@@ -222,9 +223,9 @@ static LONG WAYLANDDRV_nores_SetCurrentMode(int mode)
 void WAYLANDDRV_Settings_Init(void)
 {
     //RECT primary = get_primary_monitor_rect();
-    WAYLANDDRV_Settings_SetHandlers("NoRes", 
-                                WAYLANDDRV_nores_GetCurrentMode, 
-                                WAYLANDDRV_nores_SetCurrentMode, 
+    WAYLANDDRV_Settings_SetHandlers("NoRes",
+                                WAYLANDDRV_nores_GetCurrentMode,
+                                WAYLANDDRV_nores_SetCurrentMode,
                                 ARRAY_SIZE(screen_sizes)+2, 0);
     make_modes();
 }
@@ -235,13 +236,13 @@ void WAYLANDDRV_Settings_Init(void)
  *		EnumDisplaySettingsEx  (WAYLANDDRV.@)
  *
  */
-BOOL CDECL WAYLANDDRV_EnumDisplaySettingsEx( LPCWSTR name, DWORD n, LPDEVMODEW devmode, DWORD flags)
+BOOL WAYLANDDRV_EnumDisplaySettingsEx( LPCWSTR name, DWORD n, LPDEVMODEW devmode, DWORD flags)
 {
     //static const WCHAR dev_name[CCHDEVICENAME] = { 'W','i','n','e',0 };
     //static const WCHAR dev_name[CCHDEVICENAME] = {'\\','\\','.','\\','D','I','S','P','L','A','Y', '\\', 'W','i','n','e',0};
-  
-  
-    //TRACE("Asking for mode %d %p \n", n, handler_name);    
+
+
+    //TRACE("Asking for mode %d %p \n", n, handler_name);
     if (n == ENUM_CURRENT_SETTINGS)
     {
         //TRACE("mode %d (current) -- getting current mode (%s)\n", n, handler_name);
@@ -253,8 +254,8 @@ BOOL CDECL WAYLANDDRV_EnumDisplaySettingsEx( LPCWSTR name, DWORD n, LPDEVMODEW d
         n = 0;
         //return read_registry_settings(devmode);
     }
-      
-        
+
+
     devmode->dmSize = FIELD_OFFSET(DEVMODEW, dmICMMethod);
     devmode->dmSpecVersion = DM_SPECVERSION;
     devmode->dmDriverVersion = DM_SPECVERSION;
@@ -267,7 +268,7 @@ BOOL CDECL WAYLANDDRV_EnumDisplaySettingsEx( LPCWSTR name, DWORD n, LPDEVMODEW d
     devmode->u1.s2.dmPosition.y = 0;
     devmode->u1.s2.dmDisplayOrientation = 0;
     devmode->u1.s2.dmDisplayFixedOutput = 0;
-        
+
     if (n < dd_mode_count)
     {
         devmode->dmPelsWidth = dd_modes[n].width;
@@ -288,12 +289,12 @@ BOOL CDECL WAYLANDDRV_EnumDisplaySettingsEx( LPCWSTR name, DWORD n, LPDEVMODEW d
  *		ChangeDisplaySettingsEx  (WAYLANDDRV.@)
  *
  */
-LONG CDECL WAYLANDDRV_ChangeDisplaySettingsEx( LPCWSTR devname, LPDEVMODEW devmode,
+LONG WAYLANDDRV_ChangeDisplaySettingsEx( LPCWSTR devname, LPDEVMODEW devmode,
                                            HWND hwnd, DWORD flags, LPVOID lpvoid )
 {
-    
-    
-  
+
+
+
     DWORD i, mode, dwBpp = 0;
     DEVMODEW dm;
     BOOL def_mode = TRUE;
@@ -311,8 +312,8 @@ LONG CDECL WAYLANDDRV_ChangeDisplaySettingsEx( LPCWSTR devname, LPDEVMODEW devmo
         TRACE("width=%d height=%d bpp=%d freq=%d (%s)\n",
               devmode->dmPelsWidth,devmode->dmPelsHeight,
               devmode->dmBitsPerPel,devmode->dmDisplayFrequency, handler_name);
-        */  
-       
+        */
+
         dwBpp = devmode->dmBitsPerPel;
         if (devmode->dmFields & DM_BITSPERPEL) def_mode &= !dwBpp;
         if (devmode->dmFields & DM_PELSWIDTH)  def_mode &= !devmode->dmPelsWidth;
@@ -425,7 +426,7 @@ void fs_hack_set_real_mode(int width, int height)
     }
   }
 }
-  
+
 void fs_hack_set_current_mode(int width, int height)
 {
   DEVMODEW dm;
@@ -445,14 +446,14 @@ void fs_hack_set_current_mode(int width, int height)
         break;
      }
   }
-    
-  
+
+
 }
 
 BOOL fs_hack_matches_real_mode(int w, int h)
 {
   if(w == dd_modes[global_real_mode].width && h == dd_modes[global_real_mode].height) {
-    return TRUE;  
+    return TRUE;
   }
   return FALSE;
 }
@@ -460,7 +461,7 @@ BOOL fs_hack_matches_real_mode(int w, int h)
 BOOL fs_hack_matches_current_mode(int w, int h)
 {
   if(w == dd_modes[global_current_mode].width && h == dd_modes[global_current_mode].height) {
-    return TRUE;  
+    return TRUE;
   }
   return FALSE;
 }
@@ -481,15 +482,15 @@ void fs_hack_scale_user_to_real(POINT *pos)
 
 void fs_hack_user_to_real(POINT *pos)
 {
-    
-    
+
+
   TRACE("from %d,%d\n", pos->x, pos->y);
   fs_hack_scale_user_to_real(pos);
   pos->x += offs_x;
   pos->y += offs_y;
   TRACE("to %d,%d\n", pos->x, pos->y);
-    
-  
+
+
 }
 
 void fs_hack_scale_real_to_user(POINT *pos)
@@ -506,15 +507,15 @@ void fs_hack_real_to_user_relative(double *x, double *y)
   *x = *x * fs_hack_real_to_user_w;
   *y = *y * fs_hack_real_to_user_h;
   TRACE("REL pos to %f,%f\n", *x, *y);
-  
+
 }
 
 void fs_hack_real_to_user(POINT *pos)
 {
-    
+
         //TRACE("from %d,%d\n", pos->x, pos->y);
-  
-        
+
+
 
         if(pos->x <= offs_x)
             pos->x = 0;
@@ -530,13 +531,13 @@ void fs_hack_real_to_user(POINT *pos)
             pos->x = fs_width - 1;
         if(pos->y >= fs_height)
             pos->y = fs_height - 1;
-        
-        
+
+
 
         fs_hack_scale_real_to_user(pos);
 
         //TRACE("to %d,%d\n", pos->x, pos->y);
-    
+
 }
 
 void fs_hack_rect_user_to_real(RECT *rect)

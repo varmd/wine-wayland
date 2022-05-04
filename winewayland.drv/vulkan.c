@@ -83,10 +83,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(waylanddrv);
 
 
 
-//esync
-#if HAS_ESYNC
-extern void CDECL wine_esync_set_queue_fd(int fd);
-#endif
+
 
 struct wl_compositor *wayland_compositor = NULL;
 unsigned int global_wayland_confine = 0;
@@ -778,7 +775,7 @@ static const char* vkey_to_name( UINT vkey )
 /***********************************************************************
  *           WAYLAND_ToUnicodeEx
  */
-INT CDECL WAYLANDDRV_ToUnicodeEx( UINT virt, UINT scan, const BYTE *state,
+INT WAYLANDDRV_ToUnicodeEx( UINT virt, UINT scan, const BYTE *state,
                                LPWSTR buf, int size, UINT flags, HKL hkl )
 {
 
@@ -875,7 +872,7 @@ INT CDECL WAYLANDDRV_ToUnicodeEx( UINT virt, UINT scan, const BYTE *state,
 /***********************************************************************
  *           WAYLAND_MapVirtualKeyEx
  */
-UINT CDECL WAYLANDDRV_MapVirtualKeyEx( UINT code, UINT maptype, HKL hkl )
+UINT WAYLANDDRV_MapVirtualKeyEx( UINT code, UINT maptype, HKL hkl )
 {
     UINT ret = 0;
     const char *s;
@@ -953,7 +950,7 @@ UINT CDECL WAYLANDDRV_MapVirtualKeyEx( UINT code, UINT maptype, HKL hkl )
 /***********************************************************************
  *           WAYLAND_GetKeyboardLayout
  */
-HKL CDECL WAYLANDDRV_GetKeyboardLayout( DWORD thread_id )
+HKL WAYLANDDRV_GetKeyboardLayout( DWORD thread_id )
 {
     //ULONG_PTR layout = MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
 
@@ -982,7 +979,7 @@ HKL CDECL WAYLANDDRV_GetKeyboardLayout( DWORD thread_id )
 /***********************************************************************
  *           WAYLAND_VkKeyScanEx
  */
-SHORT CDECL WAYLANDDRV_VkKeyScanEx( WCHAR ch, HKL hkl )
+SHORT WAYLANDDRV_VkKeyScanEx( WCHAR ch, HKL hkl )
 {
     //TRACE("%s \n", debugstr_w(ch));
 
@@ -995,7 +992,7 @@ SHORT CDECL WAYLANDDRV_VkKeyScanEx( WCHAR ch, HKL hkl )
 /***********************************************************************
  *           WAYLAND_GetKeyNameText
  */
-INT CDECL WAYLANDDRV_GetKeyNameText( LONG lparam, LPWSTR buffer, INT size )
+INT WAYLANDDRV_GetKeyNameText( LONG lparam, LPWSTR buffer, INT size )
 {
     int scancode, vkey, len;
     const char *name;
@@ -1005,7 +1002,7 @@ INT CDECL WAYLANDDRV_GetKeyNameText( LONG lparam, LPWSTR buffer, INT size )
     vkey = scancode_to_vkey( scancode );
 
 
-    TRACE( "scancode is %d %d\n", scancode, vkey);
+//    TRACE( "scancode is %d %d\n", scancode, vkey);
 
     if (lparam & (1 << 25))
     {
@@ -1087,7 +1084,7 @@ static HKL get_locale_kbd_layout(void)
 /***********************************************************************
  *     GetKeyboardLayoutName (WAYLANDDRV.@)
  */
-BOOL CDECL WAYLANDDRV_GetKeyboardLayoutName(LPWSTR name)
+BOOL WAYLANDDRV_GetKeyboardLayoutName(LPWSTR name)
 {
     static const WCHAR formatW[] = {'%','0','8','x',0};
     DWORD layout;
@@ -1102,7 +1099,7 @@ BOOL CDECL WAYLANDDRV_GetKeyboardLayoutName(LPWSTR name)
 /***********************************************************************
  *		LoadKeyboardLayout (WAYLANDDRV.@)
  */
-HKL CDECL WAYLANDDRV_LoadKeyboardLayout(LPCWSTR name, UINT flags)
+HKL WAYLANDDRV_LoadKeyboardLayout(LPCWSTR name, UINT flags)
 {
     FIXME("%s, %04x: semi-stub! Returning default layout.\n", debugstr_w(name), flags);
     return get_locale_kbd_layout();
@@ -1111,7 +1108,7 @@ HKL CDECL WAYLANDDRV_LoadKeyboardLayout(LPCWSTR name, UINT flags)
 /***********************************************************************
  *		ActivateKeyboardLayout (WAYLANDDRV.@)
  */
-BOOL CDECL WAYLANDDRV_ActivateKeyboardLayout(HKL hkl, UINT flags)
+BOOL WAYLANDDRV_ActivateKeyboardLayout(HKL hkl, UINT flags)
 {
     //HKL oldHkl = 0;
     //oldHkl = get_locale_kbd_layout();
@@ -1125,7 +1122,7 @@ BOOL CDECL WAYLANDDRV_ActivateKeyboardLayout(HKL hkl, UINT flags)
  *		GetCursorPos (WAYLANDDRV.@)
  */
 
-BOOL CDECL WAYLANDDRV_GetCursorPos(LPPOINT pos)
+BOOL WAYLANDDRV_GetCursorPos(LPPOINT pos)
 {
 
     if(global_wayland_confine) {
@@ -1341,7 +1338,7 @@ static struct wl_surface_win_data *alloc_wl_win_data( struct wl_surface *surface
 {
     struct wl_surface_win_data *data;
 
-    if ((data = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*data))))
+    if ((data = calloc(1, sizeof(*data) ) ))
     {
         TRACE("Surface %d \n", context_wl_idx( surface ));
 
@@ -1363,7 +1360,7 @@ static void free_wl_win_data( struct wl_surface_win_data *data )
 {
     wl_surface_data_context[context_wl_idx( data->wayland_surface )] = NULL;
     //LeaveCriticalSection( &win_data_section );
-    HeapFree( GetProcessHeap(), 0, data );
+    free( data );
 }
 
 
@@ -1411,7 +1408,7 @@ static void alloc_cursor_cache( HCURSOR handle )
 {
     struct cursor_cache *data;
 
-    if ((data = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*data))))
+    if ((data = calloc(1, sizeof(*data))))
     {
         global_cursor_cache[cursor_idx(handle)] = data;
 
@@ -1531,8 +1528,16 @@ void wayland_pointer_enter_cb(void *data,
 
   temp = wl_surface_get_user_data(surface);
   if(temp) {
+
     TRACE("Current hwnd is %p and surface %p \n", temp, surface);
     global_update_hwnd = temp;
+
+    if (GetAncestor(temp, GA_PARENT) == GetDesktopWindow()) {
+      SetFocus(temp);
+      SetActiveWindow(temp);
+      SetForegroundWindow(temp);
+    }
+
   } else if (vulkan_window != NULL && vulkan_window->surface == surface && global_vulkan_hwnd != NULL) {
 
 
@@ -2610,11 +2615,11 @@ static void set_queue_display_fd( int esync_fd )
     }
 
     done = 1;
-    
 
 
 
-    
+
+
 
     if (wine_server_fd_to_handle( esync_fd, GENERIC_READ | SYNCHRONIZE, 0, &handle ))
     {
@@ -2859,7 +2864,7 @@ static void draw_gdi_wayland_window (struct wayland_window *window) {
 /***********************************************************************
  *		ClipCursor (WAYLANDDRV.@)
  */
-BOOL CDECL WAYLANDDRV_ClipCursor( LPCRECT clip )
+BOOL WAYLANDDRV_ClipCursor( LPCRECT clip )
 {
     RECT virtual_rect = get_virtual_screen_rect();
 
@@ -2954,7 +2959,7 @@ BOOL CDECL WAYLANDDRV_ClipCursor( LPCRECT clip )
 
 
 
-void CDECL WAYLANDDRV_ShowCursor( HCURSOR handle )
+void WAYLANDDRV_ShowCursor( HCURSOR handle )
 {
 
   TRACE("Show cursor \n");
@@ -2977,7 +2982,7 @@ static uint32_t *get_bitmap_argb( HDC hdc, HBITMAP color, HBITMAP mask, unsigned
 
     if (!color) return NULL;
 
-    if (!GetObjectW( color, sizeof(bm), &bm )) return NULL;
+    if (!NtGdiExtGetObjectW( color, sizeof(bm), &bm )) return NULL;
     info->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     info->bmiHeader.biWidth = bm.bmWidth;
     info->bmiHeader.biHeight = -bm.bmHeight;
@@ -3009,9 +3014,11 @@ static uint32_t *get_bitmap_argb( HDC hdc, HBITMAP color, HBITMAP mask, unsigned
     TRACE("Got %d format for cursor \n", cClrBits);
 
 
-    if (!(bits = HeapAlloc( GetProcessHeap(), 0, bm.bmWidth * bm.bmHeight * sizeof(unsigned int) )))
+    if (!(bits = malloc( bm.bmWidth * bm.bmHeight * sizeof(unsigned int) )))
         goto failed;
-    if (!GetDIBits( hdc, color, 0, bm.bmHeight, bits, info, DIB_RGB_COLORS )) goto failed;
+//    if (!GetDIBits( hdc, color, 0, bm.bmHeight, bits, info, DIB_RGB_COLORS )) goto failed;
+    if (!NtGdiGetDIBitsInternal( hdc, color, 0, bm.bmHeight,
+      bits, info, DIB_RGB_COLORS , 0, 0)) goto failed;
 
     *width = bm.bmWidth;
     *height = bm.bmHeight;
@@ -3028,8 +3035,9 @@ static uint32_t *get_bitmap_argb( HDC hdc, HBITMAP color, HBITMAP mask, unsigned
         /* generate alpha channel from the mask */
         info->bmiHeader.biBitCount = 1;
         info->bmiHeader.biSizeImage = width_bytes * bm.bmHeight;
-        if (!(mask_bits = HeapAlloc( GetProcessHeap(), 0, info->bmiHeader.biSizeImage ))) goto failed;
-        if (!GetDIBits( hdc, mask, 0, bm.bmHeight, mask_bits, info, DIB_RGB_COLORS )) goto failed;
+        if (!(mask_bits = malloc( info->bmiHeader.biSizeImage ))) goto failed;
+        if (!NtGdiGetDIBitsInternal( hdc, mask, 0, bm.bmHeight, mask_bits,
+           info, DIB_RGB_COLORS, 0, 0 )) goto failed;
 
 
 
@@ -3040,7 +3048,7 @@ static uint32_t *get_bitmap_argb( HDC hdc, HBITMAP color, HBITMAP mask, unsigned
             }
         }
 
-        HeapFree( GetProcessHeap(), 0, mask_bits );
+        free( mask_bits );
     }
 
 
@@ -3071,8 +3079,8 @@ static uint32_t *get_bitmap_argb( HDC hdc, HBITMAP color, HBITMAP mask, unsigned
     return bits;
 
 failed:
-    HeapFree( GetProcessHeap(), 0, bits );
-    HeapFree( GetProcessHeap(), 0, mask_bits );
+    free( bits );
+    free( mask_bits );
     *width = *height = 0;
     return NULL;
 }
@@ -3114,7 +3122,7 @@ void set_custom_cursor( HCURSOR handle ) {
         return;
 
 
-      hdc = CreateCompatibleDC( 0 );
+      hdc = NtGdiCreateCompatibleDC( 0 );
 
       bits = get_bitmap_argb( hdc, info.hbmColor, info.hbmMask, &width, &height);
 
@@ -3147,7 +3155,7 @@ void set_custom_cursor( HCURSOR handle ) {
       xhotspot = info.xHotspot;
       yhotspot = info.yHotspot;
 
-      DeleteDC( hdc );
+      NtGdiDeleteObjectApp( hdc );
     }
 
 
@@ -3240,7 +3248,7 @@ void set_custom_cursor( HCURSOR handle ) {
 
 }
 
-void CDECL WAYLANDDRV_SetCursor( HCURSOR handle )
+void WAYLANDDRV_SetCursor( HCURSOR handle )
 {
 
     //!global_is_vulkan ||
@@ -3373,7 +3381,7 @@ static struct gdi_win_data *alloc_win_data( HWND hwnd )
 {
     struct gdi_win_data *data;
 
-    if ((data = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*data))))
+    if ((data = calloc(1, sizeof(*data))))
     {
         data->hwnd = hwnd;
         data->window = gdi_window;
@@ -3391,8 +3399,7 @@ static struct gdi_win_data *alloc_win_data( HWND hwnd )
 static void free_win_data( struct gdi_win_data *data )
 {
     win_data_context[context_idx( data->hwnd )] = NULL;
-    //LeaveCriticalSection( &win_data_section );
-    HeapFree( GetProcessHeap(), 0, data );
+    free( data );
 }
 
 
@@ -3417,7 +3424,7 @@ static struct gdi_win_data *get_win_data( HWND hwnd )
 /***********************************************************************
  *           gdi_surface_lock
  */
-static void CDECL gdi_surface_lock( struct window_surface *window_surface )
+static void gdi_surface_lock( struct window_surface *window_surface )
 {
 
 }
@@ -3425,7 +3432,7 @@ static void CDECL gdi_surface_lock( struct window_surface *window_surface )
 /***********************************************************************
  *           gdi_surface_unlock
  */
-static void CDECL gdi_surface_unlock( struct window_surface *window_surface )
+static void gdi_surface_unlock( struct window_surface *window_surface )
 {
 
 }
@@ -3433,7 +3440,7 @@ static void CDECL gdi_surface_unlock( struct window_surface *window_surface )
 /***********************************************************************
  *           gdi_surface_get_bitmap_info
  */
-static void *CDECL gdi_surface_get_bitmap_info( struct window_surface *window_surface, BITMAPINFO *info )
+static void *gdi_surface_get_bitmap_info( struct window_surface *window_surface, BITMAPINFO *info )
 {
     struct gdi_window_surface *surface = get_gdi_surface( window_surface );
 
@@ -3444,7 +3451,7 @@ static void *CDECL gdi_surface_get_bitmap_info( struct window_surface *window_su
 /***********************************************************************
  *           gdi_surface_get_bounds
  */
-static RECT *CDECL gdi_surface_get_bounds( struct window_surface *window_surface )
+static RECT *gdi_surface_get_bounds( struct window_surface *window_surface )
 {
     struct gdi_window_surface *surface = get_gdi_surface( window_surface );
 
@@ -3454,7 +3461,7 @@ static RECT *CDECL gdi_surface_get_bounds( struct window_surface *window_surface
 /***********************************************************************
  *           gdi_surface_set_region
  */
-static void CDECL gdi_surface_set_region( struct window_surface *window_surface, HRGN region )
+static void gdi_surface_set_region( struct window_surface *window_surface, HRGN region )
 {
     struct gdi_window_surface *surface = get_gdi_surface( window_surface );
 
@@ -3469,7 +3476,7 @@ static void CDECL gdi_surface_set_region( struct window_surface *window_surface,
     else
     {
         if (!surface->region) surface->region = CreateRectRgn( 0, 0, 0, 0 );
-        CombineRgn( surface->region, region, 0, RGN_COPY );
+        NtGdiCombineRgn( surface->region, region, 0, RGN_COPY );
     }
     window_surface->funcs->unlock( window_surface );
     set_surface_region( &surface->header, (HRGN)1 );
@@ -3486,7 +3493,7 @@ static void CDECL gdi_surface_set_region( struct window_surface *window_surface,
 //Basic GDI windows support - mostly not working
 //https://github.com/wayland-project/weston/blob/3957863667c15bc5f1984ddc6c5967a323f41e7a/clients/simple-shm.c
 //https://github.com/ricardomv/cairo-wayland/blob/master/src/shm.c
-static void CDECL gdi_surface_flush( struct window_surface *window_surface )
+static void gdi_surface_flush( struct window_surface *window_surface )
 {
 
 
@@ -3555,7 +3562,7 @@ static void CDECL gdi_surface_flush( struct window_surface *window_surface )
 
     owner = GetWindow( surface->hwnd, GW_OWNER );
 
-    //if ( parent && parent != GetDesktopWindow() ) {
+    //if ( parent && parent != NtGetDesktopWindow() ) {
       //TRACE("Parent hwnd is %p %p \n", parent, surface->hwnd);
       //return;
     //}
@@ -3776,7 +3783,7 @@ static void CDECL gdi_surface_flush( struct window_surface *window_surface )
 /***********************************************************************
  *           gdi_surface_destroy
  */
-static void CDECL gdi_surface_destroy( struct window_surface *window_surface )
+static void gdi_surface_destroy( struct window_surface *window_surface )
 {
     struct gdi_window_surface *surface = get_gdi_surface( window_surface );
     struct gdi_win_data *hwnd_data;
@@ -3789,11 +3796,11 @@ static void CDECL gdi_surface_destroy( struct window_surface *window_surface )
 
     TRACE( "Freeing wine surface - %p bits %p %p \n", surface, surface->bits, surface->hwnd );
 
-    HeapFree( GetProcessHeap(), 0, surface->region_data );
+    free( surface->region_data );
     if (surface->region) DeleteObject( surface->region );
 
-    HeapFree( GetProcessHeap(), 0, surface->bits );
-    HeapFree( GetProcessHeap(), 0, surface );
+    free( surface->bits );
+    free( surface );
 }
 
 static const struct window_surface_funcs gdi_surface_funcs =
@@ -3857,25 +3864,25 @@ static void set_surface_region( struct window_surface *window_surface, HRGN win_
         if (GetWindowRgn( surface->hwnd, region ) == ERROR && !surface->region) goto done;
     }
 
-    OffsetRgn( region, offset_x, offset_y );
-    if (surface->region) CombineRgn( region, region, surface->region, RGN_AND );
+    NtGdiOffsetRgn( region, offset_x, offset_y );
+    if (surface->region) NtGdiCombineRgn( region, region, surface->region, RGN_AND );
 
     if (!(size = GetRegionData( region, 0, NULL ))) goto done;
-    if (!(data = HeapAlloc( GetProcessHeap(), 0, size ))) goto done;
+    if (!(data = calloc( 1, size )) ) goto done;
 
     if (!GetRegionData( region, size, data ))
     {
-        HeapFree( GetProcessHeap(), 0, data );
+        free( data );
         data = NULL;
     }
 
 done:
     window_surface->funcs->lock( window_surface );
-    HeapFree( GetProcessHeap(), 0, surface->region_data );
+    free( surface->region_data );
     surface->region_data = data;
     *window_surface->funcs->get_bounds( window_surface ) = surface->header.rect;
     window_surface->funcs->unlock( window_surface );
-    if (region != win_region) DeleteObject( region );
+    if (region != win_region) NtGdiDeleteObjectApp( region );
 }
 
 /***********************************************************************
@@ -3887,8 +3894,7 @@ static struct window_surface *create_surface( HWND hwnd, const RECT *rect,
     struct gdi_window_surface *surface;
     int width = rect->right - rect->left, height = rect->bottom - rect->top;
 
-    surface = HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY,
-                         FIELD_OFFSET( struct gdi_window_surface, info.bmiColors[3] ));
+    surface = calloc( 1, FIELD_OFFSET( struct gdi_window_surface, info.bmiColors[3] ));
     if (!surface) return NULL;
     set_color_info( &surface->info, src_alpha );
     surface->info.bmiHeader.biWidth       = width;
@@ -3912,7 +3918,7 @@ static struct window_surface *create_surface( HWND hwnd, const RECT *rect,
     set_surface_region( &surface->header, (HRGN)1 );
     reset_bounds( &surface->bounds );
 
-    if (!(surface->bits = HeapAlloc( GetProcessHeap(), 0, surface->info.bmiHeader.biSizeImage )))
+    if (!(surface->bits = malloc( surface->info.bmiHeader.biSizeImage )))
         goto failed;
 
     TRACE( "created %p hwnd %p %s bits %p-%p\n", surface, hwnd, wine_dbgstr_rect(rect),
@@ -3949,7 +3955,7 @@ static int do_create_win_data( HWND hwnd, const RECT *window_rect, const RECT *c
     if (parent != GetDesktopWindow() && !GetAncestor( parent, GA_PARENT ))
       return 0;
 
-    if (GetWindowThreadProcessId( hwnd, NULL ) != GetCurrentThreadId())
+    if (NtUserGetWindowThread( hwnd, NULL ) != GetCurrentThreadId())
       return 0;
 
 
@@ -4009,7 +4015,7 @@ static inline BOOL get_surface_rect( const RECT *visible_rect, RECT *surface_rec
 /***********************************************************************
  *		WindowPosChanging   (WAYLANDDRV.@)
  */
-BOOL CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
+BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
                                      const RECT *window_rect, const RECT *client_rect, RECT *visible_rect,
                                      struct window_surface **surface )
 {
@@ -4044,6 +4050,7 @@ BOOL CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
   static const WCHAR unreal_splash_class[] = {'S','p','l','a','s','h','S','c','r','e','e','n','C','l','a','s','s', 0};
   //Shogun2 crash fix
   static const WCHAR shogun2_frame_class[] = {'S','h','o','g','u','n','2', 0};
+
 
   //Flstudio buggy splashscreen
   static const WCHAR flstudio_hwnd_class[] = {
@@ -4238,14 +4245,14 @@ BOOL CDECL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_
 
 
     }
-  
+
   return TRUE;
-}  
+}
 
 /***********************************************************************
  *           ShowWindow   (WAYLANDDRV.@)
  */
-UINT CDECL WAYLANDDRV_ShowWindow( HWND hwnd, INT cmd, RECT *rect, UINT swp )
+UINT WAYLANDDRV_ShowWindow( HWND hwnd, INT cmd, RECT *rect, UINT swp )
 {
   WCHAR title_name[1024] = { L'\0' };
   struct gdi_win_data *hwnd_data;
@@ -4327,7 +4334,7 @@ UINT CDECL WAYLANDDRV_ShowWindow( HWND hwnd, INT cmd, RECT *rect, UINT swp )
 /***********************************************************************
  *           WindowPosChanged
  */
-void CDECL WAYLANDDRV_WindowPosChanged( HWND hwnd, HWND insert_after, UINT swp_flags,
+void WAYLANDDRV_WindowPosChanged( HWND hwnd, HWND insert_after, UINT swp_flags,
                                     const RECT *window_rect, const RECT *client_rect,
                                     const RECT *visible_rect, const RECT *valid_rects,
                                     struct window_surface *surface )
@@ -4385,7 +4392,7 @@ void CDECL WAYLANDDRV_WindowPosChanged( HWND hwnd, HWND insert_after, UINT swp_f
 /***********************************************************************
  *           SysCommand
  */
-LRESULT CDECL WAYLANDDRV_SysCommand(HWND hwnd, WPARAM wparam, LPARAM lparam)
+LRESULT WAYLANDDRV_SysCommand(HWND hwnd, WPARAM wparam, LPARAM lparam)
 {
 
   struct gdi_win_data *hwnd_data;
@@ -4410,7 +4417,7 @@ LRESULT CDECL WAYLANDDRV_SysCommand(HWND hwnd, WPARAM wparam, LPARAM lparam)
 /**********************************************************************
  *		CreateWindow   (WAYLANDDRV.@)
  */
-BOOL CDECL WAYLANDDRV_CreateWindow( HWND hwnd )
+BOOL WAYLANDDRV_CreateWindow( HWND hwnd )
 {
   return TRUE;
 }
@@ -4421,7 +4428,7 @@ BOOL CDECL WAYLANDDRV_CreateWindow( HWND hwnd )
 /***********************************************************************
  *		DestroyWindow   (WAYLANDDRV.@)
  */
-void CDECL WAYLANDDRV_DestroyWindow( HWND hwnd )
+void WAYLANDDRV_DestroyWindow( HWND hwnd )
 {
 
     struct gdi_win_data *hwnd_data;
@@ -4532,7 +4539,7 @@ void CDECL WAYLANDDRV_DestroyWindow( HWND hwnd )
 }
 
 //Win32 loop callback
-DWORD CDECL WAYLANDDRV_MsgWaitForMultipleObjectsEx( DWORD count, const HANDLE *handles, DWORD timeout, DWORD mask, DWORD flags ) {
+DWORD WAYLANDDRV_MsgWaitForMultipleObjectsEx( DWORD count, const HANDLE *handles, DWORD timeout, DWORD mask, DWORD flags ) {
 
     DWORD ret;
     int ret1;
@@ -5334,13 +5341,13 @@ static VkBool32 WAYLANDDRV_query_fs_hack(VkSurfaceKHR surface, VkExtent2D *real_
   if(filter)
     *filter = VK_FILTER_NEAREST;
 
-  
+
   if(fsr)
     *fsr = TRUE;
 
   if(sharpness)
     *sharpness = (float) 2 / 10.0f;
-  
+
 
   TRACE("getting  fsr fshack \n");
   return VK_TRUE;

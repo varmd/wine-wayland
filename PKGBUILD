@@ -1,6 +1,6 @@
 # Created by: varmd
 
-RELEASE=7.0
+RELEASE=7.7
 _pkgname=('wine-wayland')
 pkgname=('wine-wayland' 'wineland' )
 
@@ -28,12 +28,10 @@ depends=(
   'gcc-libs'
   'desktop-file-utils'
   'libpng'
-  'mpg123'
   'openal'
   'alsa-lib'
   'mesa'
   'vulkan-icd-loader'
-  #'faudio'
 
   'wayland'
   'wayland-protocols'
@@ -56,10 +54,9 @@ source=(
   "https://github.com/wine-mirror/wine/archive/wine-$RELEASE.zip"
   "https://github.com/civetweb/civetweb/archive/v1.12.zip"
   "https://github.com/libsdl-org/SDL/archive/refs/tags/release-2.0.16.zip"
-  "https://github.com/FNA-XNA/FAudio/archive/refs/tags/21.10.zip"
 )
 
-sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP')
+sha256sums=('SKIP' 'SKIP' 'SKIP')
 
 
 STRBUILD32="builder"
@@ -92,7 +89,7 @@ build_sdl2() {
   cd $(find . -maxdepth 1 -type d -name "*SDL*" | sed 1q)
 
   mkdir -p $srcdir/sdl2-install
-  
+
   mkdir -p build
   cd build
 
@@ -135,35 +132,7 @@ build_sdl2() {
   sed -i "s~/usr/include~${srcdir}/sdl2-install/usr/include~g" sdl2.pc
 }
 
-build_faudio() {
-  cd "${srcdir}"
 
-  cd $(find . -maxdepth 1 -type d -name "*FAudio*" | sed 1q)
-
-  mkdir -p $srcdir/faudio-install
-  
-  mkdir -p build
-  cd build
-
-
-  export PKG_CONFIG_PATH="$srcdir/sdl2-install/usr/lib/pkgconfig"
-  export LD_LIBRARY_PATH="/usr/lib:${srcdir}/sdl2-install/usr/lib:$LD_LIBRARY_PATH"
-
-  cmake .. -G Ninja \
-    -DCMAKE_INSTALL_PREFIX=/usr \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DSDL2_INCLUDE_DIRS=$srcdir/sdl2-install/usr/include/SDL2 \
-    -DSDL2_LIBRARIES=$srcdir/sdl2-install/usr/lib/libSDL2.so \
-    -DCMAKE_INSTALL_LIBDIR=lib
-
-  CPUS=$(getconf _NPROCESSORS_ONLN)
-
-  ninja -j $CPUS
-  DESTDIR="${srcdir}/faudio-install/" ninja install
-
-  cd ${srcdir}/faudio-install/usr/lib/pkgconfig
-  sed -i "s~/usr~${srcdir}/faudio-install/usr~g" FAudio.pc
-}
 
 
 
@@ -175,81 +144,77 @@ prepare() {
     exit;
   else
     cd ..
-    
-    #rm -rf  "${srcdir}"/"${_winesrcdir}"/dlls/winevulkan
-    #ln -s $PWD/winevulkan "${srcdir}"/"${_winesrcdir}"/dlls/
-    
+
+
     rm -f "${srcdir}"/"${_winesrcdir}"/dlls/winewayland*
 
     ln -s $PWD/winewayland* "${srcdir}"/"${_winesrcdir}"/dlls/
 
     cd "${srcdir}"/"${_winesrcdir}"
 
-    patch -Np1 < '../../enable-wayland.patch'
-    
+    patch -Np1 < '../../patches/enable-wayland.patch'
+
     #fix civ 6
     #TODO remove when fixed in Wine
-    patch -Np1 < '../../fix-civ6.patch'
+    patch -Np1 < '../../patches/fix-civ6.patch'
 
 
-    patch dlls/user32/driver.c < ../../winewayland.drv/patch/user32-driverc.patch
-    
-    #patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/0002-user32-sysparamsc-new2.patch
-    #patch dlls/user32/sysparams.c < ../../winewayland.drv/patch/0004-user32-sysparams-fix-valid-adapter.patch
-    
-    patch programs/explorer/desktop.c < ../../winewayland.drv/patch/explorer-desktopc.patch    
-    
+
+    patch programs/explorer/desktop.c < ../../patches/wayland-explorer.patch
+
 
 
     cd "${srcdir}"/"${_winesrcdir}"
 
 
-    cp ../../esync2/esync-copy/ntdll/* dlls/ntdll/unix/
-    cp ../../esync2/esync-copy/server/* server/
-
-    cp ../../esync2/fsync-copy/ntdll/* dlls/ntdll/unix/
-    cp ../../esync2/fsync-copy/server/* server/
+    cp ../../patches/fsync/fsync-copy/ntdll/* dlls/ntdll/unix/
+    cp ../../patches/fsync/fsync-copy/server/* server/
 
 
-    for _f in ../../esync2/ok/server/*.patch; do
+
+
+    cd "${srcdir}"/"${_winesrcdir}"
+
+
+    cp ../../patches/fsync/fsync-copy/ntdll/* dlls/ntdll/unix/
+    cp ../../patches/fsync/fsync-copy/server/* server/
+
+    msg2 "Fsync"
+
+    for _f in ../../patches/fsync/fsync/*.patch; do
       msg2 "Applying ${_f}"
       patch -Np1 < ${_f}
     done
 
-    for _f in ../../esync2/ok/*.patch; do
+    for _f in ../../patches/fsync/fsync/ntdll/*.patch; do
+      msg2 "Applying ${_f}"
+      patch -Np1 < ${_f}
+   done
+
+    for _f in ../../patches/fsync/misc/*.patch; do
       msg2 "Applying ${_f}"
       patch -Np1 < ${_f}
     done
 
 
-    for _f in ../../esync2/fsync/*.patch; do
-      msg2 "Applying ${_f}"
-      patch -Np1 < ${_f}
-    done
-    
     #fix -lrt compilation
-    patch -Np1 < ../../esync2/fix-rt.patch
-    
-    
-    
+    patch -Np1 < ../../patches/fsync/fix-rt.patch
+
+
+
     msg2 "Applying FSR patches"
     for _f in ../../patches/fsr/*.patch; do
       msg2 "Applying ${_f}"
       patch -Np1 < ${_f}
     done
     cp '../../patches/fsr/vulkan-fsr-include.c' dlls/winevulkan/
-    
-    #patch -Np1 < '../../patches/fsr/fsr-wine-include.patch'
-    #patch -Np1 < '../../patches/fsr/fsr-vulkanc.patch'
-    #patch -Np1 < '../../patches/fsr/fsr-make-vulkan.patch'
-    #patch -Np1 < '../../patches/fsr/fsr-vulkan_thunks.patch'
-    #patch -Np1 < '../../patches/fsr/fsr-Makefile.patch'
-    
-    
-    
+
+
+
+
     # speed up
 
-    sed -i '/programs\/explorer/d' configure.ac
+#    sed -i '/programs\/explorer/d' configure.ac
     sed -i '/programs\/iexplore/d' configure.ac
     sed -i '/programs\/dxdiag/d' configure.ac
 
@@ -257,11 +222,11 @@ prepare() {
     sed -i '/programs\/powershell/d' configure.ac
     sed -i '/programs\/winemenubuilder/d' configure.ac
     sed -i '/programs\/wordpad/d' configure.ac
-    
+
     sed -i '/programs\/winedbg/d' configure.ac
     sed -i '/programs\/winemine/d' configure.ac
     sed -i '/wineps/d' configure.ac
-    
+
     sed -i '/programs\/taskmgr/d' configure.ac
     sed -i '/winhlp32/d' configure.ac
     sed -i '/programs\/notepad/d' configure.ac
@@ -274,46 +239,46 @@ prepare() {
     sed -i '/programs\/spoolsv/d' configure.ac
     sed -i '/programs\/schtasks/d' configure.ac
     sed -i '/systeminfo/d' configure.ac
-    
-    
-    
+
+
+
     #misc exe
     sed -i '/programs\/whoami/d' configure.ac
     sed -i '/programs\/eject/d' configure.ac
     sed -i '/programs\/shutdown/d' configure.ac
     sed -i '/programs\/csript/d' configure.ac
     sed -i '/programs\/dplaysvr/d' configure.ac
-    
-    sed -i '/dlls\/d3d8/d' configure.ac    
+
+    sed -i '/dlls\/d3d8/d' configure.ac
     sed -i '/dlls\/dxerr8/d' configure.ac
     sed -i '/dlls\/dx8vb/d' configure.ac
     sed -i '/dlls\/opencl/d' configure.ac
     sed -i '/msstyles/d' configure.ac
-    
+
     #ie stuff
     #sed -i '/dlls\/shdocvw/d' configure.ac
     #sed -i '/dlls\/ieframe/d' configure.ac
     sed -i '/dhtmled\.ocx/d' configure.ac
     sed -i '/inetcpl\.cpl/d' configure.ac
-    
+
     #mshtml
     sed -i '/mshtml/d' configure.ac
     sed -i '/actxprxy/d' configure.ac
     sed -i '/msscript\.ocx/d' configure.ac
     sed -i '/wshom\.ocx/d' configure.ac
-    
+
     #wlan
     sed -i '/dlls\/wlanui/d' configure.ac
 
     #misc dll
-    
+
     sed -i '/\/adsldp/d' configure.ac
     sed -i '/\/tests/d' configure.ac
     sed -i '/dlls\/d3d12/d' configure.ac
     sed -i '/dlls\/jscript/d' configure.ac
     sed -i '/dlls\/vbscript/d' configure.ac
     sed -i '/dlls\/hhctrl/d' configure.ac
-    
+
     sed -i '/dlls\/gameux/d' configure.ac
 
 
@@ -321,8 +286,8 @@ prepare() {
     autoconf
 
     mkdir -p "${srcdir}"/"${_pkgname}"-64-build
-    
-    
+
+
 
   fi
 
@@ -342,12 +307,9 @@ build() {
 
   #build sdl2 here to avoid x11 dependencies from official archlinux sdl2
   build_sdl2
-  
-  #build faudio here to avoid x11 dependencies from official archlinux
-  build_faudio
 
-  export PKG_CONFIG_PATH="${srcdir}/sdl2-install/usr/lib/pkgconfig:${srcdir}/faudio-install/usr/lib/pkgconfig:/usr/lib/pkgconfig"
-  export LD_LIBRARY_PATH="/usr/lib:${srcdir}/sdl2-install/usr/lib:${srcdir}/faudio-install/usr/lib:$LD_LIBRARY_PATH"
+  export PKG_CONFIG_PATH="${srcdir}/sdl2-install/usr/lib/pkgconfig:/usr/lib/pkgconfig"
+  export LD_LIBRARY_PATH="/usr/lib:${srcdir}/sdl2-install/usr/lib:$LD_LIBRARY_PATH"
 
   msg2 'Building Wine-64...'
 	cd  "${srcdir}"/${_pkgname}-64-build
@@ -367,7 +329,6 @@ build() {
     --without-opencl \
     --without-opengl \
     --without-cups \
-    --without-vkd3d \
     --without-xinerama \
     --without-xrandr \
     --without-sane \
@@ -389,9 +350,9 @@ build() {
     --without-xshm \
     --without-v4l2 \
     --without-usb \
-    --with-sdl2 \
+    --with-alsa \
+    --with-sdl \
     --with-vulkan \
-    --with-faudio \
     --disable-win16 \
 		--enable-win64 \
 		--disable-tests
@@ -407,19 +368,18 @@ build() {
 
 package_wineland() {
 
-  
+
   depends=(
     'adwaita-icon-theme'
     'fontconfig'
     'freetype2'
     'gcc-libs'
     'desktop-file-utils'
-    'mpg123'
     'openal'
     'alsa-lib'
     'mesa'
     'vulkan-icd-loader'
-    #'faudio'
+
     'libpng'
     'libxml2'
     'lib32-glibc'
@@ -430,7 +390,7 @@ package_wineland() {
   cd $srcdir
   cd civetweb-1.12
   make build WITH_IPV6=0 USE_LUA=0 PREFIX="$pkgdir/usr"
-  
+
   mkdir -p ${pkgdir}/usr/bin
   mkdir -p ${pkgdir}/usr/lib/wineland
   cp ${srcdir}/civetweb*/civetweb ${pkgdir}/usr/lib/wineland/wineland-civetweb
@@ -448,7 +408,7 @@ package_wineland() {
 
 package_wine-wayland() {
 
-  
+
 
   if [ -z "${WINE_BUILD_32_DEV_SKIP_64:-}" ]; then
     echo "Building 64bit"
@@ -465,15 +425,13 @@ package_wine-wayland() {
     'gcc-libs'
     'desktop-file-utils'
     'libpng'
-    'mpg123'
     'openal'
     'alsa-lib'
     'mesa'
     'vulkan-icd-loader'
-    #'faudio'
   )
 
-  conflicts=('wine' 'wine-staging' 'wine-esync')
+  conflicts=('wine' 'wine-staging')
   provides=('wine')
 
 
@@ -489,7 +447,7 @@ package_wine-wayland() {
   rm -rf $pkgdir/usr/lib/wine/x86_64-unix/*.def
   cd $pkgdir/usr/lib/wine/x86_64-unix/
   strip -s *
-  
+
   #SDL2
   mkdir -p $pkgdir/usr/lib/wineland/lib
   rm -rf $pkgdir/usr/include/SDL2*
@@ -500,5 +458,8 @@ package_wine-wayland() {
   rm -rf $pkgdir/usr/share/applications
   cp --preserve=links ${srcdir}/sdl2-install/usr/lib/libSDL2* $pkgdir/usr/lib/wineland/lib/
   rm -rf $pkgdir/usr/lib/libSDL2*
-  
+  rm -rf $pkgdir/usr/lib/wineland/*.a
+
+
+
 }

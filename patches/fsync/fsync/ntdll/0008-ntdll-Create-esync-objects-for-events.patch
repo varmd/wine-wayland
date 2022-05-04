@@ -1,0 +1,27 @@
+From 95aeb83eac8e798e799fcfb622b091343809593a Mon Sep 17 00:00:00 2001
+From: Zebediah Figura <z.figura12@gmail.com>
+Date: Fri, 8 Jun 2018 15:33:46 -0500
+Subject: [PATCH 08/83] ntdll: Create fsync objects for events.
+
+Signed-off-by: Zebediah Figura <z.figura12@gmail.com>
+---
+ dlls/ntdll/sync.c  |  3 +++
+ 3 files changed, 39 insertions(+)
+
+--- a/dlls/ntdll/unix/sync.c
++++ b/dlls/ntdll/unix/sync.c
+@@ -425,7 +425,10 @@ NTSTATUS WINAPI NtCreateEvent( HANDLE *handle, ACCESS_MASK access, const OBJECT_ATTRIBUTES *attr,
+     data_size_t len;
+     struct object_attributes *objattr;
+
+     *handle = 0;
++    if (do_fsync())
++        return fsync_create_event( handle, access, attr, type, state );
++
+     if (type != NotificationEvent && type != SynchronizationEvent) return STATUS_INVALID_PARAMETER;
+     if ((ret = alloc_object_attributes( attr, &objattr, &len ))) return ret;
+
+
+--
+2.19.1
+

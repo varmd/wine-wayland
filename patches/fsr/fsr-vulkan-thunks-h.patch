@@ -11,7 +11,7 @@
 +NTSTATUS wine_vkGetSwapchainImagesKHR(void *args) DECLSPEC_HIDDEN;
 +NTSTATUS wine_vkQueuePresentKHR(void *args) DECLSPEC_HIDDEN;
 +
+ NTSTATUS wine_vkCreateRayTracingPipelinesKHR(void *args) DECLSPEC_HIDDEN;
+ NTSTATUS wine_vkCreateRayTracingPipelinesNV(void *args) DECLSPEC_HIDDEN;
  NTSTATUS wine_vkCreateWin32SurfaceKHR(void *args) DECLSPEC_HIDDEN;
- NTSTATUS wine_vkDestroyCommandPool(void *args) DECLSPEC_HIDDEN;
- NTSTATUS wine_vkDestroyDebugReportCallbackEXT(void *args) DECLSPEC_HIDDEN;
 
