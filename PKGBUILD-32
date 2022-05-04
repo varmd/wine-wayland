@@ -152,8 +152,11 @@ build_systemd_32() {
 
   cp ../../lib32/systemd/meson.build .
   cp ../../lib32/systemd/shared/mount-util.c src/shared/
+  cp ../../lib32/systemd/basic/*.c src/basic/
+
   #cp ../../lib32/systemd/udev/meson.build src/udev/
   #cp ../../lib32/systemd/shared/meson.build src/shared/
+
   #echo "" > src/shared/libmount-util.h
   echo "" > src/basic/capability-util.c
   echo '#include "capability-util.h"' >> src/basic/capability-util.c
@@ -162,14 +165,6 @@ build_systemd_32() {
 
   #echo "" > src/shared/mount-util.c
   #echo "" > src/shared/mount-util.h
-
-  #echo "static inline int mount_nofollow_verbose(int error_log_level, const char *what, const char *where, const char *type, unsigned long flags, const char *options) { return 0; } " > src/shared/mount-util.c
-
-  #echo "int umount_recursive(const char *target, int flags) { return 0; } " >> src/shared/mount-util.c
-
-  #echo "include <libmount.h>" > src/shared/libmount-util.h
-  #echo "static inline int libmount_parse(const char *path, FILE *source,    struct libmnt_table **ret_table, struct libmnt_iter **ret_iter) { return 1; }" >> src/shared/libmount-util.h
-
 
   local _meson_options=(
     --libexecdir	/usr/lib32
