@@ -39,6 +39,7 @@ depends=(
 
 makedepends=(
   'autoconf'
+  'cmake'
   'ncurses'
   'bison'
   'perl'
