@@ -1,29 +1,5 @@
 #!/usr/bin/sh
 
-open_url()
-{
-    BROWSER=quickbrowser:x-www-browser:firefox:epiphany:konqueror:chromium:chromium-browser:google-chrome:gnome-web:chrome:falkon:$BROWSER
-
-    local oldifs="$IFS"
-    local browser browser_with_arg
-
-    IFS=":"
-    for browser in $BROWSER; do
-        IFS="$oldifs"
-
-        if [ -z "$browser" ]; then
-            continue
-        fi
-
-        $browser "$1"        
-
-        if [ $? -eq 0 ]; then
-            exit
-        fi
-    done
-}
-
-
 mkdir -p $HOME/.local/share/wineland
 
 if [ -z $WINELAND_FILE_DIR ]; then
@@ -59,5 +35,4 @@ $CIVETWEB -listening_ports 18180 -document_root $ROOT_DIR/ui \
 ,/save-json=$ROOT_DIR/cgi/save-json.cgi\
  &
 
-open_url http://localhost:18180
-#quickbrowser http://localhost:8080
+xdg-open http://localhost:18180
