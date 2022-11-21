@@ -20,7 +20,7 @@ Wine-wayland allows running DX9/DX11/DX12 and Vulkan games using pure Wayland an
 ## Requirements
 
  * Archlinux or Manjaro, Linux 5.16+
- * GPU with Vulkan and Wayland support, 2GB+ VRAM, AMD or Intel, Nvidia not tested
+ * AMD GPU with Vulkan and Wayland support, 2GB+ VRAM. Intel, Nvidia not tested
  * Mesa with Wayland and Vulkan support
  * Weston based compositor (tested on wayward), wlroots based compositor (tested on sway), Gnome not tested
 
@@ -102,7 +102,7 @@ Then in the terminal run sh start-your-game.sh
 ### Environment variables when running games without the wineland launcher
 
 * Use `export LD_LIBRARY_PATH="/usr/lib/wineland/lib32:$LD_LIBRARY_PATH"` and `export VK_ICD_FILENAMES="/usr/lib/wineland/vulkan/icd.d/intel_icd.i686.json:/usr/lib/wineland/vulkan/icd.d/radeon_icd.i686.json"` when running 32-bit wine apps outside of the wineland launcher
-* If a game is not starting, or there is no keyboard/mouse focus, try `export WINE_VK_VULKAN_ONLY=1` variable and start the game to see if there are any error popups
+* Use `export WINE_VK_VULKAN_ONLY=1` if a game is not starting or there is no keyboard/mouse focus
 * Use `export XCURSOR_SIZE="xx"` and `export XCURSOR_THEME=themename` to set cursor theme and increase cursor size
 * Use `export WINE_VK_HIDE_CURSOR=1` to hide cursors, when games do not hide cursors - for example when using a controller
 * Use `export WINE_VK_USE_CUSTOM_CURSORS=1` to enable experimental custom game cursors. This will disable cursor size and theme
@@ -133,11 +133,12 @@ Then in the terminal run sh start-your-game.sh
 
 * No GDI apps support - though popups and simple launchers should work
 * No OpenGL
+* Crash in alsa-lib since 7.7 - use wineland as a workaround.
 
 ## Games confirmed working
 
 * ABZU
-* Dirt 3
+* Dirt 3 - (Since 7.21 - install bundled OpenAL32)
 * Subnautica
 * Rebel Galaxy
 * Endless Space
@@ -151,6 +152,7 @@ Then in the terminal run sh start-your-game.sh
 * Tropico 6
 * Wasteland 2
 * Torchlight 1
+* Divinity Original Sin 2
 * Dungeons 3
 * Seven
 * Pillars of Eternity
@@ -171,3 +173,18 @@ Then in the terminal run sh start-your-game.sh
 
 * FLStudio Trial
 * HeidiSQL
+
+### Changelog
+
+#### Release 7.21
+
+ * Update to Wine 7.21
+ * Update FSYNC to Wine 7.21
+ * Update FSR to Wine 7.21
+ * Update DXVK, Mangohud, VKD3D
+ * Reduce installation size to 140MB for 64bit.
+ * Remove lib32-alsa-lib, lib32-libelf, lib32-expat from 32bit build.
+ * Misc fixes and improvements
+
+
+

@@ -1,0 +1,11 @@
+--- a/meson.build
++++ b/meson.build
+@@ -1705,7 +1705,7 @@
+   pre_args += '-DHAVE_DRISW_KMS'
+ endif
+
+-dep_libudev = dependency('libudev', required : false)
++dep_libudev = null_dep
+ if dep_libudev.found()
+   pre_args += '-DHAVE_LIBUDEV'
+ endif

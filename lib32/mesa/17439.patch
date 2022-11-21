@@ -1,0 +1,38 @@
+diff --git a/src/compiler/nir/nir_inline_helpers.h b/src/compiler/nir/nir_inline_helpers.h
+index 125dd8a537caf64786597b52b7f437cda2263eca..ec33f0509f7201dcc847b80b1c6356d3d35fcf95 100644
+--- a/src/compiler/nir/nir_inline_helpers.h
++++ b/src/compiler/nir/nir_inline_helpers.h
+@@ -73,8 +73,8 @@ nir_foreach_dest(nir_instr *instr, nir_foreach_dest_cb cb, void *state)
+    return _nir_foreach_dest(instr, cb, state);
+ }
+ 
+-static inline bool
+-nir_foreach_src(nir_instr *instr, nir_foreach_src_cb cb, void *state)
++static ALWAYS_INLINE bool
++_nir_foreach_src(nir_instr *instr, nir_foreach_src_cb cb, void *state)
+ {
+    switch (instr->type) {
+    case nir_instr_type_alu: {
+@@ -162,3 +162,9 @@ nir_foreach_src(nir_instr *instr, nir_foreach_src_cb cb, void *state)
+    dest_state.cb = cb;
+    return _nir_foreach_dest(instr, _nir_visit_dest_indirect, &dest_state);
+ }
++
++static inline bool
++nir_foreach_src(nir_instr *instr, nir_foreach_src_cb cb, void *state)
++{
++   return _nir_foreach_src(instr, cb, state);
++}
+diff --git a/src/compiler/nir/nir_opt_move.c b/src/compiler/nir/nir_opt_move.c
+index 81bcde5c43687b4a45e47847c9be44f842d51595..051c3cc629529032f315480533cf7319dd5568e1 100644
+--- a/src/compiler/nir/nir_opt_move.c
++++ b/src/compiler/nir/nir_opt_move.c
+@@ -60,7 +60,7 @@ src_is_ssa(nir_src *src, void *state)
+ static ALWAYS_INLINE bool
+ instr_reads_register(nir_instr *instr)
+ {
+-   return !nir_foreach_src(instr, src_is_ssa, NULL);
++   return !_nir_foreach_src(instr, src_is_ssa, NULL);
+ }
+ 
+ static bool

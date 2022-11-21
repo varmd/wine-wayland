@@ -1,17 +1,13 @@
 --- a/dlls/winevulkan/vulkan_thunks.h
 +++ b/dlls/winevulkan/vulkan_thunks.h
-@@ -21,6 +21,13 @@
- NTSTATUS wine_vkCreateDebugUtilsMessengerEXT(void *args) DECLSPEC_HIDDEN;
- NTSTATUS wine_vkCreateDevice(void *args) DECLSPEC_HIDDEN;
- NTSTATUS wine_vkCreateInstance(void *args) DECLSPEC_HIDDEN;
-+
-+NTSTATUS wine_vkAcquireNextImage2KHR(void *args) DECLSPEC_HIDDEN;
+@@ -1910,6 +1910,10 @@
+ VkResult wine_vkCreateRayTracingPipelinesKHR(VkDevice device, VkDeferredOperationKHR deferredOperation, VkPipelineCache pipelineCache, uint32_t createInfoCount, const VkRayTracingPipelineCreateInfoKHR_host *pCreateInfos, const VkAllocationCallbacks *pAllocator, VkPipeline *pPipelines) DECLSPEC_HIDDEN;
+ VkResult wine_vkCreateRayTracingPipelinesNV(VkDevice device, VkPipelineCache pipelineCache, uint32_t createInfoCount, const VkRayTracingPipelineCreateInfoNV_host *pCreateInfos, const VkAllocationCallbacks *pAllocator, VkPipeline *pPipelines) DECLSPEC_HIDDEN;
+ VkResult wine_vkCreateWin32SurfaceKHR(VkInstance instance, const VkWin32SurfaceCreateInfoKHR *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkSurfaceKHR *pSurface) DECLSPEC_HIDDEN;
 +NTSTATUS wine_vkCreateSwapchainKHR(void *args) DECLSPEC_HIDDEN;
 +NTSTATUS wine_vkDestroySwapchainKHR(void *args) DECLSPEC_HIDDEN;
 +NTSTATUS wine_vkGetSwapchainImagesKHR(void *args) DECLSPEC_HIDDEN;
 +NTSTATUS wine_vkQueuePresentKHR(void *args) DECLSPEC_HIDDEN;
-+
- NTSTATUS wine_vkCreateRayTracingPipelinesKHR(void *args) DECLSPEC_HIDDEN;
- NTSTATUS wine_vkCreateRayTracingPipelinesNV(void *args) DECLSPEC_HIDDEN;
- NTSTATUS wine_vkCreateWin32SurfaceKHR(void *args) DECLSPEC_HIDDEN;
-
+ void wine_vkDestroyCommandPool(VkDevice device, VkCommandPool commandPool, const VkAllocationCallbacks *pAllocator) DECLSPEC_HIDDEN;
+ void wine_vkDestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT callback, const VkAllocationCallbacks *pAllocator) DECLSPEC_HIDDEN;
+ void wine_vkDestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT messenger, const VkAllocationCallbacks *pAllocator) DECLSPEC_HIDDEN;

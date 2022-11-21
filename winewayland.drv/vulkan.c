@@ -1,7 +1,7 @@
 /* WAYLANDDRV Vulkan+Wayland Implementation
  *
  * Copyright 2017 Roderick Colenbrander
- * Copyright 2018-2021 varmd (github.com/varmd)
+ * Copyright 2018-2022 varmd (github.com/varmd)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -18,55 +18,42 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
+#if 0
+#pragma makedep unix
+#endif
+
 #include "config.h"
 #include <stdarg.h>
 #include <dlfcn.h>
 
-
-#define NONAMELESSUNION
-#define OEMRESOURCE
-
-
 #include "winternl.h"
-
 #include "windef.h"
 #include "winbase.h"
 #include "wingdi.h"
+#include "wine/gdi_driver.h"
 #include "winuser.h"
 
-
-#include "wine/gdi_driver.h"
-
-#include "waylanddrv.h"
-#include "wine/heap.h"
+//TODO
+//#include "wine/heap.h"
 #include "wine/server.h"
-#include "wine/unicode.h"
 #include "wine/debug.h"
 
-//add xdg
-#include "xdg-shell-client-protocol.h"
-
-
-
-#define VK_NO_PROTOTYPES
-#define WINE_VK_HOST
-
-
-//latest version is 5
-#define WINE_WAYLAND_SEAT_VERSION 3
-
+#include "wine/unixlib.h"
 #include "wine/vulkan.h"
 #include "wine/vulkan_driver.h"
 
 
+#include "waylanddrv.h"
 
+#define VK_NO_PROTOTYPES
+#define WINE_VK_HOST
 
+//latest version is 5
+#define WINE_WAYLAND_SEAT_VERSION 5
 
-
-
-#include "pointer-constraints-unstable-v1-client-protocol.h"
-#include "relative-pointer-unstable-v1-client-protocol.h"
-
+#include "wayland-protocols/xdg-shell-client-protocol.h"
+#include "wayland-protocols/pointer-constraints-unstable-v1-client-protocol.h"
+#include "wayland-protocols/relative-pointer-unstable-v1-client-protocol.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(waylanddrv);
 
@@ -74,23 +61,13 @@ WINE_DEFAULT_DEBUG_CHANNEL(waylanddrv);
 #define SONAME_LIBVULKAN ""
 #endif
 
-#define HAS_ESYNC 1
-
-//
-
-
-
-
-
-
-
+#define HAS_FSR 1
 
 struct wl_compositor *wayland_compositor = NULL;
 unsigned int global_wayland_confine = 0;
 unsigned int global_wayland_full = 0;
-
-unsigned long global_sx;
-unsigned long global_sy;
+unsigned long global_sx = 0;
+unsigned long global_sy = 0;
 
 int global_cursor_set = 0;
 int global_cursor_gdi_fd = 0;
@@ -102,7 +79,6 @@ HCURSOR global_last_cursor_handle = NULL;
 void *global_cursor_shm_data = NULL;
 struct wl_shm_pool *global_cursor_pool = NULL;
 struct cursor_cache *global_cursor_cache[32768] = {0};
-
 int global_wait_for_configure = 0;
 int global_is_vulkan = 0;
 
@@ -124,653 +100,81 @@ int global_gdi_position_changing = 0;
 int global_gdi_lb_hold = 0;
 
 void *global_shm_data = NULL;
-
 struct wl_buffer *global_wl_buffer = NULL;
 struct wl_shm_pool *global_wl_pool = NULL;
 
 HWND global_vulkan_hwnd = NULL;
 HWND global_update_hwnd = NULL;
-
+INPUT global_input;
 
 //wl_output
 struct wl_output *global_first_wl_output = NULL;
 int global_output_width = 0;
 int global_output_height = 0;
 
+//Wayland defs
+struct xdg_wm_base *wm_base = NULL;
+static struct wl_seat *wayland_seat = NULL;
+static struct wl_pointer *wayland_pointer = NULL;
+static struct wl_keyboard *wayland_keyboard = NULL;
+static struct zwp_pointer_constraints_v1 *pointer_constraints = NULL;
+static struct zwp_relative_pointer_manager_v1 *relative_pointer_manager = NULL;
+struct zwp_locked_pointer_v1 *locked_pointer = NULL;
+struct zwp_confined_pointer_v1 *confined_pointer = NULL;
+struct zwp_relative_pointer_v1 *relative_pointer = NULL;
+
+struct wl_display *wayland_display = NULL;
+struct wl_cursor_theme *wayland_cursor_theme;
+struct wl_cursor       *wayland_default_cursor;
+struct wl_surface *wayland_cursor_surface;
+uint32_t wayland_serial_id = 0;
+struct wl_shm *wayland_cursor_shm;
+struct wl_shm *global_shm;
+struct wl_subcompositor *wayland_subcompositor;
+
+struct wayland_window {
+
+	struct wl_surface *surface;
+	struct xdg_surface *xdg_surface;
+	struct xdg_toplevel *xdg_toplevel;
+
+  HWND pointer_to_hwnd;
+	int test;
+	int height;
+	int width;
+};
+
+struct wayland_window *vulkan_window = NULL;
+
+struct wayland_window *gdi_window = NULL;
+
+struct wl_surface_win_data
+{
+    HWND           hwnd;           /* hwnd that this private data belongs to */
+    struct wl_subsurface  *wayland_subsurface;
+    struct wl_surface     *wayland_surface;
+    struct wayland_window     *wayland_window;
+};
+
+int is_buffer_busy = 0;
+DWORD desktop_tid = 0;
 
 
+VkInstance *global_vk_instance = NULL;
+
+
+
+#define ZWP_RELATIVE_POINTER_MANAGER_V1_VERSION 1
+
+
+static const struct vulkan_funcs vulkan_funcs;
 //Wayland
 
 /*
   Examples
   https://github.com/SaschaWillems/Vulkan/blob/b4fb49504e714ecbd4485dfe98514a47b4e9c2cc/external/vulkan/vulkan_wayland.h
 */
-const UINT keycode_to_vkey[] =
-{
-    0,                   /* reserved */
-    VK_ESCAPE,                   /* KEY_ESC			1 */
-    0x31,                   /* KEY_1			2 */
-    '2',                   /* KEY_2			3 */
-    '3',                   /* KEY_3			4 */
-    '4',                   /* KEY_4			5 */
-    '5',                   /* KEY_5			6 */
-    '6',                 /*  KEY_6			7 */
-    '7',                 /*  KEY_7 8*/
-    '8',                 /* KEY_8			9 */
-    '9',                 /* KEY_9			10 */
-    '0',                 /* KEY_0			11 */
-    VK_OEM_MINUS,                 /* KEY_MINUS		12 */
-    VK_OEM_PLUS,                 /* KEY_EQUAL		13 */
-    VK_BACK,                 /* KEY_BACKSPACE		14 */
-    VK_TAB,                 /* KEY_TAB			15 */
-    'Q',                 /* KEY_Q			16 */
-    'W',                   /* KEY_W			17 */
-    'E',                   /* KEY_E			18 */
-    'R',               /* KEY_R			19 */
-    'T',             /* KEY_T			20 */
-    'Y',             /* KEY_Y			21 */
-    'U',            /* KEY_U			22 */
-    'I',                   /* KEY_I			23 */
-    'O',                   /* KEY_O			24 */
-    'P',                   /* KEY_P			25 */
-    VK_OEM_4,                   /* KEY_LEFTBRACE		26 */
-    VK_OEM_6,                   /* KEY_RIGHTBRACE		27 */
-    VK_RETURN,                   /* KEY_ENTER		28 */
-    VK_LCONTROL,                 /* KEY_LEFTCTRL		29 */
-    'A',                 /* KEY_A			30 */
-    'S',                 /* KEY_S			31 */
-    'D',                 /* KEY_D			32 */
-    'F',                 /* KEY_F			33 */
-    'G',                 /* KEY_G			34 */
-    'H',                 /* KEY_H			35 */
-    'J',                 /* KEY_J			36 */
-    'K',                 /* KEY_K			37 */
-    'L',                 /* KEY_L			38 */
-    VK_OEM_1,                 /* KEY_SEMICOLON		39 */
-    VK_OEM_7,                 /* KEY_APOSTROPHE		40 */
-    VK_OEM_3,                 /* KEY_GRAVE		41 */
-    VK_LSHIFT,                 /* KEY_LEFTSHIFT		42 */
-    //VK_SHIFT,                 /* KEY_LEFTSHIFT		42 */
-    VK_OEM_5,                 /* KEY_BACKSLASH		43 */
-    'Z',                 /* KEY_Z			44 */
-    'X',                 /* KEY_X			45 */
-    'C',                 /* KEY_C			46 */
-    'V',                 /* KEY_V			47 */
-    'B',                 /* KEY_B			48 */
-    'N',                 /* KEY_N			49 */
-    'M',                 /* KEY_M			50 */
-    VK_OEM_COMMA,                 /* KEY_COMMA		51 */
-    VK_OEM_PERIOD,                 /* KEY_DOT			52 */
-    VK_OEM_2,                 /* KEY_SLASH		53 */
-    VK_RSHIFT,                 /* KEY_RIGHTSHIFT		54 */
-    VK_MULTIPLY,        /* KEY_KPASTERISK		55 */ //??
-    VK_LMENU,       /* KEY_LEFTALT		56 */
-    VK_SPACE,            /* KEY_SPACE		57 */
-    VK_CAPITAL,            /* KEY_CAPSLOCK		58 */
-    VK_F1,   //#define KEY_F1			59
-    VK_F2, // #define KEY_F2			60
-    VK_F3, //#define KEY_F3			61
-    VK_F4,           /* #define KEY_F4			62 */
-    VK_F5,           /* #define KEY_F5			63 */
-    VK_F6,              /* #define KEY_F6			64 */
-    VK_F7,            /* #define KEY_F7			65 */
-    VK_F8,                   /* #define KEY_F8			66 */
-    VK_F9,                   /* #define KEY_F9			67 */
-    VK_F10,                   /* #define KEY_F10			68 */
-
-    VK_NUMLOCK,           /* #define KEY_NUMLOCK		69 */
-    VK_SCROLL,             /* #define KEY_SCROLLLOCK		70 */
-    VK_NUMPAD7,            /* #define KEY_KP7			71 */
-    VK_NUMPAD8,        /* #define KEY_KP8			72 */
-    VK_NUMPAD9,         /* #define KEY_KP9			73 */
-    VK_SUBTRACT,            /* #define KEY_KPMINUS		74 */
-    VK_NUMPAD4,            /* #define KEY_KP4			75 */
-    VK_NUMPAD5,            /* #define KEY_KP5			76 */
-    VK_NUMPAD6,            /* #define KEY_KP6			77 */
-    VK_ADD,            /* #define KEY_KPPLUS		78 */
-    VK_NUMPAD1,            /* #define KEY_KP1			79 */
-    VK_NUMPAD2,                   /* #define KEY_KP2			80 */
-    VK_NUMPAD3,                   /* #define KEY_KP3			81 */
-    VK_NUMPAD0,                   /* #define KEY_KP0			82 */
-    VK_DECIMAL,                   /* #define KEY_KPDOT		83 */
-    0,                   /* #define 84?? */
-    0,                   /* #define KEY_ZENKAKUHANKAKU	85 */
-    0,                   /* #define KEY_102ND		86 */
-    VK_F11,                   /* #define KEY_F11			87 */
-    VK_F12,                   /* #define KEY_F12			88 */
-    0, /* #define KEY_RO			89 */
-    0,       /* #define KEY_KATAKANA		90 */
-    0, /* #define KEY_HIRAGANA		91 */
-    0, /* #define KEY_HENKAN		92 */
-    0,                   /* #define KEY_KATAKANAHIRAGANA	93 */
-    0,                   /* #define KEY_MUHENKAN		94 */
-    0,                   /* #define KEY_KPJPCOMMA		95 */
-    VK_RETURN,            /* #define KEY_KPENTER		96 */
-    VK_RCONTROL,             /* #define KEY_RIGHTCTRL		97 */
-    VK_DIVIDE,                   /* #define KEY_KPSLASH		98 */
-    VK_SNAPSHOT,                   /* #define KEY_SYSRQ		99 */
-    VK_RMENU,                   /* #define KEY_RIGHTALT		100 */
-    0,                   /* #define KEY_LINEFEED		101 */ //???
-    VK_HOME,                   /* #define KEY_HOME		102 */
-    VK_UP,                   /*  #define KEY_UP			103 */
-    VK_PRIOR,                   /* #define KEY_PAGEUP		104 */
-    VK_LEFT,                   /* #define KEY_LEFT		105 */
-    VK_RIGHT,                   /* #define KEY_RIGHT		106 */
-    VK_END,                   /* #define KEY_END			107 */
-    VK_DOWN,                   /* #define KEY_DOWN		108 */
-    VK_NEXT,                   /* #define KEY_PAGEDOWN		109 */
-    VK_INSERT,                            //#define KEY_INSERT		110
-    VK_DELETE,                          //#define KEY_DELETE		111
-    0,                          //#define KEY_MACRO		112
-    0,           /* AKEYCODE_FORWARD_DEL */
-    0,         /* AKEYCODE_CTRL_LEFT */
-    0,         /* AKEYCODE_CTRL_RIGHT */
-    0,          /* AKEYCODE_CAPS_LOCK */
-    0,           /* AKEYCODE_SCROLL_LOCK */
-    VK_LWIN,             /* AKEYCODE_META_LEFT */
-    VK_RWIN,             /* AKEYCODE_META_RIGHT */
-    0,                   /* AKEYCODE_FUNCTION */
-    0,                   /* AKEYCODE_SYSRQ */
-    0,                   /* AKEYCODE_BREAK */
-    0,             /* AKEYCODE_MOVE_HOME */
-    0,              /* AKEYCODE_MOVE_END */
-    0,           /* AKEYCODE_INSERT */
-    0,                   /* AKEYCODE_FORWARD */
-    0,                   /* AKEYCODE_MEDIA_PLAY */
-    0,                   /* AKEYCODE_MEDIA_PAUSE */
-    0,                   /*  */
-    0,                   /* AKEYCODE_PAGE_DOWN AKEYCODE_MEDIA_EJECT */
-    0,                   /* AKEYCODE_MEDIA_RECORD */
-    0,               /* AKEYCODE_F1 */
-    0,               /* AKEYCODE_F2 */
-    0,               /* AKEYCODE_F3 */
-    VK_MEDIA_PLAY_PAUSE,               /* AKEYCODE_F4 */
-    VK_MEDIA_STOP,               /* AKEYCODE_F5 */
-    VK_MEDIA_NEXT_TRACK,               /* AKEYCODE_F6 */
-    VK_MEDIA_PREV_TRACK,               /* AKEYCODE_F7 */
-    0,               /* AKEYCODE_F8 */
-    0,               /* AKEYCODE_F9 */
-    0,              /* AKEYCODE_F10 */
-    0,              /* AKEYCODE_F11 */
-    0,              /* AKEYCODE_F12 */
-    0,          /* AKEYCODE_NUM_LOCK */
-    0,          /* AKEYCODE_NUMPAD_0 */
-    0,          /* AKEYCODE_NUMPAD_1 */
-    0,          /* AKEYCODE_NUMPAD_2 */
-    0,          /* AKEYCODE_NUMPAD_3 */
-    0,          /* AKEYCODE_NUMPAD_4 */
-    0,          /* AKEYCODE_NUMPAD_5 */
-    0,          /* AKEYCODE_NUMPAD_6 */
-    0,          /* AKEYCODE_NUMPAD_7 */
-    0,          /* AKEYCODE_NUMPAD_8 */
-    0,          /* AKEYCODE_NUMPAD_9 */
-    VK_DIVIDE,           /* AKEYCODE_NUMPAD_DIVIDE */
-    VK_MULTIPLY,         /* AKEYCODE_NUMPAD_MULTIPLY */
-    0,         /* AKEYCODE_NUMPAD_SUBTRACT */
-    0,              /* AKEYCODE_NUMPAD_ADD */
-    0,          /* AKEYCODE_NUMPAD_DOT */
-    0,                   /* AKEYCODE_NUMPAD_COMMA */
-    0,                   /* AKEYCODE_NUMPAD_ENTER */
-    0,                   /* AKEYCODE_NUMPAD_EQUALS */
-    0,                   /* AKEYCODE_NUMPAD_LEFT_PAREN */
-    0,                   /* AKEYCODE_NUMPAD_RIGHT_PAREN */
-    0,                   /* AKEYCODE_VOLUME_MUTE */
-    0,                   /* AKEYCODE_INFO */
-    0,                   /* AKEYCODE_CHANNEL_UP */
-    0,                   /* AKEYCODE_CHANNEL_DOWN */
-    0,                   /* AKEYCODE_ZOOM_IN */
-    0,                   /* AKEYCODE_ZOOM_OUT */
-    0,                   /* AKEYCODE_TV */
-    0,                   /* AKEYCODE_WINDOW */
-    0,                   /* AKEYCODE_GUIDE */
-    0,                   /* AKEYCODE_DVR */
-    0,                   /* AKEYCODE_BOOKMARK */
-    0,                   /* AKEYCODE_CAPTIONS */
-    0,                   /* AKEYCODE_SETTINGS */
-    0,                   /* AKEYCODE_TV_POWER */
-    0,                   /* AKEYCODE_TV_INPUT */
-    0,                   /* AKEYCODE_STB_POWER */
-    0,                   /* AKEYCODE_STB_INPUT */
-    0,                   /* AKEYCODE_AVR_POWER */
-    0,                   /* AKEYCODE_AVR_INPUT */
-    0,                   /* AKEYCODE_PROG_RED */
-    0,                   /* AKEYCODE_PROG_GREEN */
-    0,                   /* AKEYCODE_PROG_YELLOW */
-    0,                   /* AKEYCODE_PROG_BLUE */
-    0,                   /* AKEYCODE_APP_SWITCH */
-    0,                   /* AKEYCODE_BUTTON_1 */
-    0,                   /* AKEYCODE_BUTTON_2 */
-    0,                   /* AKEYCODE_BUTTON_3 */
-    0,                   /* AKEYCODE_BUTTON_4 */
-    0,                   /* AKEYCODE_BUTTON_5 */
-    0,                   /* AKEYCODE_BUTTON_6 */
-    0,                   /* AKEYCODE_BUTTON_7 */
-    0,                   /* AKEYCODE_BUTTON_8 */
-    0,                   /* AKEYCODE_BUTTON_9 */
-    0,                   /* AKEYCODE_BUTTON_10 */
-    0,                   /* AKEYCODE_BUTTON_11 */
-    0,                   /* AKEYCODE_BUTTON_12 */
-    0,                   /* AKEYCODE_BUTTON_13 */
-    0,                   /* AKEYCODE_BUTTON_14 */
-    0,                   /* AKEYCODE_BUTTON_15 */
-    0,                   /* AKEYCODE_BUTTON_16 */
-    0,                   /* AKEYCODE_LANGUAGE_SWITCH */
-    0,                   /* AKEYCODE_MANNER_MODE */
-    0,                   /* AKEYCODE_3D_MODE */
-    0,                   /* AKEYCODE_CONTACTS */
-    0,                   /* AKEYCODE_CALENDAR */
-    0,                   /* AKEYCODE_MUSIC */
-    0,                   /* AKEYCODE_CALCULATOR */
-    0,                   /* AKEYCODE_ZENKAKU_HANKAKU */
-    0,                   /* AKEYCODE_EISU */
-    0,                   /* AKEYCODE_MUHENKAN */
-    0,                   /* AKEYCODE_HENKAN */
-    0,                   /* AKEYCODE_KATAKANA_HIRAGANA */
-    0,                   /* AKEYCODE_YEN */
-    0,                   /* AKEYCODE_RO */
-    VK_KANA,             /* AKEYCODE_KANA */
-    0,                   /* AKEYCODE_ASSIST */
-};
-
-const WORD vkey_to_scancode[] =
-{
-    0,     /* 0x00 undefined */
-    0,     /* VK_LBUTTON */
-    0,     /* VK_RBUTTON */
-    0,     /* VK_CANCEL */
-    0,     /* VK_MBUTTON */
-    0,     /* VK_XBUTTON1 */
-    0,     /* VK_XBUTTON2 */
-    0,     /* 0x07 undefined */
-    0x0e,  /* VK_BACK */
-    0x0f,  /* VK_TAB */
-    0,     /* 0x0a undefined */
-    0,     /* 0x0b undefined */
-    0,     /* VK_CLEAR */
-    0x1c,  /* VK_RETURN */
-    0,     /* 0x0e undefined */
-    0,     /* 0x0f undefined */
-    0,  /* VK_SHIFT */  //Doesn't work
-    //0x2a,  /* VK_SHIFT */
-    0x1d,  /* VK_CONTROL */
-    0x38,  /* VK_MENU */
-    0,     /* VK_PAUSE */
-    0x3a,  /* VK_CAPITAL */
-    0,     /* VK_KANA */
-    0,     /* 0x16 undefined */
-    0,     /* VK_JUNJA */
-    0,     /* VK_FINAL */
-    0,     /* VK_HANJA */
-    0,     /* 0x1a undefined */
-    0x01,  /* VK_ESCAPE */
-    0,     /* VK_CONVERT */
-    0,     /* VK_NONCONVERT */
-    0,     /* VK_ACCEPT */
-    0,     /* VK_MODECHANGE */
-    0x39,  /* VK_SPACE */
-    0x149, /* VK_PRIOR */
-    0x151, /* VK_NEXT */
-    0x14f, /* VK_END */
-    0x147, /* VK_HOME */
-    0x14b, /* VK_LEFT */
-    0x148, /* VK_UP */
-    0x14d, /* VK_RIGHT */
-    0x150, /* VK_DOWN */
-    0,     /* VK_SELECT */
-    0,     /* VK_PRINT */
-    0,     /* VK_EXECUTE */
-    0,     /* VK_SNAPSHOT */
-    0x152, /* VK_INSERT */
-    0x153, /* VK_DELETE */
-    0,     /* VK_HELP */
-    0x0b,  /* VK_0 */
-    0x02,  /* VK_1 */
-    0x03,  /* VK_2 */
-    0x04,  /* VK_3 */
-    0x05,  /* VK_4 */
-    0x06,  /* VK_5 */
-    0x07,  /* VK_6 */
-    0x08,  /* VK_7 */
-    0x09,  /* VK_8 */
-    0x0a,  /* VK_9 */
-    0,     /* 0x3a undefined */
-    0,     /* 0x3b undefined */
-    0,     /* 0x3c undefined */
-    0,     /* 0x3d undefined */
-    0,     /* 0x3e undefined */
-    0,     /* 0x3f undefined */
-    0,     /* 0x40 undefined */
-    0x1e,  /* VK_A */
-    0x30,  /* VK_B */
-    0x2e,  /* VK_C */
-    0x20,  /* VK_D */
-    0x12,  /* VK_E */
-    0x21,  /* VK_F */
-    0x22,  /* VK_G */
-    0x23,  /* VK_H */
-    0x17,  /* VK_I */
-    0x24,  /* VK_J */
-    0x25,  /* VK_K */
-    0x26,  /* VK_L */
-    0x32,  /* VK_M */
-    0x31,  /* VK_N */
-    0x18,  /* VK_O */
-    0x19,  /* VK_P */
-    0x10,  /* VK_Q */
-    0x13,  /* VK_R */
-    0x1f,  /* VK_S */
-    0x14,  /* VK_T */
-    0x16,  /* VK_U */
-    0x2f,  /* VK_V */
-    0x11,  /* VK_W */
-    0x2d,  /* VK_X */
-    0x15,  /* VK_Y */
-    0x2c,  /* VK_Z */
-    0,     /* VK_LWIN */
-    0,     /* VK_RWIN */
-    0,     /* VK_APPS */
-    0,     /* 0x5e undefined */
-    0,     /* VK_SLEEP */
-    0x52,  /* VK_NUMPAD0 */
-    0x4f,  /* VK_NUMPAD1 */
-    0x50,  /* VK_NUMPAD2 */
-    0x51,  /* VK_NUMPAD3 */
-    0x4b,  /* VK_NUMPAD4 */
-    0x4c,  /* VK_NUMPAD5 */
-    0x4d,  /* VK_NUMPAD6 */
-    0x47,  /* VK_NUMPAD7 */
-    0x48,  /* VK_NUMPAD8 */
-    0x49,  /* VK_NUMPAD9 */
-    0x37,  /* VK_MULTIPLY */
-    0x4e,  /* VK_ADD */
-    0x7e,  /* VK_SEPARATOR */
-    0x4a,  /* VK_SUBTRACT */
-    0x53,  /* VK_DECIMAL */
-    0135,  /* VK_DIVIDE */
-    0x3b,  /* VK_F1 */
-    0x3c,  /* VK_F2 */
-    0x3d,  /* VK_F3 */
-    0x3e,  /* VK_F4 */
-    0x3f,  /* VK_F5 */
-    0x40,  /* VK_F6 */
-    0x41,  /* VK_F7 */
-    0x42,  /* VK_F8 */
-    0x43,  /* VK_F9 */
-    0x44,  /* VK_F10 */
-    0x57,  /* VK_F11 */
-    0x58,  /* VK_F12 */
-    0x64,  /* VK_F13 */
-    0x65,  /* VK_F14 */
-    0x66,  /* VK_F15 */
-    0x67,  /* VK_F16 */
-    0x68,  /* VK_F17 */
-    0x69,  /* VK_F18 */
-    0x6a,  /* VK_F19 */
-    0x6b,  /* VK_F20 */
-    0,     /* VK_F21 */
-    0,     /* VK_F22 */
-    0,     /* VK_F23 */
-    0,     /* VK_F24 */
-    0,     /* 0x88 undefined */
-    0,     /* 0x89 undefined */
-    0,     /* 0x8a undefined */
-    0,     /* 0x8b undefined */
-    0,     /* 0x8c undefined */
-    0,     /* 0x8d undefined */
-    0,     /* 0x8e undefined */
-    0,     /* 0x8f undefined */
-    0,     /* VK_NUMLOCK */
-    0,     /* VK_SCROLL */
-    0x10d, /* VK_OEM_NEC_EQUAL */
-    0,     /* VK_OEM_FJ_JISHO */
-    0,     /* VK_OEM_FJ_MASSHOU */
-    0,     /* VK_OEM_FJ_TOUROKU */
-    //0,     /* VK_OEM_FJ_LOYA */
-    0,     /* VK_OEM_FJ_ROYA */
-    0,     /* 0x97 undefined */
-    0,     /* 0x98 undefined */
-    0,     /* 0x99 undefined */
-    0,     /* 0x9a undefined */
-    0,     /* 0x9b undefined */
-    0,     /* 0x9c undefined */
-    0,     /* 0x9d undefined */
-    0,     /* 0x9e undefined */
-    0,     /* 0x9f undefined */
-    0x2a,  /* VK_LSHIFT */
-    0x36,  /* VK_RSHIFT */
-    0x1d,  /* VK_LCONTROL */
-    0x11d, /* VK_RCONTROL */
-    0x38,  /* VK_LMENU */
-    0x138, /* VK_RMENU */
-    0,     /* VK_BROWSER_BACK */
-    0,     /* VK_BROWSER_FORWARD */
-    0,     /* VK_BROWSER_REFRESH */
-    0,     /* VK_BROWSER_STOP */
-    0,     /* VK_BROWSER_SEARCH */
-    0,     /* VK_BROWSER_FAVORITES */
-    0,     /* VK_BROWSER_HOME */
-    0x100, /* VK_VOLUME_MUTE */
-    0x100, /* VK_VOLUME_DOWN */
-    0x100, /* VK_VOLUME_UP */
-    0,     /* VK_MEDIA_NEXT_TRACK */
-    0,     /* VK_MEDIA_PREV_TRACK */
-    0,     /* VK_MEDIA_STOP */
-    0,     /* VK_MEDIA_PLAY_PAUSE */
-    0,     /* VK_LAUNCH_MAIL */
-    0,     /* VK_LAUNCH_MEDIA_SELECT */
-    0,     /* VK_LAUNCH_APP1 */
-    0,     /* VK_LAUNCH_APP2 */
-    0,     /* 0xb8 undefined */
-    0,     /* 0xb9 undefined */
-    0x27,  /* VK_OEM_1 */
-    0x0d,  /* VK_OEM_PLUS */
-    0x33,  /* VK_OEM_COMMA */
-    0x0c,  /* VK_OEM_MINUS */
-    0x34,  /* VK_OEM_PERIOD */
-    0x35,  /* VK_OEM_2 */
-    0x29,  /* VK_OEM_3 */
-    0,     /* 0xc1 undefined */
-    0,     /* 0xc2 undefined */
-    0,     /* 0xc3 undefined */
-    0,     /* 0xc4 undefined */
-    0,     /* 0xc5 undefined */
-    0,     /* 0xc6 undefined */
-    0,     /* 0xc7 undefined */
-    0,     /* 0xc8 undefined */
-    0,     /* 0xc9 undefined */
-    0,     /* 0xca undefined */
-    0,     /* 0xcb undefined */
-    0,     /* 0xcc undefined */
-    0,     /* 0xcd undefined */
-    0,     /* 0xce undefined */
-    0,     /* 0xcf undefined */
-    0,     /* 0xd0 undefined */
-    0,     /* 0xd1 undefined */
-    0,     /* 0xd2 undefined */
-    0,     /* 0xd3 undefined */
-    0,     /* 0xd4 undefined */
-    0,     /* 0xd5 undefined */
-    0,     /* 0xd6 undefined */
-    0,     /* 0xd7 undefined */
-    0,     /* 0xd8 undefined */
-    0,     /* 0xd9 undefined */
-    0,     /* 0xda undefined */
-    0x1a,  /* VK_OEM_4 */
-    0x2b,  /* VK_OEM_5 */
-    0x1b,  /* VK_OEM_6 */
-    0x28,  /* VK_OEM_7 */
-    0,     /* VK_OEM_8 */
-    0,     /* 0xe0 undefined */
-    0,     /* VK_OEM_AX */
-    0x56,  /* VK_OEM_102 */
-    0,     /* VK_ICO_HELP */
-    0,     /* VK_ICO_00 */
-    0,     /* VK_PROCESSKEY */
-    0,     /* VK_ICO_CLEAR */
-    0,     /* VK_PACKET */
-    0,     /* 0xe8 undefined */
-    0x71,  /* VK_OEM_RESET */
-    0,     /* VK_OEM_JUMP */
-    0,     /* VK_OEM_PA1 */
-    0,     /* VK_OEM_PA2 */
-    0,     /* VK_OEM_PA3 */
-    0,     /* VK_OEM_WSCTRL */
-    0,     /* VK_OEM_CUSEL */
-    0,     /* VK_OEM_ATTN */
-    0,     /* VK_OEM_FINISH */
-    0,     /* VK_OEM_COPY */
-    0,     /* VK_OEM_AUTO */
-    0,     /* VK_OEM_ENLW */
-    0,     /* VK_OEM_BACKTAB */
-    0,     /* VK_ATTN */
-    0,     /* VK_CRSEL */
-    0,     /* VK_EXSEL */
-    0,     /* VK_EREOF */
-    0,     /* VK_PLAY */
-    0,     /* VK_ZOOM */
-    0,     /* VK_NONAME */
-    0,     /* VK_PA1 */
-    0x59,  /* VK_OEM_CLEAR */
-    0,     /* 0xff undefined */
-};
-
-
-
-
-static const struct
-{
-    DWORD       vkey;
-    const char *name;
-} vkey_names[] = {
-    { VK_ADD,                   "Num +" },
-    { VK_BACK,                  "Backspace" },
-    { VK_CAPITAL,               "Caps Lock" },
-    { VK_CONTROL,               "Ctrl" },
-    { VK_DECIMAL,               "Num Del" },
-    { VK_DELETE | 0x100,        "Delete" },
-    { VK_DIVIDE | 0x100,        "Num /" },
-    { VK_DOWN | 0x100,          "Down" },
-    { VK_END | 0x100,           "End" },
-    { VK_ESCAPE,                "Esc" },
-    { VK_F1,                    "F1" },
-    { VK_F2,                    "F2" },
-    { VK_F3,                    "F3" },
-    { VK_F4,                    "F4" },
-    { VK_F5,                    "F5" },
-    { VK_F6,                    "F6" },
-    { VK_F7,                    "F7" },
-    { VK_F8,                    "F8" },
-    { VK_F9,                    "F9" },
-    { VK_F10,                   "F10" },
-    { VK_F11,                   "F11" },
-    { VK_F12,                   "F12" },
-    { VK_F13,                   "F13" },
-    { VK_F14,                   "F14" },
-    { VK_F15,                   "F15" },
-    { VK_F16,                   "F16" },
-    { VK_F17,                   "F17" },
-    { VK_F18,                   "F18" },
-    { VK_F19,                   "F19" },
-    { VK_F20,                   "F20" },
-    { VK_F21,                   "F21" },
-    { VK_F22,                   "F22" },
-    { VK_F23,                   "F23" },
-    { VK_F24,                   "F24" },
-    { VK_HELP | 0x100,          "Help" },
-    { VK_HOME | 0x100,          "Home" },
-    { VK_INSERT | 0x100,        "Insert" },
-    { VK_LCONTROL,              "Ctrl" },
-    { VK_LEFT | 0x100,          "Left" },
-    { VK_LMENU,                 "Alt" },
-    { VK_LSHIFT,                "Left Shift" },
-    { VK_LWIN | 0x100,          "Win" },
-    { VK_MENU,                  "Alt" },
-    { VK_MULTIPLY,              "Num *" },
-    { VK_NEXT | 0x100,          "Page Down" },
-    { VK_NUMLOCK | 0x100,       "Num Lock" },
-    { VK_NUMPAD0,               "Num 0" },
-    { VK_NUMPAD1,               "Num 1" },
-    { VK_NUMPAD2,               "Num 2" },
-    { VK_NUMPAD3,               "Num 3" },
-    { VK_NUMPAD4,               "Num 4" },
-    { VK_NUMPAD5,               "Num 5" },
-    { VK_NUMPAD6,               "Num 6" },
-    { VK_NUMPAD7,               "Num 7" },
-    { VK_NUMPAD8,               "Num 8" },
-    { VK_NUMPAD9,               "Num 9" },
-    { VK_OEM_CLEAR,             "Num Clear" },
-    { VK_OEM_NEC_EQUAL | 0x100, "Num =" },
-    { VK_PRIOR | 0x100,         "Page Up" },
-    { VK_RCONTROL | 0x100,      "Right Ctrl" },
-    { VK_RETURN,                "Return" },
-    { VK_RETURN | 0x100,        "Num Enter" },
-    { VK_RIGHT | 0x100,         "Right" },
-    { VK_RMENU | 0x100,         "Right Alt" },
-    { VK_RSHIFT,                "Right Shift" },
-    { VK_RWIN | 0x100,          "Right Win" },
-    { VK_SEPARATOR,             "Num ," },
-    { VK_SHIFT,                 "Shift" },
-    { VK_SPACE,                 "Space" },
-    { VK_SUBTRACT,              "Num -" },
-    { VK_TAB,                   "Tab" },
-    { VK_UP | 0x100,            "Up" },
-    { VK_VOLUME_DOWN | 0x100,   "Volume Down" },
-    { VK_VOLUME_MUTE | 0x100,   "Mute" },
-    { VK_VOLUME_UP | 0x100,     "Volume Up" },
-    { VK_OEM_MINUS,             "-" },
-    { VK_OEM_PLUS,              "=" },
-    { VK_OEM_1,                 ";" },
-    { VK_OEM_2,                 "/" },
-    { VK_OEM_3,                 "`" },
-    { VK_OEM_4,                 "[" },
-    { VK_OEM_5,                 "\\" },
-    { VK_OEM_6,                 "]" },
-    { VK_OEM_7,                 "'" },
-    { VK_OEM_COMMA,             "," },
-    { VK_OEM_PERIOD,            "." },
-};
-
-static const SHORT char_vkey_map[] =
-{
-    0x332, 0x241, 0x242, 0x003, 0x244, 0x245, 0x246, 0x247, 0x008, 0x009,
-    0x20d, 0x24b, 0x24c, 0x00d, 0x24e, 0x24f, 0x250, 0x251, 0x252, 0x253,
-    0x254, 0x255, 0x256, 0x257, 0x258, 0x259, 0x25a, 0x01b, 0x2dc, 0x2dd,
-    0x336, 0x3bd, 0x020, 0x131, 0x1de, 0x133, 0x134, 0x135, 0x137, 0x0de,
-    0x139, 0x130, 0x138, 0x1bb, 0x0bc, 0x0bd, 0x0be, 0x0bf, 0x030, 0x031,
-    0x032, 0x033, 0x034, 0x035, 0x036, 0x037, 0x038, 0x039, 0x1ba, 0x0ba,
-    0x1bc, 0x0bb, 0x1be, 0x1bf, 0x132, 0x141, 0x142, 0x143, 0x144, 0x145,
-    0x146, 0x147, 0x148, 0x149, 0x14a, 0x14b, 0x14c, 0x14d, 0x14e, 0x14f,
-    0x150, 0x151, 0x152, 0x153, 0x154, 0x155, 0x156, 0x157, 0x158, 0x159,
-    0x15a, 0x0db, 0x0dc, 0x0dd, 0x136, 0x1bd, 0x0c0, 0x041, 0x042, 0x043,
-    0x044, 0x045, 0x046, 0x047, 0x048, 0x049, 0x04a, 0x04b, 0x04c, 0x04d,
-    0x04e, 0x04f, 0x050, 0x051, 0x052, 0x053, 0x054, 0x055, 0x056, 0x057,
-    0x058, 0x059, 0x05a, 0x1db, 0x1dc, 0x1dd, 0x1c0, 0x208
-};
-
-static UINT scancode_to_vkey( UINT scan )
-{
-    UINT j;
-
-    for (j = 0; j < sizeof(vkey_to_scancode)/sizeof(vkey_to_scancode[0]); j++)
-        if (vkey_to_scancode[j] == scan)
-            return j;
-    return 0;
-}
-
-static const char* vkey_to_name( UINT vkey )
-{
-    UINT j;
-
-    for (j = 0; j < sizeof(vkey_names)/sizeof(vkey_names[0]); j++)
-        if (vkey_names[j].vkey == vkey)
-            return vkey_names[j].name;
-    return NULL;
-}
-
-
-
-
-
+#include "keycodes-inc.c"
 
 /***********************************************************************
  *           WAYLAND_ToUnicodeEx
@@ -865,7 +269,7 @@ INT WAYLANDDRV_ToUnicodeEx( UINT virt, UINT scan, const BYTE *state,
 
     lstrcpynW( buf, buffer, size );
     //TRACE( "returning %d / %s\n", strlenW( buffer ), debugstr_wn(buf, strlenW( buffer )));
-    return strlenW( buffer );
+    return lstrlenW( buffer );
 }
 
 
@@ -952,29 +356,9 @@ UINT WAYLANDDRV_MapVirtualKeyEx( UINT code, UINT maptype, HKL hkl )
  */
 HKL WAYLANDDRV_GetKeyboardLayout( DWORD thread_id )
 {
-    //ULONG_PTR layout = MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
-
     return (HKL)MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
 
-    /*
-    ULONG_PTR layout = GetUserDefaultLCID();
-    LANGID langid;
-    static int once;
-
-    langid = PRIMARYLANGID(LANGIDFROMLCID( layout ));
-    if (langid == LANG_CHINESE || langid == LANG_JAPANESE || langid == LANG_KOREAN)
-        layout = MAKELONG( layout, 0xe001 ); //IME
-    else
-        layout |= layout << 16;
-
-
-    TRACE( "returning layout %lx %p\n", layout, layout );
-
-    if (!once++) FIXME( "returning layout %lx\n", layout );
-    return (HKL)layout;
-    */
 }
-
 
 /***********************************************************************
  *           WAYLAND_VkKeyScanEx
@@ -1002,7 +386,7 @@ INT WAYLANDDRV_GetKeyNameText( LONG lparam, LPWSTR buffer, INT size )
     vkey = scancode_to_vkey( scancode );
 
 
-//    TRACE( "scancode is %d %d\n", scancode, vkey);
+    TRACE( "scancode is %d %d\n", scancode, vkey);
 
     if (lparam & (1 << 25))
     {
@@ -1037,86 +421,23 @@ INT WAYLANDDRV_GetKeyNameText( LONG lparam, LPWSTR buffer, INT size )
         name = vkey_to_name( vkey );
     }
 
-    len = MultiByteToWideChar( CP_UTF8, 0, name, -1, buffer, size );
+    RtlUTF8ToUnicodeN( buffer, size * sizeof(WCHAR), &len, name, strlen( name ) + 1 );
+    len /= sizeof(WCHAR);
     if (len) len--;
 
     if (!len)
     {
-        static const WCHAR format[] = {'K','e','y',' ','0','x','%','0','2','x',0};
-        snprintfW( buffer, size, format, vkey );
-        len = strlenW( buffer );
+        char name[16];
+        len = sprintf( name, "Key 0x%02x", vkey );
+        len = min( len + 1, size );
+        ascii_to_unicode( buffer, name, len );
+        if (len) buffer[--len] = 0;
     }
 
-    //TRACE( "lparam 0x%08x -> %s\n", lparam, debugstr_w( buffer ));
+//    TRACE( "lparam 0x%08x -> %s\n", lparam, debugstr_w( buffer ));
     return len;
 }
 
-
-static HKL get_locale_kbd_layout(void)
-{
-    ULONG_PTR layout;
-    LANGID langid;
-
-    /* FIXME:
-     *
-     * layout = main_key_tab[kbd_layout].lcid;
-     *
-     * Winword uses return value of GetKeyboardLayout as a codepage
-     * to translate ANSI keyboard messages to unicode. But we have
-     * a problem with it: for instance Polish keyboard layout is
-     * identical to the US one, and therefore instead of the Polish
-     * locale id we return the US one.
-     */
-
-    layout = GetUserDefaultLCID();
-
-    // Microsoft Office expects this value to be something specific
-
-    langid = PRIMARYLANGID(LANGIDFROMLCID(layout));
-    if (langid == LANG_CHINESE || langid == LANG_JAPANESE || langid == LANG_KOREAN)
-        layout = MAKELONG( layout, 0xe001 ); /* IME */
-    else
-        layout |= layout << 16;
-
-    return (HKL)layout;
-}
-
-/***********************************************************************
- *     GetKeyboardLayoutName (WAYLANDDRV.@)
- */
-BOOL WAYLANDDRV_GetKeyboardLayoutName(LPWSTR name)
-{
-    static const WCHAR formatW[] = {'%','0','8','x',0};
-    DWORD layout;
-
-    layout = HandleToUlong( get_locale_kbd_layout() );
-    if (HIWORD(layout) == LOWORD(layout)) layout = LOWORD(layout);
-    sprintfW(name, formatW, layout);
-    TRACE("returning %s\n", debugstr_w(name));
-    return TRUE;
-}
-
-/***********************************************************************
- *		LoadKeyboardLayout (WAYLANDDRV.@)
- */
-HKL WAYLANDDRV_LoadKeyboardLayout(LPCWSTR name, UINT flags)
-{
-    FIXME("%s, %04x: semi-stub! Returning default layout.\n", debugstr_w(name), flags);
-    return get_locale_kbd_layout();
-}
-
-/***********************************************************************
- *		ActivateKeyboardLayout (WAYLANDDRV.@)
- */
-BOOL WAYLANDDRV_ActivateKeyboardLayout(HKL hkl, UINT flags)
-{
-    //HKL oldHkl = 0;
-    //oldHkl = get_locale_kbd_layout();
-    return TRUE;
-
-
-
-}
 
 /***********************************************************************
  *		GetCursorPos (WAYLANDDRV.@)
@@ -1129,13 +450,11 @@ BOOL WAYLANDDRV_GetCursorPos(LPPOINT pos)
       return TRUE;
     }
 
-
     if(!global_sx) {
       pos->x = 0;
       pos->y = 0;
       return TRUE;
     }
-
 
     pos->x = global_sx;
     pos->y = global_sy;
@@ -1147,23 +466,9 @@ BOOL WAYLANDDRV_GetCursorPos(LPPOINT pos)
 
 }
 
-
 //End Wayland keyboard arrays and funcs
 
-
-
-
-//typedef VkFlags VkWaylandSurfaceCreateFlagsKHR;
 #define VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR 1000006000;
-
-struct wine_vk_surface
-{
-    LONG ref;
-    Window window;
-    VkSurfaceKHR surface; /* native surface */
-};
-
-
 
 typedef struct VkWaylandSurfaceCreateInfoKHR {
     VkStructureType                   sType;
@@ -1173,48 +478,33 @@ typedef struct VkWaylandSurfaceCreateInfoKHR {
     struct wl_surface*                surface;
 } VkWaylandSurfaceCreateInfoKHR;
 
-#ifdef FSHACK_TEST
-static VkResult (*pvkAcquireNextImageKHR)(VkDevice, VkSwapchainKHR, uint64_t, VkSemaphore, VkFence, uint32_t *);
-#endif
+
 static VkResult (*pvkCreateInstance)(const VkInstanceCreateInfo *, const VkAllocationCallbacks *, VkInstance *);
 static VkResult (*pvkCreateSwapchainKHR)(VkDevice, const VkSwapchainCreateInfoKHR *, const VkAllocationCallbacks *, VkSwapchainKHR *);
-
 static VkResult (*pvkCreateWaylandSurfaceKHR)(VkInstance, const VkWaylandSurfaceCreateInfoKHR *, const VkAllocationCallbacks *, VkSurfaceKHR *);
+
 static void (*pvkDestroyInstance)(VkInstance, const VkAllocationCallbacks *);
 static void (*pvkDestroySurfaceKHR)(VkInstance, VkSurfaceKHR, const VkAllocationCallbacks *);
 static void (*pvkDestroySwapchainKHR)(VkDevice, VkSwapchainKHR, const VkAllocationCallbacks *);
+
 static VkResult (*pvkEnumerateInstanceExtensionProperties)(const char *, uint32_t *, VkExtensionProperties *);
 static VkResult (*pvkGetDeviceGroupSurfacePresentModesKHR)(VkDevice, VkSurfaceKHR, VkDeviceGroupPresentModeFlagsKHR *);
 static void * (*pvkGetDeviceProcAddr)(VkDevice, const char *);
 static void * (*pvkGetInstanceProcAddr)(VkInstance, const char *);
 static VkResult (*pvkGetPhysicalDevicePresentRectanglesKHR)(VkPhysicalDevice, VkSurfaceKHR, uint32_t *, VkRect2D *);
-
 static VkResult (*pvkGetPhysicalDeviceSurfaceCapabilities2KHR)(VkPhysicalDevice, const VkPhysicalDeviceSurfaceInfo2KHR *, VkSurfaceCapabilities2KHR *);
-
 static VkResult (*pvkGetPhysicalDeviceSurfaceCapabilitiesKHR)(VkPhysicalDevice, VkSurfaceKHR, VkSurfaceCapabilitiesKHR *);
-
 static VkResult (*pvkGetPhysicalDeviceSurfaceFormats2KHR)(VkPhysicalDevice, const VkPhysicalDeviceSurfaceInfo2KHR *, uint32_t *, VkSurfaceFormat2KHR *);
-
-
 static VkResult (*pvkGetPhysicalDeviceSurfaceFormatsKHR)(VkPhysicalDevice, VkSurfaceKHR, uint32_t *, VkSurfaceFormatKHR *);
 static VkResult (*pvkGetPhysicalDeviceSurfacePresentModesKHR)(VkPhysicalDevice, VkSurfaceKHR, uint32_t *, VkPresentModeKHR *);
 static VkResult (*pvkGetPhysicalDeviceSurfaceSupportKHR)(VkPhysicalDevice, uint32_t, VkSurfaceKHR, VkBool32 *);
-
-static VkBool32 (*pvkGetPhysicalDeviceWaylandPresentationSupportKHR)(VkPhysicalDevice, uint32_t, struct wl_display * );
+static VkBool32 (*pvkGetPhysicalDeviceWaylandPresentationSupportKHR)(VkPhysicalDevice, uint32_t, struct wl_display *);
 static VkResult (*pvkGetSwapchainImagesKHR)(VkDevice, VkSwapchainKHR, uint32_t *, VkImage *);
 static VkResult (*pvkQueuePresentKHR)(VkQueue, const VkPresentInfoKHR *);
 
-static void *WAYLANDDRV_get_vk_device_proc_addr(const char *name);
-static void *WAYLANDDRV_get_vk_instance_proc_addr(VkInstance instance, const char *name);
-
-static inline struct wine_vk_surface *surface_from_handle(VkSurfaceKHR handle)
-{
-    return (struct wine_vk_surface *)(uintptr_t)handle;
-}
-
 static void *vulkan_handle;
 
-static BOOL WINAPI wine_vk_init(INIT_ONCE *once, void *param, void **context)
+static void wine_vk_init(void)
 {
 
     vulkan_handle = dlopen(SONAME_LIBVULKAN, RTLD_NOW);
@@ -1222,108 +512,42 @@ static BOOL WINAPI wine_vk_init(INIT_ONCE *once, void *param, void **context)
     if (!vulkan_handle)
     {
         ERR("Failed to load vulkan library\n");
-        return TRUE;
+        return;
     }
 
 #define LOAD_FUNCPTR(f) if (!(p##f = dlsym(vulkan_handle, #f))) goto fail;
 #define LOAD_OPTIONAL_FUNCPTR(f) p##f = dlsym(vulkan_handle, #f);
-    #ifdef FSHACK_TEST
-    LOAD_FUNCPTR(vkAcquireNextImageKHR)
-    #endif
-    LOAD_FUNCPTR(vkCreateInstance)
-    LOAD_FUNCPTR(vkCreateSwapchainKHR)
-    LOAD_FUNCPTR(vkCreateWaylandSurfaceKHR)
-    LOAD_FUNCPTR(vkDestroyInstance)
-    LOAD_FUNCPTR(vkDestroySurfaceKHR)
-    LOAD_FUNCPTR(vkDestroySwapchainKHR)
-    LOAD_FUNCPTR(vkEnumerateInstanceExtensionProperties)
-    LOAD_FUNCPTR(vkGetDeviceProcAddr)
-    LOAD_FUNCPTR(vkGetInstanceProcAddr)
-
-    LOAD_OPTIONAL_FUNCPTR(vkGetPhysicalDeviceSurfaceCapabilities2KHR)
-    LOAD_FUNCPTR(vkGetPhysicalDeviceSurfaceCapabilitiesKHR)
-
-    LOAD_OPTIONAL_FUNCPTR(vkGetPhysicalDeviceSurfaceFormats2KHR)
-    LOAD_FUNCPTR(vkGetPhysicalDeviceSurfaceFormatsKHR)
-    LOAD_FUNCPTR(vkGetPhysicalDeviceSurfacePresentModesKHR)
-    LOAD_FUNCPTR(vkGetPhysicalDeviceSurfaceSupportKHR)
-    LOAD_FUNCPTR(vkGetPhysicalDeviceWaylandPresentationSupportKHR)
-    LOAD_FUNCPTR(vkGetSwapchainImagesKHR)
-    LOAD_FUNCPTR(vkQueuePresentKHR)
-    LOAD_OPTIONAL_FUNCPTR(vkGetDeviceGroupSurfacePresentModesKHR)
-    LOAD_OPTIONAL_FUNCPTR(vkGetPhysicalDevicePresentRectanglesKHR)
+    LOAD_FUNCPTR(vkCreateInstance);
+    LOAD_FUNCPTR(vkCreateSwapchainKHR);
+    LOAD_FUNCPTR(vkCreateWaylandSurfaceKHR);
+    LOAD_FUNCPTR(vkDestroyInstance);
+    LOAD_FUNCPTR(vkDestroySurfaceKHR);
+    LOAD_FUNCPTR(vkDestroySwapchainKHR);
+    LOAD_FUNCPTR(vkEnumerateInstanceExtensionProperties);
+    LOAD_FUNCPTR(vkGetDeviceProcAddr);
+    LOAD_FUNCPTR(vkGetInstanceProcAddr);
+    LOAD_OPTIONAL_FUNCPTR(vkGetPhysicalDeviceSurfaceCapabilities2KHR);
+    LOAD_FUNCPTR(vkGetPhysicalDeviceSurfaceCapabilitiesKHR);
+    LOAD_OPTIONAL_FUNCPTR(vkGetPhysicalDeviceSurfaceFormats2KHR);
+    LOAD_FUNCPTR(vkGetPhysicalDeviceSurfaceFormatsKHR);
+    LOAD_FUNCPTR(vkGetPhysicalDeviceSurfacePresentModesKHR);
+    LOAD_FUNCPTR(vkGetPhysicalDeviceSurfaceSupportKHR);
+    LOAD_FUNCPTR(vkGetPhysicalDeviceWaylandPresentationSupportKHR);
+    LOAD_FUNCPTR(vkGetSwapchainImagesKHR);
+    LOAD_FUNCPTR(vkQueuePresentKHR);
+    LOAD_OPTIONAL_FUNCPTR(vkGetDeviceGroupSurfacePresentModesKHR);
+    LOAD_OPTIONAL_FUNCPTR(vkGetPhysicalDevicePresentRectanglesKHR);
 #undef LOAD_FUNCPTR
 #undef LOAD_OPTIONAL_FUNCPTR
 
-    return TRUE;
+    return;
 
 fail:
+    TRACE("VULKAN closed \n");
     dlclose(vulkan_handle);
     vulkan_handle = NULL;
-    return TRUE;
+    return;
 }
-
-
-
-//Wayland defs
-
-struct xdg_wm_base *wm_base = NULL;
-static struct wl_seat *wayland_seat = NULL;
-static struct wl_pointer *wayland_pointer = NULL;
-static struct wl_keyboard *wayland_keyboard = NULL;
-static struct zwp_pointer_constraints_v1 *pointer_constraints = NULL;
-static struct zwp_relative_pointer_manager_v1 *relative_pointer_manager = NULL;
-struct zwp_locked_pointer_v1 *locked_pointer = NULL;
-struct zwp_confined_pointer_v1 *confined_pointer = NULL;
-struct zwp_relative_pointer_v1 *relative_pointer;
-
-
-struct wl_display *wayland_display;
-struct wl_cursor_theme *wayland_cursor_theme;
-struct wl_cursor       *wayland_default_cursor;
-struct wl_surface *wayland_cursor_surface;
-uint32_t wayland_serial_id;
-struct wl_shm *wayland_cursor_shm;
-struct wl_shm *global_shm;
-struct wl_subcompositor *wayland_subcompositor;
-
-
-
-
-int is_buffer_busy = 0;
-DWORD desktop_tid = 0;
-
-#define ZWP_RELATIVE_POINTER_MANAGER_V1_VERSION 1
-
-struct wayland_window {
-
-	struct wl_surface *surface;
-	struct xdg_surface *xdg_surface;
-	struct xdg_toplevel *xdg_toplevel;
-
-  HWND pointer_to_hwnd;
-	int test;
-	int height;
-	int width;
-
-};
-
-struct wayland_window *vulkan_window = NULL;
-
-struct wayland_window *gdi_window = NULL;
-
-struct wl_surface_win_data
-{
-    HWND           hwnd;           /* hwnd that this private data belongs to */
-
-    struct wl_subsurface  *wayland_subsurface;
-    struct wl_surface     *wayland_surface;
-
-    struct wayland_window     *wayland_window;
-
-};
-
-
 
 
 
@@ -1363,10 +587,6 @@ static void free_wl_win_data( struct wl_surface_win_data *data )
     free( data );
 }
 
-
-
-
-
 /***********************************************************************
  *           get_wl_win_data
  *
@@ -1392,17 +612,12 @@ struct cursor_cache
     int height;
     int xhotspot;
     int yhotspot;
-
 };
-
-
-
 
 static inline int cursor_idx( HCURSOR handle  )
 {
     return LOWORD( handle ) >> 1;
 }
-
 
 static void alloc_cursor_cache( HCURSOR handle )
 {
@@ -1443,9 +658,6 @@ struct gdi_win_data
     int                   size;
 };
 
-
-//static CRITICAL_SECTION win_data_section;
-
 static struct gdi_win_data *win_data_context[32768];
 
 static void set_surface_region( struct window_surface *window_surface, HRGN win_region );
@@ -1462,7 +674,6 @@ struct gdi_window_surface
     struct wl_shm_pool    *wl_pool;
     int                   gdi_fd;
     RECT                  bounds;
-    BOOL                  byteswap;
     RGNDATA              *region_data;
     HRGN                  region;
     BYTE                  alpha;
@@ -1472,10 +683,6 @@ struct gdi_window_surface
     BITMAPINFO            info;   /* variable size, must be last */
 
 };
-
-
-
-
 
 // listeners
 static struct gdi_win_data *get_win_data( HWND hwnd );
@@ -1490,8 +697,6 @@ static void buffer_release(void *data, struct wl_buffer *buffer) {
     hwnd_data = get_win_data( hwnd );
     if(hwnd_data)
       hwnd_data->buffer_busy = 0;
-
-    //TRACE("Buffer not busy \n");
   }
 
 
@@ -1510,8 +715,6 @@ void wayland_pointer_enter_cb(void *data,
 
   HWND temp;
 
-  TRACE("Current Surface %p \n", surface );
-
   #if 0
   struct wl_surface_win_data *hwnd_data;
 
@@ -1526,30 +729,26 @@ void wayland_pointer_enter_cb(void *data,
 
   wayland_serial_id = serial;
 
+
   temp = wl_surface_get_user_data(surface);
   if(temp) {
 
     TRACE("Current hwnd is %p and surface %p \n", temp, surface);
     global_update_hwnd = temp;
 
-    if (GetAncestor(temp, GA_PARENT) == GetDesktopWindow()) {
-      SetFocus(temp);
-      SetActiveWindow(temp);
-      SetForegroundWindow(temp);
+    if (NtUserGetAncestor(temp, GA_PARENT) == NtUserGetDesktopWindow()) {
+      NtUserSetFocus(temp);
+      NtUserSetActiveWindow(temp);
+      NtUserSetForegroundWindow(temp);
     }
 
   } else if (vulkan_window != NULL && vulkan_window->surface == surface && global_vulkan_hwnd != NULL) {
 
+      //TRACE("Current vulkan hwnd is %p and surface %p \n", global_vulkan_hwnd, surface);
 
-
-      TRACE("Current vulkan hwnd is %p and surface %p \n", global_vulkan_hwnd, surface);
-
-      SetFocus(global_vulkan_hwnd);
-      SetActiveWindow( global_vulkan_hwnd );
-      SetForegroundWindow( global_vulkan_hwnd );
-      //ShowWindow( global_vulkan_hwnd, SW_SHOW );
-      SetFocus(global_vulkan_hwnd);
-      //SetActiveWindow( global_vulkan_hwnd );
+      NtUserSetActiveWindow( global_vulkan_hwnd );
+      NtUserSetForegroundWindow( global_vulkan_hwnd );
+      NtUserSetFocus(global_vulkan_hwnd);
   }
   global_last_cursor_change = 0;
 
@@ -1566,10 +765,6 @@ void wayland_pointer_leave_cb(void *data,
 
 }
 
-INPUT global_input;
-
-
-
 void wayland_pointer_motion_cb_vulkan(void *data,
 		struct wl_pointer *pointer, uint32_t time, wl_fixed_t sx, wl_fixed_t sy)
 {
@@ -1577,77 +772,71 @@ void wayland_pointer_motion_cb_vulkan(void *data,
   POINT point;
   POINT client_point;
 
-
-
   if(global_wayland_confine) {
     return;
   }
 
-
-
-  global_input.u.mi.dx = wl_fixed_to_int(sx);
-  global_input.u.mi.dy = wl_fixed_to_int(sy);
+  global_input.mi.dx = wl_fixed_to_int(sx);
+  global_input.mi.dy = wl_fixed_to_int(sy);
 
 
   //It takes some time before correct rect is returned
   if(global_vulkan_rect_flag < 3) {
     global_vulkan_rect_flag++;
-    GetWindowRect(global_vulkan_hwnd, &global_vulkan_rect);
+    NtUserGetWindowRect(global_vulkan_hwnd, &global_vulkan_rect);
   }
 
   //SetWindowPos crashes Unity if used elsewhere
   if(global_vulkan_rect.left != 0 || global_vulkan_rect.top != 0) {
-    SetWindowPos( global_vulkan_hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_NOSENDCHANGING);
-    GetWindowRect(global_vulkan_hwnd, &global_vulkan_rect);
+    NtUserSetWindowPos( global_vulkan_hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_NOSENDCHANGING);
+    NtUserGetWindowRect(global_vulkan_hwnd, &global_vulkan_rect);
   }
 
   if(global_fsr) {
 
     //RECT title_rect;
-    //GetClientRect(global_vulkan_hwnd, &title_rect);
-
 
     client_point.x = global_vulkan_rect.left;
     client_point.y = global_vulkan_rect.top;
     if(client_point.x != 0 || client_point.y != 0) {
-      fs_hack_user_to_real(&client_point);
+      fsr_user_to_real(&client_point);
     }
-    global_input.u.mi.dx = global_input.u.mi.dx + client_point.x;
-    global_input.u.mi.dy = global_input.u.mi.dy + client_point.y;
+    global_input.mi.dx = global_input.mi.dx + client_point.x;
+    global_input.mi.dy = global_input.mi.dy + client_point.y;
 
-    point.x = global_input.u.mi.dx;
-    point.y = global_input.u.mi.dy;
+    point.x = global_input.mi.dx;
+    point.y = global_input.mi.dy;
 
-    fs_hack_real_to_user(&point);
-    global_input.u.mi.dx = point.x;
-    global_input.u.mi.dy = point.y;
+    fsr_real_to_user(&point);
+    global_input.mi.dx = point.x;
+    global_input.mi.dy = point.y;
 
     #if 0
     TRACE("Motion (x y - x y %d %d %d %d) %s %s  \n",
       wl_fixed_to_int(sx),
       wl_fixed_to_int(sy),
-      global_input.u.mi.dx,
-      global_input.u.mi.dy,
+      global_input.mi.dx,
+      global_input.mi.dy,
       wine_dbgstr_rect( &global_vulkan_rect ),
       wine_dbgstr_rect( &title_rect )
     );
     #endif
 
   } else {
-    global_input.u.mi.dx = global_input.u.mi.dx + global_vulkan_rect.left;
-    global_input.u.mi.dy = global_input.u.mi.dy + global_vulkan_rect.top;
+    global_input.mi.dx = global_input.mi.dx + global_vulkan_rect.left;
+    global_input.mi.dy = global_input.mi.dy + global_vulkan_rect.top;
   }
 
-  global_sx = global_input.u.mi.dx;
-  global_sy = global_input.u.mi.dy;
+  global_sx = global_input.mi.dx;
+  global_sy = global_input.mi.dy;
 
   SERVER_START_REQ( send_hardware_message )
     {
       req->win        = wine_server_user_handle( global_vulkan_hwnd );
       req->flags      = 0;
       req->input.type = INPUT_MOUSE;
-      req->input.mouse.x     = global_input.u.mi.dx;
-      req->input.mouse.y     = global_input.u.mi.dy;
+      req->input.mouse.x     = global_input.mi.dx;
+      req->input.mouse.y     = global_input.mi.dy;
       req->input.mouse.data  = 0;
       req->input.mouse.flags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE;
       req->input.mouse.time  = 0;
@@ -1673,7 +862,6 @@ void wayland_pointer_motion_cb(void *data,
   }
 
 
-
   #if 0
   if(global_gdi_position_changing > 0) {
     if(global_gdi_position_changing == 1) {
@@ -1691,11 +879,11 @@ void wayland_pointer_motion_cb(void *data,
   }
   #endif
 
-  global_input.u.mi.dx = wl_fixed_to_int(sx);
-  global_input.u.mi.dy = wl_fixed_to_int(sy);
+  global_input.mi.dx = wl_fixed_to_int(sx);
+  global_input.mi.dy = wl_fixed_to_int(sy);
 
-  global_sx = global_input.u.mi.dx;
-  global_sy = global_input.u.mi.dy;
+  global_sx = global_input.mi.dx;
+  global_sy = global_input.mi.dy;
 
 
 
@@ -1703,18 +891,23 @@ void wayland_pointer_motion_cb(void *data,
   hwnd = global_update_hwnd;
 
 
-  GetWindowRect(hwnd, &rect);
+  NtUserGetWindowRect(hwnd, &rect);
 
-  //TRACE("Motion x y %d %d %s hwnd %p pointer %p \n", wl_fixed_to_int(sx), wl_fixed_to_int(sy), wine_dbgstr_rect( &rect ), hwnd, pointer);
+  global_input.mi.dx = global_input.mi.dx + rect.left;
+  global_input.mi.dy = global_input.mi.dy + rect.top;
 
+  #if 0
 
-  global_input.u.mi.dx = global_input.u.mi.dx + rect.left;
-  global_input.u.mi.dy = global_input.u.mi.dy + rect.top;
+  TRACE("Motion x y %d %d %s hwnd %p \n",
+    wl_fixed_to_int(sx), wl_fixed_to_int(sy),
+    wine_dbgstr_rect( &rect ),
+    hwnd);
+  #endif
 
   #if 0
   if(global_gdi_position_changing == 2) {
-    global_input.u.mi.dx = global_last_sx + rect.left;
-    global_input.u.mi.dx = global_last_sy + rect.top;
+    global_input.mi.dx = global_last_sx + rect.left;
+    global_input.mi.dx = global_last_sy + rect.top;
 
     TRACE("Rel. Motion x y %d %d  \n", global_last_sx, global_last_sy );
   }
@@ -1727,24 +920,17 @@ void wayland_pointer_motion_cb(void *data,
     req->win        = wine_server_user_handle( hwnd );
     req->flags      = 0;
     req->input.type = INPUT_MOUSE;
-
-    req->input.mouse.x     = global_input.u.mi.dx;
-    req->input.mouse.y     = global_input.u.mi.dy;
+    req->input.mouse.x     = global_input.mi.dx;
+    req->input.mouse.y     = global_input.mi.dy;
     req->input.mouse.data  = 0;
     req->input.mouse.flags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE;
     req->input.mouse.time  = 0;
     req->input.mouse.info  = 0;
-
     wine_server_call( req );
   }
   SERVER_END_REQ;
 
-
-
-
-
 }
-
 
 void wayland_pointer_button_cb_vulkan(void *data,
 		struct wl_pointer *pointer, uint32_t serial, uint32_t time, uint32_t button,
@@ -1757,17 +943,15 @@ void wayland_pointer_button_cb_vulkan(void *data,
   INPUT input;
   input.type = INPUT_MOUSE;
 
-  input.u.mi.dx          = (int)global_sx;
-  input.u.mi.dy          = (int)global_sy;
-  input.u.mi.mouseData   = 0;
-  input.u.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE;
-
-
+  input.mi.dx          = (int)global_sx;
+  input.mi.dy          = (int)global_sy;
+  input.mi.mouseData   = 0;
+  input.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE;
 
   if(global_wayland_confine) {
-    input.u.mi.dx = 0;
-    input.u.mi.dy = 0;
-    input.u.mi.dwFlags = 0;
+    input.mi.dx = 0;
+    input.mi.dy = 0;
+    input.mi.dwFlags = 0;
   }
 
   hwnd = global_vulkan_hwnd;
@@ -1779,46 +963,46 @@ void wayland_pointer_button_cb_vulkan(void *data,
 	{
 	case BTN_LEFT:
     if(state == WL_POINTER_BUTTON_STATE_PRESSED) {
-      input.u.mi.dwFlags  |= MOUSEEVENTF_LEFTDOWN;
+      input.mi.dwFlags  |= MOUSEEVENTF_LEFTDOWN;
     } else if(state == WL_POINTER_BUTTON_STATE_RELEASED) {
-      input.u.mi.dwFlags |= MOUSEEVENTF_LEFTUP;
+      input.mi.dwFlags |= MOUSEEVENTF_LEFTUP;
     }
 		break;
 
 	case BTN_MIDDLE:
 		if(state == WL_POINTER_BUTTON_STATE_PRESSED)
-      input.u.mi.dwFlags     |= MOUSEEVENTF_MIDDLEDOWN;
+      input.mi.dwFlags     |= MOUSEEVENTF_MIDDLEDOWN;
     else if(state == WL_POINTER_BUTTON_STATE_RELEASED)
-      input.u.mi.dwFlags     |= MOUSEEVENTF_MIDDLEUP;
+      input.mi.dwFlags     |= MOUSEEVENTF_MIDDLEUP;
 		break;
 
 	case BTN_RIGHT:
 		if(state == WL_POINTER_BUTTON_STATE_PRESSED)
-      input.u.mi.dwFlags     |= MOUSEEVENTF_RIGHTDOWN;
+      input.mi.dwFlags     |= MOUSEEVENTF_RIGHTDOWN;
     else if(state == WL_POINTER_BUTTON_STATE_RELEASED)
-      input.u.mi.dwFlags     |= MOUSEEVENTF_RIGHTUP;
+      input.mi.dwFlags     |= MOUSEEVENTF_RIGHTUP;
 		break;
 
   case BTN_EXTRA:
   case BTN_FORWARD:
     TRACE("Forward Click \n");
 		if(state == WL_POINTER_BUTTON_STATE_PRESSED)
-      input.u.mi.dwFlags     |= MOUSEEVENTF_XDOWN;
+      input.mi.dwFlags     |= MOUSEEVENTF_XDOWN;
     else if(state == WL_POINTER_BUTTON_STATE_RELEASED)
-      input.u.mi.dwFlags     |= MOUSEEVENTF_XUP;
+      input.mi.dwFlags     |= MOUSEEVENTF_XUP;
 
-    input.u.mi.mouseData = XBUTTON1;
+    input.mi.mouseData = XBUTTON1;
 		break;
 
   case BTN_BACK:
   case BTN_SIDE:
     TRACE("Back Click \n");
 		if(state == WL_POINTER_BUTTON_STATE_PRESSED)
-      input.u.mi.dwFlags     |= MOUSEEVENTF_XDOWN;
+      input.mi.dwFlags     |= MOUSEEVENTF_XDOWN;
     else if(state == WL_POINTER_BUTTON_STATE_RELEASED)
-      input.u.mi.dwFlags     |= MOUSEEVENTF_XUP;
+      input.mi.dwFlags     |= MOUSEEVENTF_XUP;
 
-    input.u.mi.mouseData = XBUTTON2;
+    input.mi.mouseData = XBUTTON2;
 		break;
 
 
@@ -1833,10 +1017,10 @@ void wayland_pointer_button_cb_vulkan(void *data,
     req->win        = wine_server_user_handle( hwnd );
     req->flags      = 0;
     req->input.type = input.type;
-    req->input.mouse.x     = input.u.mi.dx;
-    req->input.mouse.y     = input.u.mi.dy;
+    req->input.mouse.x     = input.mi.dx;
+    req->input.mouse.y     = input.mi.dy;
     req->input.mouse.data  = 0;
-    req->input.mouse.flags = input.u.mi.dwFlags;
+    req->input.mouse.flags = input.mi.dwFlags;
     req->input.mouse.time  = 0;
     req->input.mouse.info  = 0;
 
@@ -1847,8 +1031,6 @@ void wayland_pointer_button_cb_vulkan(void *data,
 
 
 }
-
-
 
 void wayland_pointer_button_cb(void *data,
 		struct wl_pointer *pointer, uint32_t serial, uint32_t time, uint32_t button,
@@ -1865,80 +1047,72 @@ void wayland_pointer_button_cb(void *data,
   }
 
   input.type = INPUT_MOUSE;
-  input.u.mi.dx          = (int)global_sx;
-  input.u.mi.dy          = (int)global_sy;
-  input.u.mi.mouseData   = 0;
-  input.u.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE;
+  input.mi.dx          = (int)global_sx;
+  input.mi.dy          = (int)global_sy;
+  input.mi.mouseData   = 0;
+  input.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE;
 
 
 
   if(global_wayland_confine) {
-    input.u.mi.dx = 0;
-    input.u.mi.dy = 0;
-    input.u.mi.dwFlags = 0;
+    input.mi.dx = 0;
+    input.mi.dy = 0;
+    input.mi.dwFlags = 0;
   }
 
 
   switch (button)
 	{
-	case BTN_LEFT:
-    if(state == WL_POINTER_BUTTON_STATE_PRESSED) {
-      input.u.mi.dwFlags  |= MOUSEEVENTF_LEFTDOWN;
-      global_gdi_lb_hold = 1;
-    } else if(state == WL_POINTER_BUTTON_STATE_RELEASED) {
-      input.u.mi.dwFlags |= MOUSEEVENTF_LEFTUP;
-      global_gdi_lb_hold = 0;
-    }
-		break;
+  	case BTN_LEFT:
+      if(state == WL_POINTER_BUTTON_STATE_PRESSED) {
+        input.mi.dwFlags  |= MOUSEEVENTF_LEFTDOWN;
+        global_gdi_lb_hold = 1;
+      } else if(state == WL_POINTER_BUTTON_STATE_RELEASED) {
+        input.mi.dwFlags |= MOUSEEVENTF_LEFTUP;
+        global_gdi_lb_hold = 0;
+      }
+  		break;
 
-	case BTN_MIDDLE:
-		if(state == WL_POINTER_BUTTON_STATE_PRESSED)
-      input.u.mi.dwFlags     |= MOUSEEVENTF_MIDDLEDOWN;
-    else if(state == WL_POINTER_BUTTON_STATE_RELEASED)
-      input.u.mi.dwFlags     |= MOUSEEVENTF_MIDDLEUP;
-		break;
+  	case BTN_MIDDLE:
+  		if(state == WL_POINTER_BUTTON_STATE_PRESSED)
+        input.mi.dwFlags     |= MOUSEEVENTF_MIDDLEDOWN;
+      else if(state == WL_POINTER_BUTTON_STATE_RELEASED)
+        input.mi.dwFlags     |= MOUSEEVENTF_MIDDLEUP;
+  		break;
 
-	case BTN_RIGHT:
-		if(state == WL_POINTER_BUTTON_STATE_PRESSED) {
-      input.u.mi.dwFlags     |= MOUSEEVENTF_RIGHTDOWN;
-    } else if(state == WL_POINTER_BUTTON_STATE_RELEASED) {
-      input.u.mi.dwFlags     |= MOUSEEVENTF_RIGHTUP;
-    }
-		break;
+  	case BTN_RIGHT:
+  		if(state == WL_POINTER_BUTTON_STATE_PRESSED) {
+        input.mi.dwFlags     |= MOUSEEVENTF_RIGHTDOWN;
+      } else if(state == WL_POINTER_BUTTON_STATE_RELEASED) {
+        input.mi.dwFlags     |= MOUSEEVENTF_RIGHTUP;
+      }
+  		break;
 
 
-	default:
-		break;
+  	default:
+  		break;
 	}
-
-
 
   hwnd = global_update_hwnd;
 
+  NtUserGetWindowRect(global_update_hwnd, &rect);
 
+  TRACE("Click x y %d %d %s \n", input.mi.dx, input.mi.dy, wine_dbgstr_rect( &rect ));
 
-  GetWindowRect(global_update_hwnd, &rect);
+  input.mi.dx = input.mi.dx + rect.left;
+  input.mi.dy = input.mi.dy + rect.top;
 
-  TRACE("Click x y %d %d %s \n", input.u.mi.dx, input.u.mi.dy, wine_dbgstr_rect( &rect ));
-
-  input.u.mi.dx = input.u.mi.dx + rect.left;
-  input.u.mi.dy = input.u.mi.dy + rect.top;
-
-  TRACE("Click x y %d %d %s \n", input.u.mi.dx, input.u.mi.dy, wine_dbgstr_rect( &rect ));
-
-
-
-
+  TRACE("Click x y %d %d %s \n", input.mi.dx, input.mi.dy, wine_dbgstr_rect( &rect ));
 
   SERVER_START_REQ( send_hardware_message )
   {
     req->win        = wine_server_user_handle( hwnd );
     req->flags      = 0;
     req->input.type = input.type;
-    req->input.mouse.x     = input.u.mi.dx;
-    req->input.mouse.y     = input.u.mi.dy;
+    req->input.mouse.x     = input.mi.dx;
+    req->input.mouse.y     = input.mi.dy;
     req->input.mouse.data  = 0;
-    req->input.mouse.flags = input.u.mi.dwFlags;
+    req->input.mouse.flags = input.mi.dwFlags;
     req->input.mouse.time  = 0;
     req->input.mouse.info  = 0;
 
@@ -1946,16 +1120,11 @@ void wayland_pointer_button_cb(void *data,
   }
   SERVER_END_REQ;
 
-
-
-
-
-
 }
 
 static void wayland_pointer_frame_cb(void *data, struct wl_pointer *wl_pointer) {
   //do nothing
-  TRACE("Pointer frame  \n");
+
 }
 static void wayland_pointer_axis_source_cb(void *data, struct wl_pointer *wl_pointer, uint32_t axis_source)	{
   TRACE("Pointer axis source  \n");
@@ -1968,21 +1137,14 @@ static void wayland_pointer_axis_stop_cb(void *data, struct wl_pointer *wl_point
 
 
 static void wayland_pointer_axis_discrete_cb(void *data, struct wl_pointer *wl_pointer, uint32_t axis, int32_t discrete) {
-
-
-
   TRACE("Motion Wheel discrete %d \n", discrete);
-
-
 }
-
 
 //Mouse wheel
 void wayland_pointer_axis_cb(void *data,
 		struct wl_pointer *pointer, uint32_t time, uint32_t axis,
 		wl_fixed_t value)
 {
-
 
   SERVER_START_REQ( send_hardware_message )
   {
@@ -2000,18 +1162,12 @@ void wayland_pointer_axis_cb(void *data,
           req->input.mouse.x     = 0;
           req->input.mouse.y     = 0;
         }
-
-
         req->input.mouse.time  = 0;
         req->input.mouse.info  = 0;
 
         wine_server_call( req );
   }
   SERVER_END_REQ;
-
-
-
-
 }
 
 //relative pointer for locked surface
@@ -2029,12 +1185,12 @@ relative_pointer_handle_motion(void *data, struct zwp_relative_pointer_v1 *point
 
     input.type = INPUT_MOUSE;
 
-    input.u.mi.mouseData   = 0;
+    input.mi.mouseData   = 0;
 
-    input.u.mi.time        = 0;
-    input.u.mi.dwExtraInfo = 0;
+    input.mi.time        = 0;
+    input.mi.dwExtraInfo = 0;
 
-    input.u.mi.dwFlags     = MOUSEEVENTF_MOVE;
+    input.mi.dwFlags     = MOUSEEVENTF_MOVE;
 
     //Slows mouse
     #if 0
@@ -2043,16 +1199,16 @@ relative_pointer_handle_motion(void *data, struct zwp_relative_pointer_v1 *point
       double x, y;
       x = wl_fixed_to_double(dx);
       y = wl_fixed_to_double(dy);
-      fs_hack_real_to_user_relative(&x, &y);
-      input.u.mi.dx = x;
-      input.u.mi.dy = y;
+      fsr_real_to_user_relative(&x, &y);
+      input.mi.dx = x;
+      input.mi.dy = y;
     } else {
-      input.u.mi.dx = wl_fixed_to_double(dx);
-      input.u.mi.dy = wl_fixed_to_double(dy);
+      input.mi.dx = wl_fixed_to_double(dx);
+      input.mi.dy = wl_fixed_to_double(dy);
     }
     #endif
-    input.u.mi.dx = wl_fixed_to_double(dx);
-    input.u.mi.dy = wl_fixed_to_double(dy);
+    input.mi.dx = wl_fixed_to_double(dx);
+    input.mi.dy = wl_fixed_to_double(dy);
 
     __wine_send_input( global_vulkan_hwnd, &input, NULL );
 }
@@ -2061,8 +1217,6 @@ static const struct zwp_relative_pointer_v1_listener relative_pointer_listener =
 	relative_pointer_handle_motion,
 };
 //relative pointer for locked surface
-
-
 
 void grab_wayland_screen(void) {
   if(!global_wayland_confine) {
@@ -2074,10 +1228,6 @@ void grab_wayland_screen(void) {
     zwp_relative_pointer_v1_add_listener(relative_pointer, &relative_pointer_listener, NULL);
 
     wl_surface_commit(vulkan_window->surface);
-
-    //hide mouse
-    //TODO test
-    //wl_pointer_set_cursor(wayland_pointer, wayland_serial_id, NULL, 0, 0);
   }
 }
 
@@ -2101,14 +1251,13 @@ void ungrab_wayland_screen(void) {
 void wayland_keyboard_keymap_cb(void *data,
 		struct wl_keyboard *keyboard, uint32_t format, int fd, uint32_t size)
 {
-
-
 }
 
 void wayland_keyboard_enter_cb(void *data,
 		struct wl_keyboard *keyboard, uint32_t serial,
 		struct wl_surface *surface, struct wl_array *keys)
 {
+  TRACE( "keyboard_event: Entered \n" );
 }
 
 void wayland_keyboard_leave_cb(void *data,
@@ -2128,24 +1277,26 @@ void wayland_keyboard_key_cb (void *data, struct wl_keyboard *keyboard,
   INPUT input;
   HWND hwnd;
 
+  //TRACE( "keyboard_event: %u keycode \n",  keycode );
+
   //if ((unsigned int)keycode >= sizeof(keycode_to_vkey)/sizeof(keycode_to_vkey[0]) || !keycode_to_vkey[keycode]) {
         //TRACE( "keyboard_event: code %u unmapped key, ignoring \n",  keycode );
-
   //}
 
   input.type             = INPUT_KEYBOARD;
-  input.u.ki.wVk         = keycode_to_vkey[(unsigned int)keycode];
-  if(!input.u.ki.wVk) {
+  input.ki.wVk         = keycode_to_vkey[(unsigned int)keycode];
+  if(!input.ki.wVk) {
     return;
   }
-  input.u.ki.wScan       = vkey_to_scancode[(int)input.u.ki.wVk];
-  input.u.ki.time        = 0;
-  input.u.ki.dwExtraInfo = 0;
-  input.u.ki.dwFlags     = (input.u.ki.wScan & 0x100) ? KEYEVENTF_EXTENDEDKEY : 0;
-    /*
-    TRACE("keyboard_event: code %u vkey %x scan %x meta %x \n",
-                          keycode, input.u.ki.wVk, input.u.ki.wScan, state );
-    */
+  input.ki.wScan       = vkey_to_scancode[(int)input.ki.wVk];
+  input.ki.time        = 0;
+  input.ki.dwExtraInfo = 0;
+  input.ki.dwFlags     = (input.ki.wScan & 0x100) ? KEYEVENTF_EXTENDEDKEY : 0;
+
+
+  //TRACE("keyboard_event: code %u vkey %x scan %x meta %x \n",
+  //                        keycode, input.ki.wVk, input.ki.wScan, state );
+
 
   input.type = INPUT_KEYBOARD;
   hwnd = global_update_hwnd;
@@ -2154,35 +1305,15 @@ void wayland_keyboard_key_cb (void *data, struct wl_keyboard *keyboard,
     hwnd = global_vulkan_hwnd;
   }
 
-  //TRACE("keyboard_event: hwnd %p \n", hwnd);
   if (state == WL_KEYBOARD_KEY_STATE_RELEASED) {
-    input.u.ki.dwFlags |= KEYEVENTF_KEYUP;
+    input.ki.dwFlags |= KEYEVENTF_KEYUP;
   }
 
-/*
-  SERVER_START_REQ( send_hardware_message )
-    {
-        req->win        = wine_server_user_handle( hwnd );
-        req->flags      = 0;
-        req->input.type = input.type;
-
-        req->input.kbd.vkey  = input.u.ki.wVk;
-        req->input.kbd.scan  = input.u.ki.wScan;
-        req->input.kbd.flags = input.u.ki.dwFlags;
-        req->input.kbd.time  = input.u.ki.time;
-        req->input.kbd.info  = input.u.ki.dwExtraInfo;
-
-        wine_server_call( req );
-
-    }
-SERVER_END_REQ;
-*/
   __wine_send_input( hwnd, &input, NULL );
 
   if(state != WL_KEYBOARD_KEY_STATE_RELEASED) {
     return;
   }
-
 
 	switch (keycode)
 	{
@@ -2191,8 +1322,6 @@ SERVER_END_REQ;
     case KEY_F11:
 
       if(!global_wayland_full) {
-
-
         global_wait_for_configure = 1;
         xdg_toplevel_set_fullscreen(vulkan_window->xdg_toplevel, NULL);
         wl_surface_commit(vulkan_window->surface);
@@ -2208,45 +1337,33 @@ SERVER_END_REQ;
 
     case KEY_F10:
 
+      if(!global_wayland_confine) {
+        global_wayland_confine = 1;
+
+        if(vulkan_window) {
+          TRACE("Enabling grab \n");
+          grab_wayland_screen();
+          TRACE("Enabling grab done \n");
+
+        } else if(gdi_window) {
+          confined_pointer = zwp_pointer_constraints_v1_confine_pointer( pointer_constraints,  gdi_window->surface, wayland_pointer, NULL, ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_PERSISTENT);
 
 
-    if(!global_wayland_confine) {
+          relative_pointer = zwp_relative_pointer_manager_v1_get_relative_pointer(relative_pointer_manager, wayland_pointer);
+          zwp_relative_pointer_v1_add_listener(relative_pointer, &relative_pointer_listener, NULL);
+          wl_surface_commit(gdi_window->surface);
 
-      global_wayland_confine = 1;
+        }
 
-
-      if(vulkan_window) {
-        TRACE("Enabling grab \n");
-        grab_wayland_screen();
-        TRACE("Enabling grab done \n");
-
-      } else if(gdi_window) {
-        confined_pointer = zwp_pointer_constraints_v1_confine_pointer( pointer_constraints,  gdi_window->surface, wayland_pointer, NULL, ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_PERSISTENT);
-
-
-        relative_pointer = zwp_relative_pointer_manager_v1_get_relative_pointer(relative_pointer_manager, wayland_pointer);
-        zwp_relative_pointer_v1_add_listener(relative_pointer, &relative_pointer_listener, NULL);
-        wl_surface_commit(gdi_window->surface);
-
-      }
-
-
-
-
-      //hide cursor
-      wl_pointer_set_cursor(wayland_pointer, wayland_serial_id, NULL, 0, 0);
-      wl_surface_commit(wayland_cursor_surface);
-
-
-
+        //hide cursor
+        wl_pointer_set_cursor(wayland_pointer, wayland_serial_id, NULL, 0, 0);
+        wl_surface_commit(wayland_cursor_surface);
 
     } else {
-
       zwp_locked_pointer_v1_destroy(locked_pointer);
 	    zwp_relative_pointer_v1_destroy(relative_pointer);
 	    locked_pointer = NULL;
 	    relative_pointer = NULL;
-
       global_wayland_confine = 0;
     }
 
@@ -2312,12 +1429,14 @@ void wayland_keyboard_modifiers_cb(void *data,
 {
 }
 
+void wayland_keyboard_repeat_info(void* data, struct wl_keyboard *wl_keyboard, int rate, int delay)
+{
+}
+
 
 static void seat_handle_name(void *data, struct wl_seat *wl_seat,
 		 const char *name)
 {
-	//struct seat_info *seat = data;
-	//seat->name = xstrdup(name);
 }
 
 
@@ -2399,8 +1518,6 @@ static void seat_caps_cb(void *data, struct wl_seat *seat, enum wl_seat_capabili
     }
 
     if(!is_vulkan && !global_is_vulkan) {
-
-
       wl_pointer_add_listener(wayland_pointer, &pointer_listener_gdi, NULL);
     } else {
       wl_pointer_add_listener(wayland_pointer, &pointer_listener_vulkan, NULL);
@@ -2421,7 +1538,9 @@ static void seat_caps_cb(void *data, struct wl_seat *seat, enum wl_seat_capabili
         wayland_keyboard_enter_cb,
         wayland_keyboard_leave_cb,
         wayland_keyboard_key_cb,
-				wayland_keyboard_modifiers_cb, };
+				wayland_keyboard_modifiers_cb,
+				wayland_keyboard_repeat_info,
+				};
 
 		wl_keyboard_add_listener(wayland_keyboard, &keyboard_listener, NULL);
 	}
@@ -2453,8 +1572,6 @@ static const struct xdg_wm_base_listener xdg_wm_base_listener = {
 
 //wl output
 
-
-
 static void
 display_handle_geometry(void *data,
 			struct wl_output *wl_output,
@@ -2479,23 +1596,32 @@ display_handle_mode(void *data,
 		    int refresh)
 {
 
-
 	if (global_first_wl_output && wl_output == global_first_wl_output && (flags & WL_OUTPUT_MODE_CURRENT)) {
 		global_output_width = width;
 		global_output_height = height;
     TRACE("Found output with WxH %d %d \n", global_output_width, global_output_height);
-
 	}
+}
+
+static void display_handle_done(void *data, struct wl_output *wl_output)
+{
+
+}
+
+static void display_handle_scale(void *data, struct wl_output *wl_output,
+                                int32_t scale)
+{
 }
 
 static const struct wl_output_listener output_listener = {
 	display_handle_geometry,
-	display_handle_mode
+	display_handle_mode,
+	display_handle_done,
+	display_handle_scale,
 };
 
 
 static void registry_add_object (void *data, struct wl_registry *registry, uint32_t name, const char *wl_interface, uint32_t version) {
-
 
   const char *cursor_theme;
   const char *cursor_size_str;
@@ -2512,7 +1638,7 @@ static void registry_add_object (void *data, struct wl_registry *registry, uint3
 					 name, &wl_subcompositor_interface, 1);
 	}
   else if (strcmp(wl_interface, "xdg_wm_base") == 0) {
-		wm_base = wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
+		wm_base = wl_registry_bind(registry, name, &xdg_wm_base_interface, 2);
 		xdg_wm_base_add_listener(wm_base, &xdg_wm_base_listener, NULL);
 	}
   else if (!strcmp(wl_interface, "wl_seat"))
@@ -2527,7 +1653,8 @@ static void registry_add_object (void *data, struct wl_registry *registry, uint3
                          &zwp_pointer_constraints_v1_interface,
                          1);
     } else if (strcmp(wl_interface, "zwp_relative_pointer_manager_v1") == 0) {
-		  relative_pointer_manager = wl_registry_bind(registry, name, &zwp_relative_pointer_manager_v1_interface, 1);
+		  relative_pointer_manager = wl_registry_bind(registry, name,
+		    &zwp_relative_pointer_manager_v1_interface, 1);
     } else if (strcmp(wl_interface, "wl_shm") == 0) {
 
 
@@ -2552,7 +1679,7 @@ static void registry_add_object (void *data, struct wl_registry *registry, uint3
         wayland_cursor_surface = wl_compositor_create_surface(wayland_compositor);
 
     } else if (strcmp(wl_interface, "wl_output") == 0) {
-		  global_first_wl_output = wl_registry_bind(registry, name, &wl_output_interface, 1);
+		  global_first_wl_output = wl_registry_bind(registry, name, &wl_output_interface, 2);
 		  wl_output_add_listener(global_first_wl_output, &output_listener, NULL);
 	}
 }
@@ -2572,9 +1699,6 @@ handle_xdg_surface_configure(void *data, struct xdg_surface *surface,
   TRACE( "Surface configured \n" );
   global_wait_for_configure = 0;
   xdg_surface_ack_configure(surface, serial);
-
-
-
 }
 
 
@@ -2602,7 +1726,6 @@ static const struct xdg_surface_listener xdg_surface_listener = {
 };
 
 
-//Does not seem to affect performance on wayland
 /* store the display fd into the message queue */
 static void set_queue_display_fd( int esync_fd )
 {
@@ -2616,15 +1739,10 @@ static void set_queue_display_fd( int esync_fd )
 
     done = 1;
 
-
-
-
-
-
     if (wine_server_fd_to_handle( esync_fd, GENERIC_READ | SYNCHRONIZE, 0, &handle ))
     {
-        MESSAGE( "waylanddrv: Can't allocate handle for display fd\n" );
-        ExitProcess(1);
+        TRACE( "waylanddrv: Can't allocate handle for display fd\n" );
+        exit(1);
     }
     SERVER_START_REQ( set_queue_fd )
     {
@@ -2635,33 +1753,30 @@ static void set_queue_display_fd( int esync_fd )
     if (ret)
     {
         MESSAGE( "waylanddrv: Can't store handle for display fd\n" );
-        ExitProcess(1);
+        exit(1);
     }
-    CloseHandle( handle );
+    NtClose( handle );
 }
-
-
-
-
-
-
 
 static void create_wayland_display (void) {
   int fd = 0;
   char *env_is_always_fullscreen;
   struct wl_registry *registry = NULL;
+
+  if(desktop_tid)
+    return;
+
   desktop_tid = GetCurrentThreadId();
 
   wayland_display = wl_display_connect (NULL);
   if(!wayland_display) {
-    printf("wayland display is not working \n");
+    TRACE("wayland display is not working \n");
     exit(1);
     return;
   }
 
   //Automate fullscreen
   env_is_always_fullscreen = getenv( "WINE_VK_ALWAYS_FULLSCREEN" );
-
 
   if(env_is_always_fullscreen) {
     TRACE("Is always fullscreen \n");
@@ -2670,15 +1785,16 @@ static void create_wayland_display (void) {
 
   registry = wl_display_get_registry (wayland_display);
   wl_registry_add_listener (registry, &registry_listener, NULL);
+
   wl_display_roundtrip (wayland_display);
   wl_display_roundtrip (wayland_display);
+  wl_display_roundtrip (wayland_display);
+
   fd = wl_display_get_fd(wayland_display);
   if(fd) {
-    #ifdef HAS_ESYNC
-      set_queue_display_fd(fd);
-    #endif
+    set_queue_display_fd(fd);
   }
-  TRACE("Created wayland display\n");
+  TRACE("Created wayland display thread id %d \n", desktop_tid);
 }
 
 //todo add delete
@@ -2688,8 +1804,6 @@ static struct wayland_window *create_wayland_window (HWND hwnd, int32_t width, i
   struct wayland_window *window = malloc(sizeof(struct wayland_window));
 
   global_wait_for_configure = 1;
-
-	TRACE("Creating wayland window \n");
 
 	window->surface = wl_compositor_create_surface (wayland_compositor);
   window->xdg_surface = xdg_wm_base_get_xdg_surface(wm_base, window->surface);
@@ -2709,13 +1823,8 @@ static struct wayland_window *create_wayland_window (HWND hwnd, int32_t width, i
   window->width = width;
   window->height = height;
 
-
-
-
   if(global_is_always_fullscreen)
     xdg_toplevel_set_fullscreen(window->xdg_toplevel, NULL);
-
-
 
   wl_surface_commit(window->surface);
   wl_display_flush (wayland_display);
@@ -2726,10 +1835,11 @@ static struct wayland_window *create_wayland_window (HWND hwnd, int32_t width, i
 
   alloc_wl_win_data(window->surface, hwnd, window);
 
+  TRACE("Created wayland window %p \n", window);
+
   return window;
 
 }
-
 
 static void delete_wayland_window (struct wayland_window *window) {
 
@@ -2746,7 +1856,6 @@ static void delete_wayland_window (struct wayland_window *window) {
 
 	wl_surface_destroy (window->surface);
   wl_display_dispatch(wayland_display);
-
 
 
   window = NULL;
@@ -2774,16 +1883,12 @@ static void draw_gdi_wayland_window (struct wayland_window *window) {
       return;
     }
 
-    TRACE( "Creating/Resetting main wayland surface \n" );
-
-
-
+    TRACE( "Creating/Resetting main gdi wayland surface \n" );
 
     env_width = getenv( "WINE_VK_WAYLAND_WIDTH" );
     env_height = getenv( "WINE_VK_WAYLAND_HEIGHT" );
 
-    GetWindowRect(window->pointer_to_hwnd, &rect);
-
+    NtUserGetWindowRect(window->pointer_to_hwnd, &rect);
 
     if(env_width) {
       screen_width = atoi(env_width);
@@ -2872,9 +1977,6 @@ BOOL WAYLANDDRV_ClipCursor( LPCRECT clip )
       return TRUE;
     }
 
-
-
-
     if (!clip ) {
       TRACE( "Release Mouse Capture Called \n" );
 
@@ -2957,14 +2059,6 @@ BOOL WAYLANDDRV_ClipCursor( LPCRECT clip )
 
 }
 
-
-
-void WAYLANDDRV_ShowCursor( HCURSOR handle )
-{
-
-  TRACE("Show cursor \n");
-
-}
 
 
 static uint32_t *get_bitmap_argb( HDC hdc, HBITMAP color, HBITMAP mask, unsigned int *width, unsigned int *height )
@@ -3085,12 +2179,11 @@ failed:
     return NULL;
 }
 
-void set_custom_cursor( HCURSOR handle ) {
-
+static void set_custom_cursor( HCURSOR handle ) {
 
     unsigned int width = 0, height = 0;
     unsigned int xhotspot = 0, yhotspot = 0;
-    ICONINFOEXW info;
+    ICONINFO info;
     struct wl_buffer *buffer;
     uint32_t *dest_pixels  = NULL;
     uint32_t *src_pixels  = NULL;
@@ -3098,7 +2191,7 @@ void set_custom_cursor( HCURSOR handle ) {
     HDC hdc = NULL;
     int stride = 0;
     int size = 0;
-    int y,x;
+    int y, x;
 
     char sprint_buffer[200];
     struct cursor_cache *cached_cursor;
@@ -3117,8 +2210,7 @@ void set_custom_cursor( HCURSOR handle ) {
 
       //TRACE("Cursor cache miss w h %p %d \n", handle, cursor_idx(handle));
 
-      info.cbSize = sizeof(info);
-      if (!GetIconInfoExW( handle, &info ))
+      if (!NtUserGetIconInfo( handle, &info, NULL, NULL, NULL, 0 ))
         return;
 
 
@@ -3142,7 +2234,11 @@ void set_custom_cursor( HCURSOR handle ) {
           info.yHotspot = height / 2;
       }
 
-      TRACE("Cache set w h %p %d \n", handle, cursor_idx(handle));
+      TRACE("Cursor cache set w h %p %d - %d %d \n", handle,
+        cursor_idx(handle),
+        info.xHotspot,
+        info.yHotspot
+      );
       alloc_cursor_cache(handle);
 
 
@@ -3159,7 +2255,7 @@ void set_custom_cursor( HCURSOR handle ) {
     }
 
 
-  TRACE("Cursor width is %d %d\n", width, height);
+  //TRACE("Cursor width is %d %d\n", width, height);
 
 
 
@@ -3184,9 +2280,6 @@ void set_custom_cursor( HCURSOR handle ) {
     }
     posix_fallocate(global_cursor_gdi_fd, 0, size);
 
-
-
-
     if(global_cursor_shm_data) {
       munmap(global_cursor_shm_data, global_cursor_width * 4 * global_cursor_height);
     }
@@ -3206,10 +2299,6 @@ void set_custom_cursor( HCURSOR handle ) {
 
     TRACE( "creating cursor wl_shm_data \n" );
 
-
-
-
-
     if(global_cursor_pool) {
       wl_shm_pool_destroy(global_cursor_pool);
     }
@@ -3218,6 +2307,9 @@ void set_custom_cursor( HCURSOR handle ) {
 
   }
 
+  //compositor may not be ready
+  if(!wayland_compositor || !wayland_cursor_surface)
+    return;
 
   dest_pixels = (uint32_t *)global_cursor_shm_data;
   src_pixels = bits;
@@ -3228,8 +2320,6 @@ void set_custom_cursor( HCURSOR handle ) {
   wl_buffer_add_listener(buffer, &buffer_listener, NULL);
 
   wl_surface_attach(wayland_cursor_surface, buffer, 0, 0);
-
-
 
   for (y = 0; y < height ; y++) {
     for (x = 0; x < width; x++) {
@@ -3246,12 +2336,15 @@ void set_custom_cursor( HCURSOR handle ) {
     xhotspot,
     yhotspot);
 
+
+  //TRACE( "DONE set_custom_cursor \n" );
+
 }
+
 
 void WAYLANDDRV_SetCursor( HCURSOR handle )
 {
 
-    //!global_is_vulkan ||
     if(global_hide_cursor || !wayland_default_cursor) {
       return;
     }
@@ -3310,10 +2403,8 @@ void WAYLANDDRV_SetCursor( HCURSOR handle )
 
 
 // End wayland
-//Window surface stuff??
 
-
-
+//GDI surface
 
 /* only for use on sanitized BITMAPINFO structures */
 static inline int get_dib_info_size( const BITMAPINFO *info, UINT coloruse )
@@ -3338,8 +2429,6 @@ static inline int get_dib_image_size( const BITMAPINFO *info )
 
 
 /* Window surface support */
-
-
 
 static inline int context_idx( HWND hwnd  )
 {
@@ -3373,11 +2462,10 @@ static void set_color_info( BITMAPINFO *info, BOOL has_alpha )
 }
 
 
-
 /***********************************************************************
- *           alloc_win_data
+ *           alloc_gdi_win_data
  */
-static struct gdi_win_data *alloc_win_data( HWND hwnd )
+static struct gdi_win_data *alloc_gdi_win_data( HWND hwnd )
 {
     struct gdi_win_data *data;
 
@@ -3385,9 +2473,7 @@ static struct gdi_win_data *alloc_win_data( HWND hwnd )
     {
         data->hwnd = hwnd;
         data->window = gdi_window;
-        //EnterCriticalSection( &win_data_section );
         win_data_context[context_idx(hwnd)] = data;
-        //LeaveCriticalSection( &win_data_section );
     }
     return data;
 }
@@ -3402,7 +2488,6 @@ static void free_win_data( struct gdi_win_data *data )
     free( data );
 }
 
-
 /***********************************************************************
  *           get_win_data
  *
@@ -3413,11 +2498,9 @@ static struct gdi_win_data *get_win_data( HWND hwnd )
     struct gdi_win_data *data;
 
     if (!hwnd) return NULL;
-    //EnterCriticalSection( &win_data_section );
     if ((data = win_data_context[context_idx(hwnd)]) && data->hwnd == hwnd) {
       return data;
     }
-    //LeaveCriticalSection( &win_data_section );
     return NULL;
 }
 
@@ -3466,24 +2549,19 @@ static void gdi_surface_set_region( struct window_surface *window_surface, HRGN 
     struct gdi_window_surface *surface = get_gdi_surface( window_surface );
 
 
-
-    window_surface->funcs->lock( window_surface );
     if (!region)
     {
-        if (surface->region) DeleteObject( surface->region );
+        if (surface->region) NtGdiDeleteObjectApp( surface->region );
         surface->region = 0;
     }
     else
     {
-        if (!surface->region) surface->region = CreateRectRgn( 0, 0, 0, 0 );
+        if (!surface->region) surface->region = NtGdiCreateRectRgn( 0, 0, 0, 0 );
         NtGdiCombineRgn( surface->region, region, 0, RGN_COPY );
     }
-    window_surface->funcs->unlock( window_surface );
+
     set_surface_region( &surface->header, (HRGN)1 );
 }
-
-
-
 
 
 
@@ -3496,6 +2574,7 @@ static void gdi_surface_set_region( struct window_surface *window_surface, HRGN 
 static void gdi_surface_flush( struct window_surface *window_surface )
 {
 
+    //TRACE( "GDI flush %p \n", window_surface);
 
     int x, y, width;
     uint32_t *src_pixels;
@@ -3530,7 +2609,6 @@ static void gdi_surface_flush( struct window_surface *window_surface )
     }
 
 
-
     surface = get_gdi_surface( window_surface );
 
 
@@ -3551,34 +2629,22 @@ static void gdi_surface_flush( struct window_surface *window_surface )
       return;
     }
 
-
-
     if (!(hwnd_data = get_win_data( surface->hwnd )))
       return;
 
-    if(hwnd_data->buffer_busy) {
+    //without global_update_hwnd gray screen on startup
+    if(hwnd_data->buffer_busy && global_update_hwnd) {
       return;
     }
 
-    owner = GetWindow( surface->hwnd, GW_OWNER );
+    owner = NtUserGetWindowRelative( surface->hwnd, GW_OWNER );
 
-    //if ( parent && parent != NtGetDesktopWindow() ) {
-      //TRACE("Parent hwnd is %p %p \n", parent, surface->hwnd);
-      //return;
-    //}
-
-
-
-    GetWindowRect(surface->hwnd, &client_rect);
-
-
+    NtUserGetWindowRect(surface->hwnd, &client_rect);
 
     WIDTH = client_rect.right - client_rect.left;
     HEIGHT = client_rect.bottom - client_rect.top;
     stride = WIDTH * 4; // 4 bytes per pixel
     size = stride * HEIGHT;
-
-
 
     SetRect( &rect, 0, 0, surface->header.rect.right - surface->header.rect.left,
              surface->header.rect.bottom - surface->header.rect.top );
@@ -3586,7 +2652,7 @@ static void gdi_surface_flush( struct window_surface *window_surface )
 
 
     //Checks and reduces rect to changed areas
-    needs_flush = IntersectRect( &rect, &rect, &surface->bounds );
+    needs_flush = intersect_rect( &rect, &rect, &surface->bounds );
     reset_bounds( &surface->bounds );
 
     //(hwnd_data->window_width == WIDTH && hwnd_data->window_height == HEIGHT)
@@ -3594,16 +2660,7 @@ static void gdi_surface_flush( struct window_surface *window_surface )
       return;
     }
 
-    //dest_pixels = (unsigned int *)global_shm_data + rect.top * WIDTH + rect.left;
-
-
-
-
-    //dest_pixels = (unsigned int *)global_shm_data + client_rect.top * WIDTH + client_rect.left;
-
-
-
-    IntersectRect( &rect, &rect, &surface->header.rect );
+    intersect_rect( &rect, &rect, &surface->header.rect );
 
     if(hwnd_data->window_width && (hwnd_data->window_width != WIDTH || hwnd_data->window_height != HEIGHT)) {
       hwnd_data->size_changed = 1;
@@ -3683,11 +2740,11 @@ static void gdi_surface_flush( struct window_surface *window_surface )
       wl_buffer_add_listener(hwnd_data->buffer, &buffer_listener, surface->hwnd);
     }
 
-    //is_buffer_busy= 1;
     hwnd_data->buffer_busy= 1;
 
 
     if(!hwnd_data->wayland_subsurface) {
+
       hwnd_data->window_width = WIDTH;
       hwnd_data->window_height = HEIGHT;
 
@@ -3777,6 +2834,7 @@ static void gdi_surface_flush( struct window_surface *window_surface )
     wl_surface_damage(hwnd_data->wayland_surface, 0, 0, WIDTH, HEIGHT);
     wl_surface_commit(hwnd_data->wayland_surface);
 
+
 }
 
 
@@ -3797,7 +2855,7 @@ static void gdi_surface_destroy( struct window_surface *window_surface )
     TRACE( "Freeing wine surface - %p bits %p %p \n", surface, surface->bits, surface->hwnd );
 
     free( surface->region_data );
-    if (surface->region) DeleteObject( surface->region );
+    if (surface->region) NtGdiDeleteObjectApp( surface->region );
 
     free( surface->bits );
     free( surface );
@@ -3814,29 +2872,6 @@ static const struct window_surface_funcs gdi_surface_funcs =
     gdi_surface_destroy
 };
 
-
-//??
-//Not used
-/***********************************************************************
- *           set_color_key
- */
-#if 0
-static void set_color_key( struct gdi_window_surface *surface, COLORREF key )
-{
-    if (key == CLR_INVALID)
-        surface->color_key = CLR_INVALID;
-    else if (surface->info.bmiHeader.biBitCount <= 8)
-        surface->color_key = CLR_INVALID;
-    else if (key & (1 << 24))  /* PALETTEINDEX */
-        surface->color_key = 0;
-    else if (key >> 16 == 0x10ff)  /* DIBINDEX */
-        surface->color_key = 0;
-    else if (surface->info.bmiHeader.biBitCount == 24)
-        surface->color_key = key;
-    else
-        surface->color_key = (GetRValue(key) << 16) | (GetGValue(key) << 8) | GetBValue(key);
-}
-#endif
 
 /***********************************************************************
  *           set_surface_region
@@ -3859,18 +2894,18 @@ static void set_surface_region( struct window_surface *window_surface, HRGN win_
 
     if (win_region == (HRGN)1)  /* hack: win_region == 1 means retrieve region from server */
     {
-        region = CreateRectRgn( 0, 0, win_data->window_rect.right - win_data->window_rect.left,
+        region = NtGdiCreateRectRgn( 0, 0, win_data->window_rect.right - win_data->window_rect.left,
                                 win_data->window_rect.bottom - win_data->window_rect.top );
-        if (GetWindowRgn( surface->hwnd, region ) == ERROR && !surface->region) goto done;
+        if (NtUserGetWindowRgnEx( surface->hwnd, region, 0 ) == ERROR && !surface->region) goto done;
     }
 
     NtGdiOffsetRgn( region, offset_x, offset_y );
     if (surface->region) NtGdiCombineRgn( region, region, surface->region, RGN_AND );
 
-    if (!(size = GetRegionData( region, 0, NULL ))) goto done;
+    if (!(size = NtGdiGetRegionData( region, 0, NULL ))) goto done;
     if (!(data = calloc( 1, size )) ) goto done;
 
-    if (!GetRegionData( region, size, data ))
+    if (!NtGdiGetRegionData( region, size, data ))
     {
         free( data );
         data = NULL;
@@ -3914,7 +2949,7 @@ static struct window_surface *create_surface( HWND hwnd, const RECT *rect,
     surface->wl_pool       = NULL;
     surface->gdi_fd       = 0;
     surface->alpha        = alpha;
-    //set_color_key( surface, color_key );
+
     set_surface_region( &surface->header, (HRGN)1 );
     reset_bounds( &surface->bounds );
 
@@ -3933,31 +2968,24 @@ failed:
 
 //Windows functions
 
-
-
 /***********************************************************************
  *
  *
- * Create an data window structure for an existing window.
+ * Create an gdi data structure for an existing window.
  */
-static int do_create_win_data( HWND hwnd, const RECT *window_rect, const RECT *client_rect )
+static int do_create_gdi_data( HWND hwnd, const RECT *window_rect, const RECT *client_rect )
 {
 
-
-
-
     HWND parent;
-
-    if (!(parent = GetAncestor( hwnd, GA_PARENT )))
+    if (!(parent = NtUserGetAncestor( hwnd, GA_PARENT )))
       return 0;  /* desktop */
 
     // don't create win data for HWND_MESSAGE windows */
-    if (parent != GetDesktopWindow() && !GetAncestor( parent, GA_PARENT ))
+    if (parent != NtUserGetDesktopWindow() && !NtUserGetAncestor( parent, GA_PARENT ))
       return 0;
 
     if (NtUserGetWindowThread( hwnd, NULL ) != GetCurrentThreadId())
       return 0;
-
 
     return 1;
 
@@ -3965,18 +2993,17 @@ static int do_create_win_data( HWND hwnd, const RECT *window_rect, const RECT *c
 
 }
 
-
-static struct gdi_win_data *create_win_data( HWND hwnd, const RECT *window_rect,
+static struct gdi_win_data *create_gdi_data( HWND hwnd, const RECT *window_rect,
                                                  const RECT *client_rect )
 {
     struct gdi_win_data *data;
     HWND parent;
 
-    if (!(parent = GetAncestor( hwnd, GA_PARENT ))) return NULL;  /* desktop or HWND_MESSAGE */
+    if (!(parent = NtUserGetAncestor( hwnd, GA_PARENT ))) return NULL;  /* desktop or HWND_MESSAGE */
 
-    if (!(data = alloc_win_data( hwnd ))) return NULL;
+    if (!(data = alloc_gdi_win_data( hwnd ))) return NULL;
 
-    data->parent = (parent == GetDesktopWindow()) ? 0 : parent;
+    data->parent = (parent == NtUserGetDesktopWindow()) ? 0 : parent;
     data->whole_rect = data->window_rect = *window_rect;
     data->client_rect = *client_rect;
     data->wayland_subsurface = NULL;
@@ -4002,7 +3029,7 @@ static inline BOOL get_surface_rect( const RECT *visible_rect, RECT *surface_rec
 {
     RECT virtual_screen_rect = get_virtual_screen_rect();
 
-    if (!IntersectRect( surface_rect, visible_rect, &virtual_screen_rect )) return FALSE;
+    if (!intersect_rect( surface_rect, visible_rect, &virtual_screen_rect )) return FALSE;
     OffsetRect( surface_rect, -visible_rect->left, -visible_rect->top );
     surface_rect->left &= ~31;
     surface_rect->top  &= ~31;
@@ -4029,10 +3056,12 @@ BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
   int WIDTH = 0;
   RECT window_client_rect, rect;
   WCHAR title_name[1024] = { L'\0' };
-  WCHAR class_name[64];
+  WCHAR class_buff[64];
+
+  UNICODE_STRING class_name = { .Buffer = class_buff, .MaximumLength = sizeof(class_buff) };
 
   static const WCHAR desktop_class[] = {'#', '3', '2', '7', '6', '9', 0};
-  //static const WCHAR menu_class[] = {'#', '3', '2', '7', '6', '8', 0};
+
   static const WCHAR ole_class[] = {'O','l','e','M','a','i','n','T','h','r','e','a','d','W','n','d','C','l','a','s','s', 0};
   static const WCHAR msg_class[] = {'M','e','s','s','a','g','e', 0};
   static const WCHAR ime_class[] = {'I','M','E', 0};
@@ -4059,75 +3088,98 @@ BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
 
   const char *is_vulkan_only = getenv( "WINE_VK_VULKAN_ONLY" );
 
-  if(is_vulkan_only || hwnd == global_vulkan_hwnd) {
+  if(hwnd == global_vulkan_hwnd) {
+    TRACE("Removing window decorations for FSR \n");
     //For FSR
-    SetWindowLongPtrW(global_vulkan_hwnd, GWL_EXSTYLE, WS_EX_APPWINDOW | WS_EX_TOPMOST);
-    SetWindowLongPtrW(global_vulkan_hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE);
+    NtUserSetWindowLongPtr(global_vulkan_hwnd, GWL_EXSTYLE, WS_EX_APPWINDOW | WS_EX_TOPMOST, 0);
+    NtUserSetWindowLongPtr(global_vulkan_hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE, 0);
     //For caching global_vulkan_hwnd rect
     global_vulkan_rect_flag = 0;
-    GetWindowRect(global_vulkan_hwnd, &global_vulkan_rect);
+    NtUserGetWindowRect(global_vulkan_hwnd, &global_vulkan_rect);
+    return TRUE;
+  }
+
+  if(is_vulkan_only) {
+    return TRUE;
+  }
+
+  if(hwnd == NtUserGetDesktopWindow()) {
     return TRUE;
   }
 
 
 
+  parent = NtUserGetAncestor(hwnd, GA_PARENT);
 
-
-  if(hwnd == GetDesktopWindow()) {
+  if( !parent || parent != NtUserGetDesktopWindow()) {
     return TRUE;
   }
 
+  if( NtUserGetClassName(hwnd, FALSE, &class_name )) {
 
-  parent = GetAncestor(hwnd, GA_PARENT);
+    TRACE( "Changing %p %s \n",
+      hwnd, debugstr_w(class_name.Buffer)
+    );
 
-  if( !parent || parent != GetDesktopWindow()) {
-    return TRUE;
-  }
+    if(!wcsicmp(class_name.Buffer, msg_class)) {
+      return TRUE;
+    }
+    if(!wcsicmp(class_name.Buffer, ole_class)) {
+      return TRUE;
+    }
+    if(!wcsicmp(class_name.Buffer, ime_class)) {
+      return TRUE;
+    }
+    if(!wcsicmp(class_name.Buffer, desktop_class)) {
+      return TRUE;
+    }
+    if(!wcsicmp(class_name.Buffer, tooltip_class)) {
+      return TRUE;
+    }
 
+    if(!wcsicmp(class_name.Buffer, unreal_class)) {
+      return TRUE;
+    }
 
+    if(!wcsicmp(class_name.Buffer, unreal_splash_class)) {
+      return TRUE;
+    }
+    if(!wcsicmp(class_name.Buffer, shogun2_frame_class)) {
+      return TRUE;
+    }
+    if(!wcsicmp(class_name.Buffer, flstudio_hwnd_class)) {
+      return TRUE;
+    }
 
+    //Upscale
 
+    //Wayland display may not be ready yet, test for FSR variable here as well
+    if(getenv( "WINE_VK_USE_FSR" )) {
+      global_fsr = 1;
+      global_fsr_set = 1;
+      global_is_always_fullscreen = 1; //enable fullscreen for FSR
+    }
 
+    //Remove borders for some games that refuse to do elsewhere
+    if(global_fsr) {
+      TRACE( "Removing window decorations %p %s \n",
+        hwnd, debugstr_w(class_name.Buffer)
+      );
+      NtUserSetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_APPWINDOW | WS_EX_TOPMOST, 0);
+      NtUserSetWindowLongPtr(hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE, 0);
+    }
 
-  if(RealGetWindowClassW(hwnd, class_name, ARRAY_SIZE(class_name))) {
+    if(!wcsicmp(class_name.Buffer, sdl_class)) {
+      return TRUE;
+    }
 
-    if(!lstrcmpiW(class_name, msg_class)) {
+    if(!wcsicmp(class_name.Buffer, poe_class)) {
       return TRUE;
     }
-    if(!lstrcmpiW(class_name, ole_class)) {
+    if(!wcsicmp(class_name.Buffer, ogre_class)) {
       return TRUE;
     }
-    if(!lstrcmpiW(class_name, ime_class)) {
-      return TRUE;
-    }
-    if(!lstrcmpiW(class_name, desktop_class)) {
-      return TRUE;
-    }
-    if(!lstrcmpiW(class_name, tooltip_class)) {
-      return TRUE;
-    }
-    if(!lstrcmpiW(class_name, sdl_class)) {
-      return TRUE;
-    }
-    if(!lstrcmpiW(class_name, unreal_class)) {
-      return TRUE;
-    }
-    if(!lstrcmpiW(class_name, poe_class)) {
-      return TRUE;
-    }
-    if(!lstrcmpiW(class_name, ogre_class)) {
-      return TRUE;
-    }
-    if(!lstrcmpiW(class_name, unity_class)) {
-      return TRUE;
-    }
-    if(!lstrcmpiW(class_name, unreal_splash_class)) {
-      return TRUE;
-    }
-    if(!lstrcmpiW(class_name, shogun2_frame_class)) {
-      return TRUE;
-    }
-    if(!lstrcmpiW(class_name, flstudio_hwnd_class)) {
+    if(!wcsicmp(class_name.Buffer, unity_class)) {
       return TRUE;
     }
 
@@ -4136,35 +3188,31 @@ BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
   }
 
   //Get window width/height
+  NtUserGetWindowRect(hwnd, &window_client_rect);
 
-  GetWindowRect(hwnd, &window_client_rect);
-
-  GetWindowTextW(hwnd, title_name, 1024);
+  NtUserInternalGetWindowText(hwnd, title_name, 1024);
   TRACE( "Changing %p %s Window title %d / %s %s rect \n",
-    hwnd, debugstr_w(class_name), strlenW( title_name ),
-    debugstr_wn(title_name, strlenW( title_name )),
+    hwnd, debugstr_w(class_name.Buffer), lstrlenW( title_name ),
+    debugstr_wn(title_name, lstrlenW( title_name )),
     wine_dbgstr_rect( &window_client_rect )
   );
 
 
-  do_create_surface = do_create_win_data( hwnd, window_rect, client_rect );
+  do_create_surface = do_create_gdi_data( hwnd, window_rect, client_rect );
 
   if (!do_create_surface) {
     return TRUE;
   }
 
-
-
-  if (!(swp_flags & SWP_SHOWWINDOW) && !(GetWindowLongW( hwnd, GWL_STYLE ) & WS_VISIBLE)) {
+  if (!(swp_flags & SWP_SHOWWINDOW) && !(NtUserGetWindowLongW( hwnd, GWL_STYLE ) & WS_VISIBLE)) {
     return TRUE;
   }
 
 
   if (swp_flags & SWP_HIDEWINDOW) {
-    TRACE("Window Should be hidden %s \n", debugstr_wn(title_name, strlenW( title_name )));
+    TRACE("Window Should be hidden %s \n", debugstr_wn(title_name, lstrlenW( title_name )));
     return TRUE;
   }
-
 
   if(!wayland_display) {
     create_wayland_display();
@@ -4180,7 +3228,7 @@ BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
    //TRACE("WXH is %d %d for %p \n", WIDTH, HEIGHT, hwnd);
 
   if(wayland_display && !gdi_window) {
-    TRACE("Creating wayland window %s %p \n", debugstr_w(class_name), hwnd);
+    TRACE("Creating wayland window %s %p \n", debugstr_w(class_name.Buffer), hwnd);
     gdi_window = create_wayland_window (hwnd, WIDTH, HEIGHT);
 
 
@@ -4197,7 +3245,7 @@ BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
 
   data = get_win_data( hwnd );
   if(!data) {
-    data = create_win_data( hwnd, window_rect, client_rect );
+    data = create_gdi_data( hwnd, window_rect, client_rect );
   } else {
 
     if (*surface) {
@@ -4214,10 +3262,6 @@ BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
       return TRUE;
     } else {
 
-
-
-      //if (!get_surface_rect( visible_rect, &surface_rect )) goto done;
-
       if (data->surface)
       {
 
@@ -4232,7 +3276,7 @@ BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
       rect = get_virtual_screen_rect();
 
 
-      if ( (!parent || parent == GetDesktopWindow()) ) {
+      if ( (!parent || parent == NtUserGetDesktopWindow()) ) {
 
         if (*surface) {
           window_surface_release( *surface );
@@ -4256,34 +3300,28 @@ UINT WAYLANDDRV_ShowWindow( HWND hwnd, INT cmd, RECT *rect, UINT swp )
 {
   WCHAR title_name[1024] = { L'\0' };
   struct gdi_win_data *hwnd_data;
-  WCHAR class_name[64];
+//  WCHAR class_name[64];
   struct gdi_win_data *data;
 
   if(global_is_vulkan) {
-    //wine_vk_surface_destroy( hwnd );
     return swp;
   }
 
-
+  TRACE( "Show Window \n");
 
   data = get_win_data( hwnd );
   if(!data) {
     return swp;
   }
 
-  if(RealGetWindowClassW(hwnd, class_name, ARRAY_SIZE(class_name))) {
-    GetWindowTextW(hwnd, title_name, 1024);
-    TRACE( "Show/hide window %p %s title %s \n", hwnd, debugstr_w(class_name), debugstr_wn(title_name, strlenW( title_name )));
-  }
-
-
-
+//  if(RealGetWindowClassW(hwnd, class_name, ARRAY_SIZE(class_name))) {
+//    NtUserInternalGetWindowText(hwnd, title_name, 1024);
+//    TRACE( "Show/hide window %p %s title %s \n", hwnd, debugstr_w(class_name), debugstr_wn(title_name, strlenW( title_name )));
+//  }
 
 
   if(!cmd || cmd & SW_HIDE) {
     TRACE("Hiding window %d %p %p \n", cmd, hwnd, global_update_hwnd);
-
-
 
     hwnd_data = get_win_data( hwnd );
     if (hwnd_data && hwnd_data->wayland_surface ) {
@@ -4319,9 +3357,6 @@ UINT WAYLANDDRV_ShowWindow( HWND hwnd, INT cmd, RECT *rect, UINT swp )
       hwnd_data->size = 0;
       hwnd_data->gdi_fd = 0;
       free_win_data(hwnd_data);
-
-
-
     }
 
 
@@ -4350,14 +3385,7 @@ void WAYLANDDRV_WindowPosChanged( HWND hwnd, HWND insert_after, UINT swp_flags,
     return;
   }
 
-
-
-
-
-  GetWindowRect(hwnd, &rect);
-
-
-
+  NtUserGetWindowRect(hwnd, &rect);
   width = rect.right - rect.left;
   height = rect.bottom - rect.top;
 
@@ -4419,10 +3447,22 @@ LRESULT WAYLANDDRV_SysCommand(HWND hwnd, WPARAM wparam, LPARAM lparam)
  */
 BOOL WAYLANDDRV_CreateWindow( HWND hwnd )
 {
+  WCHAR title_name[1024] = { L'\0' };
+  WCHAR class_buff[64];
+  UNICODE_STRING class_name = { .Buffer = class_buff,
+    .MaximumLength = sizeof(class_buff)
+  };
+
+  if( NtUserGetClassName(hwnd, FALSE, &class_name )) {
+    NtUserInternalGetWindowText(hwnd, title_name, 1024);
+    TRACE( "Changing %p %s Window title %d / %s \n",
+      hwnd, debugstr_w(class_name.Buffer), lstrlenW( title_name ),
+      debugstr_wn(title_name, lstrlenW( title_name ))
+    );
+    TRACE("Creating window 1 \n");
+  }
   return TRUE;
 }
-
-
 
 
 /***********************************************************************
@@ -4431,43 +3471,46 @@ BOOL WAYLANDDRV_CreateWindow( HWND hwnd )
 void WAYLANDDRV_DestroyWindow( HWND hwnd )
 {
 
-    struct gdi_win_data *hwnd_data;
-    WCHAR class_name[164];
+  WCHAR title_name[1024] = { L'\0' };
+  WCHAR class_buff[64];
+  UNICODE_STRING class_name = { .Buffer = class_buff,
+    .MaximumLength = sizeof(class_buff)
+  };
+  struct gdi_win_data *hwnd_data;
+
+  if( NtUserGetClassName(hwnd, FALSE, &class_name )) {
+    NtUserInternalGetWindowText(hwnd, title_name, 1024);
+    TRACE( "Destroying %p %s Window title %d / %s \n",
+      hwnd, debugstr_w(class_name.Buffer), lstrlenW( title_name ),
+      debugstr_wn(title_name, lstrlenW( title_name ))
+    );
+    TRACE("Destroying window 1 \n");
+  }
 
 
 
-
-    if(global_is_vulkan) {
-
-
-
-      //wine_vk_surface_destroy( hwnd );
-      if(hwnd == global_vulkan_hwnd) {
-
-        if(GetClassNameW(hwnd, class_name, ARRAY_SIZE(class_name) )) {
-          TRACE("Destroy window %s %p \n", debugstr_w(class_name), hwnd);
-        }
-
-        global_vulkan_hwnd = NULL;
-      }
-
-      //destroy GDI windows games create
-      if(vulkan_window && vulkan_window->pointer_to_hwnd == hwnd) {
-        TRACE("Destroy wayland window for hwnd %p \n", hwnd);
-        delete_wayland_window(vulkan_window);
-        vulkan_window = NULL;
-      } else if( vulkan_window && vulkan_window->pointer_to_hwnd != hwnd ){
-        //try to find the window
-        for(int ii = 0; ii < 32768; ii++ )
-          if(wl_surface_data_context[ii]) {
-            if(wl_surface_data_context[ii]->hwnd == hwnd) {
-              delete_wayland_window(wl_surface_data_context[ii]->wayland_window);
-            }
-          }
-      }
-
-      return;
+  if(global_is_vulkan) {
+    if(hwnd == global_vulkan_hwnd) {
+      global_vulkan_hwnd = NULL;
     }
+
+    //destroy GDI windows games create
+    if(vulkan_window && vulkan_window->pointer_to_hwnd == hwnd) {
+      TRACE("Destroy wayland window for hwnd %p \n", hwnd);
+      delete_wayland_window(vulkan_window);
+      vulkan_window = NULL;
+    } else if( vulkan_window && vulkan_window->pointer_to_hwnd != hwnd ){
+      //try to find the window
+      for(int ii = 0; ii < 32768; ii++ )
+        if(wl_surface_data_context[ii]) {
+          if(wl_surface_data_context[ii]->hwnd == hwnd) {
+            delete_wayland_window(wl_surface_data_context[ii]->wayland_window);
+          }
+        }
+    }
+
+    return;
+  }
 
 
     //Clean subsurface windows data
@@ -4477,12 +3520,9 @@ void WAYLANDDRV_DestroyWindow( HWND hwnd )
 
     if (hwnd_data && hwnd_data->wayland_surface ) {
 
-      if(GetClassNameW(hwnd, class_name, ARRAY_SIZE(class_name) )) {
-        TRACE("Destroy window %s %p \n", debugstr_w(class_name), hwnd);
-      }
+
 
       TRACE("destroying hwnd_data %p for %p \n", hwnd_data, hwnd);
-
 
       wl_subsurface_destroy(hwnd_data->wayland_subsurface);
       TRACE("hwnd_data %p for %p \n", hwnd_data, hwnd);
@@ -4502,7 +3542,6 @@ void WAYLANDDRV_DestroyWindow( HWND hwnd )
 
 
       hwnd_data->wayland_subsurface = NULL;
-
       hwnd_data->wayland_surface = NULL;
       hwnd_data->wl_pool = NULL;
       hwnd_data->buffer = NULL;
@@ -4519,112 +3558,36 @@ void WAYLANDDRV_DestroyWindow( HWND hwnd )
       free_win_data(hwnd_data);
     }
 
-    //TRACE("Destroyed window %p \n", hwnd);
-
-    /*
-    if (global_update_hwnd == hwnd) {
-      global_update_hwnd = NULL;
-
-      global_update_hwnd = GetForegroundWindow();
-      if(global_update_hwnd) {
-        SetFocus(global_update_hwnd);
-        UpdateWindow(global_update_hwnd);
-        RedrawWindow(global_update_hwnd, 0, 0, RDW_INVALIDATE | RDW_ALLCHILDREN);
-      }
-    }
-    */
     return;
 
-    wine_vk_surface_destroy( hwnd );
 }
 
 //Win32 loop callback
-DWORD WAYLANDDRV_MsgWaitForMultipleObjectsEx( DWORD count, const HANDLE *handles, DWORD timeout, DWORD mask, DWORD flags ) {
+NTSTATUS WAYLANDDRV_MsgWaitForMultipleObjectsEx( DWORD count, const HANDLE *handles,
+                                              const LARGE_INTEGER *timeout,
+                                              DWORD mask, DWORD flags )
+{
 
-    DWORD ret;
-    int ret1;
+    if (wayland_display && desktop_tid && GetCurrentThreadId() == desktop_tid && !global_wait_for_configure)
+    {
 
-    if(!wayland_display && !global_is_vulkan) {
-      if (!count && !timeout ) {
-        return WAIT_TIMEOUT;
-      }
-    }
+        while (wl_display_prepare_read(wayland_display) != 0) {
+          wl_display_dispatch_pending(wayland_display);
+        }
 
-    #if 0
-    if(global_is_vulkan) {
-      if(global_wait_for_configure) {
-        return WAIT_TIMEOUT;
-      }
-
-      wl_display_dispatch_pending(wayland_display);
-      while (wl_display_prepare_read(wayland_display) != 0) {
+        wl_display_flush(wayland_display);
+        wl_display_read_events(wayland_display);
         wl_display_dispatch_pending(wayland_display);
-      }
-      wl_display_flush(wayland_display);
-      wl_display_read_events(wayland_display);
-      wl_display_dispatch_pending(wayland_display);
-      return WAIT_OBJECT_0;
-
-    }
-    #endif
-
-
-
-
-    if (!desktop_tid || GetCurrentThreadId() == desktop_tid) {
-
-        if(wayland_display || global_is_vulkan) {
-
-        if(global_wait_for_configure) {
-          return WAIT_TIMEOUT;
-        }
-
-        ret1 = wl_display_prepare_read(wayland_display) != 0;
-
-        if(ret1 != 0) {
-
-          ret = count - 1;
-          wl_display_dispatch_pending(wayland_display);
-          while (wl_display_prepare_read(wayland_display) != 0) {
-            wl_display_dispatch_pending(wayland_display);
-          }
-          wl_display_flush(wayland_display);
-          wl_display_read_events(wayland_display);
-          wl_display_dispatch_pending(wayland_display);
-
-        }
-        else {
-
-          wl_display_flush(wayland_display);
-          wl_display_read_events(wayland_display);
-          wl_display_dispatch_pending(wayland_display);
-
-          if (count || timeout) {
-            ret = WaitForMultipleObjectsEx( count, handles, flags & MWMO_WAITALL,
-                                        5, flags & MWMO_ALERTABLE );
-          } else {
-            ret = WAIT_TIMEOUT;
-          }
-        }
-
-
-        return ret;
-      }
-
     }
 
-    return WaitForMultipleObjectsEx( count, handles, flags & MWMO_WAITALL, timeout, flags & MWMO_ALERTABLE );
 
+    return NtWaitForMultipleObjects( count, handles, !(flags & MWMO_WAITALL),
+                                     !!(flags & MWMO_ALERTABLE), timeout );
 
 }
 
 
 //Windows functions
-
-struct opengl_funcs *get_wgl_driver( UINT version )
-{
-  return NULL;
-}
 
 
 /* Helper function for converting between win32 and X11 compatible VkInstanceCreateInfo.
@@ -4647,7 +3610,7 @@ static VkResult wine_vk_instance_convert_create_info(const VkInstanceCreateInfo 
 
     if (src->enabledExtensionCount > 0)
     {
-        enabled_extensions = heap_calloc(src->enabledExtensionCount, sizeof(*src->ppEnabledExtensionNames));
+        enabled_extensions = calloc(src->enabledExtensionCount, sizeof(*src->ppEnabledExtensionNames));
         if (!enabled_extensions)
         {
             ERR("Failed to allocate memory for enabled extensions\n");
@@ -4677,45 +3640,9 @@ static VkResult wine_vk_instance_convert_create_info(const VkInstanceCreateInfo 
     return VK_SUCCESS;
 }
 
-/* TODO ???
-static struct wine_vk_surface *wine_vk_surface_grab(struct wine_vk_surface *surface)
-{
-    InterlockedIncrement(&surface->ref);
-    return surface;
-}
-*/
-
-static void wine_vk_surface_release(struct wine_vk_surface *surface)
-{
-    if (InterlockedDecrement(&surface->ref))
-        return;
-
-    //TODO check if needed to destroy anything on vulkan
-
-
-    heap_free(surface);
-}
-
-void wine_vk_surface_destroy(HWND hwnd)
-{
-    //TODO
-    #if 0
-    struct wine_vk_surface *surface;
-    EnterCriticalSection(&context_section);
-    {
-        wine_vk_surface_release(surface);
-    }
-    LeaveCriticalSection(&context_section);
-    #endif
-}
-
 static VkSurfaceKHR WAYLANDDRV_wine_get_native_surface(VkSurfaceKHR surface)
 {
-    struct wine_vk_surface *x11_surface = surface_from_handle(surface);
-
-    TRACE("0x%s\n", wine_dbgstr_longlong(surface));
-
-    return x11_surface->surface;
+   return surface;
 }
 
 static VkResult WAYLANDDRV_vkCreateInstance(const VkInstanceCreateInfo *create_info,
@@ -4724,9 +3651,6 @@ static VkResult WAYLANDDRV_vkCreateInstance(const VkInstanceCreateInfo *create_i
     VkInstanceCreateInfo create_info_host;
     VkResult res;
     //TRACE("create_info %p, allocator %p, instance %p\n", create_info, allocator, instance);
-
-    if (allocator)
-        FIXME("Support for allocation callbacks not implemented yet\n");
 
     /* Perform a second pass on converting VkInstanceCreateInfo. Winevulkan
      * performed a first pass in which it handles everything except for WSI
@@ -4741,7 +3665,10 @@ static VkResult WAYLANDDRV_vkCreateInstance(const VkInstanceCreateInfo *create_i
 
     res = pvkCreateInstance(&create_info_host, NULL /* allocator */, instance);
 
-    heap_free((void *)create_info_host.ppEnabledExtensionNames);
+    if(res == VK_SUCCESS)
+      global_vk_instance = instance;
+
+    free((void *)create_info_host.ppEnabledExtensionNames);
     return res;
 }
 
@@ -4749,31 +3676,34 @@ static VkResult WAYLANDDRV_vkCreateSwapchainKHR(VkDevice device,
         const VkSwapchainCreateInfoKHR *create_info,
         const VkAllocationCallbacks *allocator, VkSwapchainKHR *swapchain)
 {
-    VkSwapchainCreateInfoKHR create_info_host;
     RECT window_rect;
 
     global_vulkan_rect_flag = 0;
 
     //FSR
     //TRACE("%p %p %p %p\n", device, create_info, allocator, swapchain);
-    if(global_vulkan_hwnd && global_fsr && !fs_hack_matches_real_mode(create_info->imageExtent.width, create_info->imageExtent.height) ) {
-      GetClientRect(global_vulkan_hwnd, &window_rect);
-      TRACE("Vulkan hwnd rect %d %d \n",
+
+    TRACE("Vulkan swapchain rect %d %d \n",
         create_info->imageExtent.width,
         create_info->imageExtent.height
       );
 
-      fs_hack_set_current_mode(create_info->imageExtent.width, create_info->imageExtent.height);
+    if(global_vulkan_hwnd && global_fsr && !fsr_matches_real_mode(
+      create_info->imageExtent.width, create_info->imageExtent.height
+      ) ) {
+      NtUserGetClientRect(global_vulkan_hwnd, &window_rect);
+      TRACE("FSR Vulkan hwnd rect %d %d \n",
+        create_info->imageExtent.width,
+        create_info->imageExtent.height
+      );
+      fsr_set_current_mode(create_info->imageExtent.width, create_info->imageExtent.height);
     }
 
 
     if (allocator)
         FIXME("Support for allocation callbacks not implemented yet\n");
 
-    create_info_host = *create_info;
-    create_info_host.surface = surface_from_handle(create_info->surface)->surface;
-
-    return pvkCreateSwapchainKHR(device, &create_info_host, NULL /* allocator */, swapchain);
+    return pvkCreateSwapchainKHR(device, create_info, NULL /* allocator */, swapchain);
 }
 
 
@@ -4783,6 +3713,8 @@ static VkResult WAYLANDDRV_vkCreateSwapchainKHR(VkDevice device,
  *
  * Return the base name of a file name (i.e. remove the path components).
  */
+//TODO
+#if 0
 static const WCHAR *get_basename( const WCHAR *name )
 {
     const WCHAR *ptr;
@@ -4792,6 +3724,7 @@ static const WCHAR *get_basename( const WCHAR *name )
     if ((ptr = strrchrW( name, '/' ))) name = ptr + 1;
     return name;
 }
+#endif
 
 
 
@@ -4801,7 +3734,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
 {
     VkResult res;
     VkWaylandSurfaceCreateInfoKHR create_info_host;
-    struct wine_vk_surface *x11_surface;
+
 
     int no_flag = 1;
     int count = 0;
@@ -4810,48 +3743,42 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
     RECT window_rect;
     char *env_width = NULL;
     char *env_height = NULL;
+    WCHAR class_buff[64];
+    UNICODE_STRING class_name = { .Buffer = class_buff, .MaximumLength = sizeof(class_buff) };
 
-    //#if 0
+
+    TRACE("Vulkan hwnd %d  \n", no_flag);
+
     //Hack
     //Do not create vulkan windows for Paradox detect
     static const WCHAR pdx_class[] = {'P','d','x','D','e','t','e','c','t','W','i','n','d','o','w', 0};
-    WCHAR class_name[164];
 
-    //if(RealGetWindowClassW(create_info->hwnd, class_name, ARRAY_SIZE(class_name))) {
-    //TRACE("Vulkan hwnd name %s \n", debugstr_w(class_name));
-    if(GetClassNameW(create_info->hwnd, class_name, ARRAY_SIZE(class_name) )) {
+    if( NtUserGetClassName(create_info->hwnd, FALSE, &class_name )) {
 
-      TRACE("Vulkan hwnd class name %s\n", debugstr_w(class_name));
-      //TRACE("%s \n", debugstr_w(class_name));
-      //if it's a menu class reparent
-
-      if(!lstrcmpiW(class_name, pdx_class)) {
-        no_flag = 0;
-        //return VK_SUCCESS; <- causes crash
-      }
+        if(!wcsicmp(class_name.Buffer, pdx_class)) {
+          no_flag = 0;
+        }
     }
-    //#endif
 
-    #if 0
     if(vulkan_window && global_vulkan_hwnd) {
       TRACE("Deleting already existing vulkan wl surface \n" );
       //global_vulkan_hwnd_last = global_vulkan_hwnd;
       //delete_wayland_window(vulkan_window);
     }
-    #endif
 
     if(no_flag) {
 
-      //create wayland display early to get screen width/height
+
+      TRACE("Creating wayland display early \n");
       if(!wayland_display) {
-        TRACE("Creating wayland display for %p %s \n", create_info->hwnd, debugstr_w(class_name));
         create_wayland_display();
-    	}
+      }
+
+
+     TRACE("Vulkan hwnd 1 \n" );
 
       env_width = getenv( "WINE_VK_WAYLAND_WIDTH" );
       env_height = getenv( "WINE_VK_WAYLAND_HEIGHT" );
-
-
 
       if(global_output_width > 0 && global_output_height > 0) {
         screen_width = global_output_width;
@@ -4865,26 +3792,25 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
         screen_height = atoi(env_height);
       }
 
-
-
       TRACE("hwnd hxw %d %d \n", screen_width, screen_height);
 
       global_vulkan_hwnd = create_info->hwnd;
 
-      SetActiveWindow( global_vulkan_hwnd );
-      SetForegroundWindow( global_vulkan_hwnd );
-      //ShowWindow( global_vulkan_hwnd, SW_SHOW );
-      SetFocus(global_vulkan_hwnd);
+      NtUserSetActiveWindow( global_vulkan_hwnd );
+      NtUserSetForegroundWindow( global_vulkan_hwnd );
+
+      NtUserSetFocus(global_vulkan_hwnd);
 
       if(global_fsr) {
 
-        GetClientRect(global_vulkan_hwnd, &window_rect);
-        SetWindowLongPtrW(global_vulkan_hwnd, GWL_EXSTYLE, WS_EX_APPWINDOW | WS_EX_TOPMOST);
-        SetWindowLongPtrW(global_vulkan_hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE);
+        NtUserGetClientRect(global_vulkan_hwnd, &window_rect);
+        NtUserSetWindowLongPtr(global_vulkan_hwnd, GWL_EXSTYLE, WS_EX_APPWINDOW | WS_EX_TOPMOST, 0);
+        NtUserSetWindowLongPtr(global_vulkan_hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE, 0);
 
-        TRACE("Vulkan hwn rect %s \n",  wine_dbgstr_rect( &window_rect ));
+        TRACE("Vulkan hwnd rect %s \n",  wine_dbgstr_rect( &window_rect ));
+        TRACE("Vulkan hwnd set to borderless %s \n",  wine_dbgstr_rect( &window_rect ));
 
-        fs_hack_set_current_mode(window_rect.right, window_rect.bottom);
+        fsr_set_current_mode(window_rect.right, window_rect.bottom);
       }
 
       SERVER_START_REQ( set_focus_window )
@@ -4902,28 +3828,14 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
 
 
     //TRACE("%p %p %p %p\n", instance, create_info->hwnd, allocator, surface);
-    TRACE("Creating vulkan Window %p %s \n", create_info->hwnd, debugstr_w(class_name));
-
-    if (allocator)
-        FIXME("Support for allocation callbacks not implemented yet\n");
+    TRACE("Creating vulkan Window %p %s \n", create_info->hwnd, debugstr_w(class_name.Buffer));
 
     /* TODO: support child window rendering. */
-    if (GetAncestor(create_info->hwnd, GA_PARENT) != GetDesktopWindow())
+    if (NtUserGetAncestor(create_info->hwnd, GA_PARENT) != NtUserGetDesktopWindow())
     {
         TRACE("Application requires child window rendering, which is not implemented yet!\n");
         //return VK_ERROR_INCOMPATIBLE_DRIVER;
     }
-
-    x11_surface = heap_alloc_zero(sizeof(*x11_surface));
-    if (!x11_surface)
-        return VK_ERROR_OUT_OF_HOST_MEMORY;
-
-    x11_surface->ref = 1;
-
-
-
-
-
 
   global_is_vulkan = 1;
 	vulkan_window = create_wayland_window (create_info->hwnd, screen_width, screen_height);
@@ -4936,7 +3848,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
 	}
 
 
-    SystemParametersInfoW( SPI_SETMOUSESPEED , 0 ,
+    NtUserSystemParametersInfo( SPI_SETMOUSESPEED , 0 ,
       (LPVOID)1, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE |
         SPIF_SENDWININICHANGE ) ;
 
@@ -4945,55 +3857,48 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
     create_info_host.flags = 0;
     create_info_host.display = wayland_display;
     create_info_host.surface = vulkan_window->surface;
-    res = pvkCreateWaylandSurfaceKHR(instance, &create_info_host, NULL /* allocator */, &x11_surface->surface);
-
+    res = pvkCreateWaylandSurfaceKHR(instance, &create_info_host, NULL /* allocator */, surface);
 
     if (res != VK_SUCCESS)
     {
-        ERR("Failed to create Vulkan surface, res=%d\n", res);
+        TRACE("Failed to create Vulkan surface, res=%d\n", res);
         exit(0);
         goto err;
     }
 
-
-    TRACE("Created vulkan Window for %p  %s \n", create_info->hwnd, debugstr_w(class_name));
-
-
-    *surface = (uintptr_t)x11_surface;
+    TRACE("Created vulkan Window for %p  %s \n", create_info->hwnd, debugstr_w(class_name.Buffer));
 
     return VK_SUCCESS;
 
 err:
-    wine_vk_surface_release(x11_surface);
     return res;
 }
 
 static void WAYLANDDRV_vkDestroyInstance(VkInstance instance, const VkAllocationCallbacks *allocator)
 {
-    //TRACE("%p %p\n", instance, allocator);
+    TRACE("%p %p\n", instance, allocator);
 
-    if (allocator)
-        FIXME("Support for allocation callbacks not implemented yet\n");
+    if(instance != VK_NULL_HANDLE)
+      TRACE("Not null instance \n");
 
-    pvkDestroyInstance(instance, NULL /* allocator */);
+    if(instance != VK_NULL_HANDLE && instance && instance == global_vk_instance)
+      pvkDestroyInstance(instance, NULL /* allocator */);
+
+    TRACE("vkDestroyInstance 1 \n");
 }
 
 static void WAYLANDDRV_vkDestroySurfaceKHR(VkInstance instance, VkSurfaceKHR surface,
         const VkAllocationCallbacks *allocator)
 {
-    struct wine_vk_surface *x11_surface = surface_from_handle(surface);
-
     //TRACE("%p 0x%s %p\n", instance, wine_dbgstr_longlong(surface), allocator);
 
     if (allocator)
         FIXME("Support for allocation callbacks not implemented yet\n");
 
     /* vkDestroySurfaceKHR must handle VK_NULL_HANDLE (0) for surface. */
-    if (x11_surface)
+    if (surface)
     {
-        pvkDestroySurfaceKHR(instance, x11_surface->surface, NULL /* allocator */);
-
-        wine_vk_surface_release(x11_surface);
+        pvkDestroySurfaceKHR(instance, surface, NULL /* allocator */);
     }
 }
 
@@ -5002,10 +3907,8 @@ static void WAYLANDDRV_vkDestroySwapchainKHR(VkDevice device, VkSwapchainKHR swa
 {
     TRACE("%p, 0x%s %p\n", device, wine_dbgstr_longlong(swapchain), allocator);
 
-    if (allocator)
-        FIXME("Support for allocation callbacks not implemented yet\n");
-
-    pvkDestroySwapchainKHR(device, swapchain, NULL /* allocator */);
+    if(swapchain != VK_NULL_HANDLE)
+      pvkDestroySwapchainKHR(device, swapchain, NULL /* allocator */);
 }
 
 static VkResult WAYLANDDRV_vkEnumerateInstanceExtensionProperties(const char *layer_name,
@@ -5049,184 +3952,135 @@ static VkResult WAYLANDDRV_vkEnumerateInstanceExtensionProperties(const char *la
     return res;
 }
 
-static VkResult WAYLANDDRV_vkGetDeviceGroupSurfacePresentModesKHR(VkDevice device,
-        VkSurfaceKHR surface, VkDeviceGroupPresentModeFlagsKHR *flags)
-{
-    struct wine_vk_surface *x11_surface = surface_from_handle(surface);
 
-    //TRACE("%p, 0x%s, %p\n", device, wine_dbgstr_longlong(surface), flags);
-
-    return pvkGetDeviceGroupSurfacePresentModesKHR(device, x11_surface->surface, flags);
-}
-
-static void *WAYLANDDRV_vkGetDeviceProcAddr(VkDevice device, const char *name)
-{
-    void *proc_addr;
-
-    //TRACE("%p, %s\n", device, debugstr_a(name));
-
-    if ((proc_addr = WAYLANDDRV_get_vk_device_proc_addr(name)))
-        return proc_addr;
-
-    return pvkGetDeviceProcAddr(device, name);
-}
-
-static void *WAYLANDDRV_vkGetInstanceProcAddr(VkInstance instance, const char *name)
-{
-    void *proc_addr;
-
-    //TRACE("%p, %s\n", instance, debugstr_a(name));
-
-    if ((proc_addr = WAYLANDDRV_get_vk_instance_proc_addr(instance, name)))
-        return proc_addr;
-
-    return pvkGetInstanceProcAddr(instance, name);
-}
 
 static VkResult WAYLANDDRV_vkGetPhysicalDevicePresentRectanglesKHR(VkPhysicalDevice phys_dev,
         VkSurfaceKHR surface, uint32_t *count, VkRect2D *rects)
 {
-    struct wine_vk_surface *x11_surface = surface_from_handle(surface);
-
     //TRACE("%p, 0x%s, %p, %p\n", phys_dev, wine_dbgstr_longlong(surface), count, rects);
 
-    return pvkGetPhysicalDevicePresentRectanglesKHR(phys_dev, x11_surface->surface, count, rects);
+    return pvkGetPhysicalDevicePresentRectanglesKHR(phys_dev, surface, count, rects);
+}
+
+/* Set the image extent in the capabilities to match what Windows expects. */
+static void set_image_extent(VkSurfaceKHR surface, VkSurfaceCapabilitiesKHR *caps)
+{
+
+    BOOL zero_extents = FALSE;
+
+
+
+    if (surface == VK_NULL_HANDLE || !global_vulkan_hwnd)
+        zero_extents = TRUE;
+
+
+
+//    if (NtUserGetWindowLongW(wine_vk_surface->hwnd, GWL_STYLE) & WS_MINIMIZE)
+//        zero_extents = TRUE;
+
+    if (zero_extents)
+    {
+        caps->minImageExtent.width = 0;
+        caps->minImageExtent.height = 0;
+        caps->maxImageExtent.width = 0;
+        caps->maxImageExtent.height = 0;
+        caps->currentExtent.width = 0;
+        caps->currentExtent.height = 0;
+    }
+    else
+    {
+        RECT client;
+        NtUserGetClientRect(global_vulkan_hwnd, &client);
+
+        caps->minImageExtent.width = client.right;
+        caps->minImageExtent.height = client.bottom;
+        caps->maxImageExtent.width = client.right;
+        caps->maxImageExtent.height = client.bottom;
+        caps->currentExtent.width = client.right;
+        caps->currentExtent.height = client.bottom;
+    }
+
 }
 
 
 static VkResult WAYLANDDRV_vkGetPhysicalDeviceSurfaceCapabilities2KHR(VkPhysicalDevice phys_dev,
         const VkPhysicalDeviceSurfaceInfo2KHR *surface_info, VkSurfaceCapabilities2KHR *capabilities)
 {
-    VkPhysicalDeviceSurfaceInfo2KHR surface_info_host;
-    TRACE("%p, %p, %p\n", phys_dev, surface_info, capabilities);
+   TRACE("%p, %p, %p\n", phys_dev, surface_info, capabilities);
 
-    surface_info_host = *surface_info;
-    surface_info_host.surface = surface_from_handle(surface_info->surface)->surface;
+   pvkGetPhysicalDeviceSurfaceCapabilities2KHR(phys_dev, surface_info, capabilities);
+   set_image_extent(surface_info->surface, &capabilities->surfaceCapabilities);
 
-    if (pvkGetPhysicalDeviceSurfaceCapabilities2KHR)
-        return pvkGetPhysicalDeviceSurfaceCapabilities2KHR(phys_dev, &surface_info_host, capabilities);
 
-    /* Until the loader version exporting this function is common, emulate it using the older non-2 version. */
-    if (surface_info->pNext || capabilities->pNext)
-        FIXME("Emulating vkGetPhysicalDeviceSurfaceCapabilities2KHR with vkGetPhysicalDeviceSurfaceCapabilitiesKHR, pNext is ignored.\n");
+     return VK_SUCCESS;
 
-    return pvkGetPhysicalDeviceSurfaceCapabilitiesKHR(phys_dev, surface_info_host.surface, &capabilities->surfaceCapabilities);
 }
 
-
-
-static WCHAR *global_current_exe = NULL;
 
 static VkResult WAYLANDDRV_vkGetPhysicalDeviceSurfaceCapabilitiesKHR(VkPhysicalDevice phys_dev,
         VkSurfaceKHR surface, VkSurfaceCapabilitiesKHR *capabilities)
 {
-    struct wine_vk_surface *x11_surface = surface_from_handle(surface);
-    VkResult res;
-
-    static const WCHAR poe_exe[] = {'P','a','t','h','O','f','E','x','i','l','e','_','x','6','4','.','e','x','e', 0};
-
-    //TRACE("%p, 0x%s, %p\n", phys_dev, wine_dbgstr_longlong(surface), capabilities);
-
-
-    if(!global_current_exe) {
-
-      static WCHAR global_current_exepath[MAX_PATH] = {0};
-
-      GetModuleFileNameW(NULL, global_current_exepath, ARRAY_SIZE(global_current_exepath));
-      global_current_exe = (WCHAR *)get_basename(global_current_exepath);
-
-      //TRACE("current exe path %s \n", debugstr_wn(global_current_exepath, strlenW( global_current_exepath )));
-      //TRACE("current exe %s \n", debugstr_wn(global_current_exe, strlenW( global_current_exe )));
-
+    if(surface != VK_NULL_HANDLE) {
+      pvkGetPhysicalDeviceSurfaceCapabilitiesKHR(phys_dev, surface, capabilities);
+      set_image_extent(surface, capabilities);
+      return VK_SUCCESS;
     }
 
-
-
-
-    //return VK_SUCCESS;
-    res =  pvkGetPhysicalDeviceSurfaceCapabilitiesKHR(phys_dev, x11_surface->surface, capabilities);
-
-    //Hack for Path Of Exile
-    if(!lstrcmpiW(global_current_exe, poe_exe)) {
-      capabilities->minImageCount = 2;
-      capabilities->maxImageCount = 16;
-    }
-
-    return res;
-
+    return VK_ERROR_SURFACE_LOST_KHR;
 }
 
 static VkResult WAYLANDDRV_vkGetPhysicalDeviceSurfaceFormats2KHR(VkPhysicalDevice phys_dev,
         const VkPhysicalDeviceSurfaceInfo2KHR *surface_info, uint32_t *count, VkSurfaceFormat2KHR *formats)
 {
-    VkPhysicalDeviceSurfaceInfo2KHR surface_info_host = *surface_info;
-    VkSurfaceFormatKHR *formats_host;
     uint32_t i;
     VkResult result;
     TRACE("%p, %p, %p, %p\n", phys_dev, surface_info, count, formats);
 
-    surface_info_host = *surface_info;
-    surface_info_host.surface = surface_from_handle(surface_info->surface)->surface;
-
     if (pvkGetPhysicalDeviceSurfaceFormats2KHR)
-        return pvkGetPhysicalDeviceSurfaceFormats2KHR(phys_dev, &surface_info_host, count, formats);
+        return pvkGetPhysicalDeviceSurfaceFormats2KHR(phys_dev, surface_info, count, formats);
 
-    /* Until the loader version exporting this function is common, emulate it using the older non-2 version. */
-    if (surface_info->pNext)
-        FIXME("Emulating vkGetPhysicalDeviceSurfaceFormats2KHR with vkGetPhysicalDeviceSurfaceFormatsKHR, pNext is ignored.\n");
-
-    if (!formats)
-        return pvkGetPhysicalDeviceSurfaceFormatsKHR(phys_dev, surface_info_host.surface, count, NULL);
-
-    formats_host = heap_calloc(*count, sizeof(*formats_host));
-    if (!formats_host) return VK_ERROR_OUT_OF_HOST_MEMORY;
-    result = pvkGetPhysicalDeviceSurfaceFormatsKHR(phys_dev, surface_info_host.surface, count, formats_host);
-    if (result == VK_SUCCESS || result == VK_INCOMPLETE)
-    {
-        for (i = 0; i < *count; i++)
-            formats[i].surfaceFormat = formats_host[i];
-    }
-
-    heap_free(formats_host);
-    return result;
 }
 
 static VkResult WAYLANDDRV_vkGetPhysicalDeviceSurfaceFormatsKHR(VkPhysicalDevice phys_dev,
         VkSurfaceKHR surface, uint32_t *count, VkSurfaceFormatKHR *formats)
 {
-    struct wine_vk_surface *x11_surface = surface_from_handle(surface);
+    VkResult res;
 
-    //TRACE("%p, 0x%s, %p, %p\n", phys_dev, wine_dbgstr_longlong(surface), count, formats);
-
-    return pvkGetPhysicalDeviceSurfaceFormatsKHR(phys_dev, x11_surface->surface, count, formats);
+    if( surface != VK_NULL_HANDLE ) {
+      res = pvkGetPhysicalDeviceSurfaceFormatsKHR(phys_dev, surface, count, formats);
+      TRACE("%p, 0x%s, %d, %p\n", phys_dev, wine_dbgstr_longlong(surface), *count, formats);
+      TRACE("%p, 0x%s, %d, %p\n", phys_dev, wine_dbgstr_longlong(surface), *count, formats);
+      return res;
+    }
 }
 
 static VkResult WAYLANDDRV_vkGetPhysicalDeviceSurfacePresentModesKHR(VkPhysicalDevice phys_dev,
         VkSurfaceKHR surface, uint32_t *count, VkPresentModeKHR *modes)
 {
-    struct wine_vk_surface *x11_surface = surface_from_handle(surface);
 
-    //TRACE("%p, 0x%s, %p, %p\n", phys_dev, wine_dbgstr_longlong(surface), count, modes);
+    VkResult res;    //
 
-    return pvkGetPhysicalDeviceSurfacePresentModesKHR(phys_dev, x11_surface->surface, count, modes);
+    if( surface != VK_NULL_HANDLE ) {
+      res = pvkGetPhysicalDeviceSurfacePresentModesKHR(phys_dev, surface, count, modes);
+      TRACE("%p, 0x%s, %d, %p\n", phys_dev, wine_dbgstr_longlong(surface), *count, modes);
+      return res;
+    }
 }
 
 static VkResult WAYLANDDRV_vkGetPhysicalDeviceSurfaceSupportKHR(VkPhysicalDevice phys_dev,
         uint32_t index, VkSurfaceKHR surface, VkBool32 *supported)
 {
-    struct wine_vk_surface *x11_surface = surface_from_handle(surface);
-
-    //TRACE("%p, %u, 0x%s, %p\n", phys_dev, index, wine_dbgstr_longlong(surface), supported);
-
-    return pvkGetPhysicalDeviceSurfaceSupportKHR(phys_dev, index, x11_surface->surface, supported);
+    //
+    if(surface != VK_NULL_HANDLE) {
+      TRACE("%p, %u, 0x%s, %p\n", phys_dev, index, wine_dbgstr_longlong(surface), supported);
+      return pvkGetPhysicalDeviceSurfaceSupportKHR(phys_dev, index, surface, supported);
+    }
 }
 
 static VkBool32 WAYLANDDRV_vkGetPhysicalDeviceWin32PresentationSupportKHR(VkPhysicalDevice phys_dev,
         uint32_t index)
 {
-
     return pvkGetPhysicalDeviceWaylandPresentationSupportKHR(phys_dev, index, wayland_display);
-
 }
 
 static VkResult WAYLANDDRV_vkGetSwapchainImagesKHR(VkDevice device,
@@ -5242,36 +4096,19 @@ static VkResult WAYLANDDRV_vkQueuePresentKHR(VkQueue queue, const VkPresentInfoK
     return pvkQueuePresentKHR(queue, present_info);
 }
 
-static VkResult WAYLANDDRV_vkAcquireNextImageKHR(VkDevice device,
-        VkSwapchainKHR swapchain, uint64_t timeout, VkSemaphore semaphore,
-        VkFence fence, uint32_t *image_index)
-{
-    return pvkAcquireNextImageKHR(device, swapchain, timeout, semaphore, fence, image_index);
-}
-
-static VkResult WAYLANDDRV_vkAcquireNextImage2KHR(VkDevice device,
-        const VkAcquireNextImageInfoKHR *acquire_info, uint32_t *image_index)
-{
-    static int once;
-    if (!once++) FIXME("Emulating vkGetPhysicalDeviceSurfaceCapabilities2KHR with vkGetPhysicalDeviceSurfaceCapabilitiesKHR, pNext is ignored.\n");
-    return WAYLANDDRV_vkAcquireNextImageKHR(device, acquire_info->swapchain, acquire_info->timeout, acquire_info->semaphore, acquire_info->fence, image_index);
-}
+#ifdef HAS_FSR
 
 
-
-
-
-
-
-static VkBool32 WAYLANDDRV_query_fs_hack(VkSurfaceKHR surface, VkExtent2D *real_sz, VkExtent2D *user_sz, VkRect2D *dst_blit, VkFilter *filter, BOOL *fsr, float *sharpness)
-//static VkBool32 WAYLANDDRV_query_fs_hack(VkSurfaceKHR surface, VkExtent2D *real_sz, VkExtent2D *user_sz, VkRect2D *dst_blit, VkFilter *filter)
+static VkBool32 WAYLANDDRV_query_fsr(VkSurfaceKHR surface, VkExtent2D *real_sz,
+  VkExtent2D *user_sz, VkRect2D *dst_blit,
+  VkFilter *filter, BOOL *fsr, float *sharpness)
 {
 
   RECT window_rect;
   char *env_width, *env_height;
   int screen_width = 0, screen_height = 0;
 
-  TRACE("fshack test %d \n", global_fsr);
+  TRACE("Test for FSR %d \n", global_fsr);
 
   global_vulkan_rect_flag = 0;
 
@@ -5297,9 +4134,9 @@ static VkBool32 WAYLANDDRV_query_fs_hack(VkSurfaceKHR surface, VkExtent2D *real_
     screen_height = atoi(env_height);
   }
 
-  fs_hack_set_real_mode(screen_width, screen_height);
+  fsr_set_real_mode(screen_width, screen_height);
 
-  GetClientRect(global_vulkan_hwnd, &window_rect);
+  NtUserGetClientRect(global_vulkan_hwnd, &window_rect);
 
   if(window_rect.right == 0)
     return VK_FALSE;
@@ -5308,7 +4145,7 @@ static VkBool32 WAYLANDDRV_query_fs_hack(VkSurfaceKHR surface, VkExtent2D *real_
 
   //real res equals user res
   if(window_rect.right == screen_width && window_rect.bottom == screen_height &&
-  fs_hack_matches_current_mode(window_rect.right, window_rect.bottom)  ) {
+  fsr_matches_current_mode(window_rect.right, window_rect.bottom)  ) {
     TRACE("Disabling FSR \n");
     global_fsr = 0;
     return VK_FALSE;
@@ -5316,7 +4153,7 @@ static VkBool32 WAYLANDDRV_query_fs_hack(VkSurfaceKHR surface, VkExtent2D *real_
     global_fsr = 1;
   }
 
-  fs_hack_set_current_mode(window_rect.right, window_rect.bottom);
+  fsr_set_current_mode(window_rect.right, window_rect.bottom);
 
 
   if(real_sz){
@@ -5341,66 +4178,85 @@ static VkBool32 WAYLANDDRV_query_fs_hack(VkSurfaceKHR surface, VkExtent2D *real_
   if(filter)
     *filter = VK_FILTER_NEAREST;
 
-
-  if(fsr)
-    *fsr = TRUE;
-
   if(sharpness)
     *sharpness = (float) 2 / 10.0f;
 
 
-  TRACE("getting  fsr fshack \n");
   return VK_TRUE;
 }
+#endif
+
+static VkResult WAYLANDDRV_vkGetDeviceGroupSurfacePresentModesKHR(VkDevice device,
+        VkSurfaceKHR surface, VkDeviceGroupPresentModeFlagsKHR *flags)
+{
+    //TRACE("%p, 0x%s, %p\n", device, wine_dbgstr_longlong(surface), flags);
+
+    return pvkGetDeviceGroupSurfacePresentModesKHR(device, surface, flags);
+}
+
+static void *WAYLANDDRV_vkGetDeviceProcAddr(VkDevice device, const char *name)
+{
+    void *proc_addr;
+
+    //TRACE("%p, %s\n", device, debugstr_a(name));
+
+    if ((proc_addr = get_vulkan_driver_device_proc_addr(&vulkan_funcs, name)))
+        return proc_addr;
+
+    return pvkGetDeviceProcAddr(device, name);
+}
+
+
+static void *WAYLANDDRV_vkGetInstanceProcAddr(VkInstance instance, const char *name)
+{
+    void *proc_addr;
+
+    //TRACE("%p, %s\n", instance, debugstr_a(name));
+
+    if ((proc_addr = get_vulkan_driver_instance_proc_addr(&vulkan_funcs, instance, name) ))
+        return proc_addr;
+
+    return pvkGetInstanceProcAddr(instance, name);
+}
+
 
 static const struct vulkan_funcs vulkan_funcs =
 {
-  #ifdef FSHACK_TEST
-    WAYLANDDRV_vkAcquireNextImage2KHR,
-    WAYLANDDRV_vkAcquireNextImageKHR,
-  #endif
-    WAYLANDDRV_vkCreateInstance,
-    WAYLANDDRV_vkCreateSwapchainKHR,
-    WAYLANDDRV_vkCreateWin32SurfaceKHR,
-    WAYLANDDRV_vkDestroyInstance,
-    WAYLANDDRV_vkDestroySurfaceKHR,
-    WAYLANDDRV_vkDestroySwapchainKHR,
-    WAYLANDDRV_vkEnumerateInstanceExtensionProperties,
-    WAYLANDDRV_vkGetDeviceGroupSurfacePresentModesKHR,
-    WAYLANDDRV_vkGetDeviceProcAddr,
-    WAYLANDDRV_vkGetInstanceProcAddr,
-    WAYLANDDRV_vkGetPhysicalDevicePresentRectanglesKHR,
-    WAYLANDDRV_vkGetPhysicalDeviceSurfaceCapabilities2KHR,
-    WAYLANDDRV_vkGetPhysicalDeviceSurfaceCapabilitiesKHR,
-    WAYLANDDRV_vkGetPhysicalDeviceSurfaceFormats2KHR,
-    WAYLANDDRV_vkGetPhysicalDeviceSurfaceFormatsKHR,
-    WAYLANDDRV_vkGetPhysicalDeviceSurfacePresentModesKHR,
-    WAYLANDDRV_vkGetPhysicalDeviceSurfaceSupportKHR,
-    WAYLANDDRV_vkGetPhysicalDeviceWin32PresentationSupportKHR,
-    WAYLANDDRV_vkGetSwapchainImagesKHR,
-    WAYLANDDRV_vkQueuePresentKHR,
-    WAYLANDDRV_wine_get_native_surface,
-    #ifdef FSHACK_TEST
-    WAYLANDDRV_query_fs_hack
+
+    .p_vkCreateInstance = WAYLANDDRV_vkCreateInstance,
+    .p_vkCreateSwapchainKHR = WAYLANDDRV_vkCreateSwapchainKHR,
+    .p_vkCreateWin32SurfaceKHR = WAYLANDDRV_vkCreateWin32SurfaceKHR,
+
+    .p_vkDestroyInstance = WAYLANDDRV_vkDestroyInstance,
+    .p_vkDestroySurfaceKHR = WAYLANDDRV_vkDestroySurfaceKHR,
+    .p_vkDestroySwapchainKHR = WAYLANDDRV_vkDestroySwapchainKHR,
+    .p_vkEnumerateInstanceExtensionProperties = WAYLANDDRV_vkEnumerateInstanceExtensionProperties,
+    .p_vkGetDeviceGroupSurfacePresentModesKHR = WAYLANDDRV_vkGetDeviceGroupSurfacePresentModesKHR,
+    .p_vkGetDeviceProcAddr = WAYLANDDRV_vkGetDeviceProcAddr,
+    .p_vkGetInstanceProcAddr = WAYLANDDRV_vkGetInstanceProcAddr,
+    .p_vkGetPhysicalDevicePresentRectanglesKHR = WAYLANDDRV_vkGetPhysicalDevicePresentRectanglesKHR,
+    .p_vkGetPhysicalDeviceSurfaceCapabilities2KHR = WAYLANDDRV_vkGetPhysicalDeviceSurfaceCapabilities2KHR,
+    .p_vkGetPhysicalDeviceSurfaceCapabilitiesKHR = WAYLANDDRV_vkGetPhysicalDeviceSurfaceCapabilitiesKHR,
+    .p_vkGetPhysicalDeviceSurfaceFormats2KHR = WAYLANDDRV_vkGetPhysicalDeviceSurfaceFormats2KHR,
+    .p_vkGetPhysicalDeviceSurfaceFormatsKHR = WAYLANDDRV_vkGetPhysicalDeviceSurfaceFormatsKHR,
+    .p_vkGetPhysicalDeviceSurfacePresentModesKHR = WAYLANDDRV_vkGetPhysicalDeviceSurfacePresentModesKHR,
+    .p_vkGetPhysicalDeviceSurfaceSupportKHR = WAYLANDDRV_vkGetPhysicalDeviceSurfaceSupportKHR,
+    .p_vkGetPhysicalDeviceWin32PresentationSupportKHR = WAYLANDDRV_vkGetPhysicalDeviceWin32PresentationSupportKHR,
+
+    .p_vkGetSwapchainImagesKHR = WAYLANDDRV_vkGetSwapchainImagesKHR,
+    .p_vkQueuePresentKHR = WAYLANDDRV_vkQueuePresentKHR,
+    .p_wine_get_native_surface = WAYLANDDRV_wine_get_native_surface,
+    #ifdef HAS_FSR
+    .query_fs_hack = WAYLANDDRV_query_fsr
     #endif
 };
-
-static void *WAYLANDDRV_get_vk_device_proc_addr(const char *name)
-{
-    return get_vulkan_driver_device_proc_addr(&vulkan_funcs, name);
-}
-
-static void *WAYLANDDRV_get_vk_instance_proc_addr(VkInstance instance, const char *name)
-{
-    return get_vulkan_driver_instance_proc_addr(&vulkan_funcs, instance, name);
-}
 
 const struct vulkan_funcs *get_vulkan_driver(UINT version)
 {
 
-    static INIT_ONCE init_once = INIT_ONCE_STATIC_INIT;
+    static pthread_once_t init_once = PTHREAD_ONCE_INIT;
 
-    InitOnceExecuteOnce(&init_once, wine_vk_init, NULL, NULL);
+    pthread_once(&init_once, wine_vk_init);
     if (vulkan_handle)
         return &vulkan_funcs;
 

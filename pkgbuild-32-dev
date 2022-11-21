@@ -13,7 +13,7 @@ install_libffi_32() {
 install_libelf_32() {
   cd "${srcdir}"
 
-  
+
   cd $(find . -maxdepth 1 -type d -name "*elfutils*"  | sed 1q)
 
   make DESTDIR="$pkgdir" install
@@ -69,7 +69,7 @@ install_libxml2_32() {
 
 install_mpg123_32() {
   cd "${srcdir}"
-  cd $(find . -maxdepth 1 -type d -name "*mpg123*"  | sed 1q) 
+  cd $(find . -maxdepth 1 -type d -name "*mpg123*"  | sed 1q)
 
   make -j $CPUS DESTDIR="${pkgdir}" install
 
@@ -94,7 +94,7 @@ install_openal_32() {
 
 install_mesa_32() {
   cd "${srcdir}"
-  
+
   cd $(find . -maxdepth 1 -type d -name "*mesa*" | sed 1q)
 
   DESTDIR="$pkgdir" ninja -C build install
@@ -122,31 +122,21 @@ install_sdl2_32() {
 install_freetype2_32() {
   cd "${srcdir}"
   cd $(find . -maxdepth 1 -type d -name "*freetype-*" | sed 1q)
-  
+
   make DESTDIR="${pkgdir}" install
 
   cd $pkgdir/usr/lib32/pkgconfig
   sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" freetype2.pc
-} 
+}
 
-install_jpegturbo_32() {
+install_alsa_lib_fixed_32() {
   cd "${srcdir}"
-  cd $(find . -maxdepth 1 -type d -name "*libjpeg-*" | sed 1q)
-  
-  cd build
+  cd $(find . -maxdepth 1 -type d -name "*alsa-lib-1*" | sed 1q)
+
   make DESTDIR="${pkgdir}" install
 
   cd $pkgdir/usr/lib32/pkgconfig
-  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libturbojpeg.pc
-  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libjpeg.pc
-} 
+  sed -i "s~\${exec_prefix}/lib32~$pkgdir/usr/lib32~g" alsa.pc
+}
 
-install_libpng_32() {
-  cd "${srcdir}"
-  cd $(find . -maxdepth 1 -type d -name "*libpng-*" | sed 1q)
-  
-  make DESTDIR="${pkgdir}" install
 
-  cd $pkgdir/usr/lib32/pkgconfig
-  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libpng16.pc  
-} 

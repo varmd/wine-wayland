@@ -2,10 +2,11 @@
 # Copyright 2020-2022 varmd
 #
 
-WINE_VK_DXVK_VERSION="1.10.1"
-WINE_WAYLAND_VERSION="7.7"
-VKD3D_VERSION="2.6"
-WINE_WAYLAND_TAG_NUM="3"
+WINE_VK_DXVK_VERSION="2.0"
+WINE_WAYLAND_VERSION="7.21"
+VKD3D_VERSION="2.7"
+MANGOHUD_URL="/v0.6.8/MangoHud-0.6.8.r0.gefdcc6d.tar.gz"
+WINE_WAYLAND_TAG_NUM="1"
 
 #partition check
 #df -P ~/.local/share/wineland/game/winebin/usr/bin/wine64 | tail -1 | cut -d' ' -f 1
@@ -85,7 +86,7 @@ IS_64_EXE=`file $GAME_EXE | grep PE32+`
 
 
 if [[ -z "$IS_64_EXE" ]]; then
-  echo "32bit"
+  echo "32bit game"
   WINE_CMD="wine"
   export LD_LIBRARY_PATH="/usr/lib/wineland/lib32:$LD_LIBRARY_PATH"
   export VK_ICD_FILENAMES="/usr/lib/wineland/vulkan/icd.d/intel_icd.i686.json:/usr/lib/wineland/vulkan/icd.d/radeon_icd.i686.json"
@@ -121,24 +122,22 @@ MANGO_PREFIX=$PWD_PATH/mangohud
 if [[ -z "$MANGOHUD" ]]; then
   echo ""
 else
-if [ ! -d $MANGO_PREFIX ]; then
-
-
+  if [ ! -d $MANGO_PREFIX ]; then
   cd "$PWD_PATH"
-  if [ ! -d $PWD/mangohud ]; then
-    mkdir mangohud
-    cd mangohud
-    curl  -L "https://github.com/flightlessmango/MangoHud/releases/download/v0.6.4/MangoHud-0.6.4.r0.g7bddec9.tar.gz" > mangohud.tar.gz
-    tar xf mangohud.tar.gz
-    tar xf MangoHud/MangoHud-package.tar
-    cd "$PWD_PATH"
+    if [ ! -d $PWD/mangohud ]; then
+      mkdir mangohud
+      cd mangohud
+      curl  -L "https://github.com/flightlessmango/MangoHud/releases/download${MANGOHUD_URL}" > mangohud.tar.gz
+      tar xf mangohud.tar.gz
+      tar xf MangoHud/MangoHud-package.tar
+      cd "$PWD_PATH"
+    fi
   fi
-fi
 
 
   mkdir -p /run/user/$UID/mangohud-wine-wayland
   cp -r mangohud/usr/lib/mangohud/* /run/user/$UID/mangohud-wine-wayland
-  cp -r mangohud/usr/share/vulkan/implicit_layer.d/*.json mangohud/mangohud.json
+  cp -r mangohud/usr/share/vulkan/implicit_layer.d/MangoHud.json mangohud/mangohud.json
 
 
 
@@ -148,10 +147,11 @@ fi
     LIB="lib32"
   else
     echo "Using 64bit mangohud"
-    LIB="lib"
+    LIB="lib64"
   fi
 
   sed -i "s/\/usr\/lib\/mangohud/\/run\/user\/${UID}\/mangohud-wine-wayland/g" mangohud/mangohud.json
+  sed -i "s/\$LIB/${LIB}/g" mangohud/mangohud.json
 
   export VK_INSTANCE_LAYERS=VK_LAYER_MANGOHUD_overlay
   export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d:"$PWD_PATH/mangohud"
@@ -171,6 +171,10 @@ cd "$PWD_PATH"
 
 if [ ! -f /usr/lib/wine/x86_64-unix/winewayland.drv.so ]; then
   USE_LOCAL_WINE=1
+fi
+
+if [ -f /usr/lib/wine/x86_64-unix/winewayland.so ]; then
+  unset USE_LOCAL_WINE
 fi
 
 #download local wine
@@ -354,6 +358,9 @@ if [ ! -d $WINEPREFIX ]; then
     WINE_VK_VULKAN_ONLY=1 wineboot -u
     sleep 4
   fi
+
+  # Fixes no sound in some games
+  wine64 winecfg /a
 else
 
   #rm $PWD_PATH/wine/.update-timestamp
@@ -416,3 +423,5 @@ export WINEDEBUG=fixme-all,-all,+waylanddrv
 
 echo "Launching $1"
 $WINE_CMD $FINAL_EXE $GAME_OPTIONS  &> $LOG_PATH
+
+

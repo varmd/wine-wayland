@@ -15,9 +15,9 @@ diff --git a/dlls/user32/input.c b/dlls/user32/input.c
 index 455f857d9d0..dbfc9f36819 100644
 --- a/dlls/user32/input.c
 +++ b/dlls/user32/input.c
-@@ -1324,17 +1324,6 @@ int WINAPI GetMouseMovePointsEx( UINT size, LPMOUSEMOVEPOINT ptin, LPMOUSEMOVEPO
-     return copied;
+@@ -522,16 +522,7 @@
  }
+
 
 -/***********************************************************************
 - *		EnableMouseInPointer (USER32.@)
@@ -25,14 +25,13 @@ index 455f857d9d0..dbfc9f36819 100644
 -BOOL WINAPI EnableMouseInPointer(BOOL enable)
 -{
 -    FIXME("(%#x) stub\n", enable);
--
+
 -    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 -    return FALSE;
 -}
--
+
  static DWORD CALLBACK devnotify_window_callback(HANDLE handle, DWORD flags, DEV_BROADCAST_HDR *header)
  {
-     rawinput_update_device_list();
 diff --git a/dlls/user32/user32.spec b/dlls/user32/user32.spec
 index ea984ef8e10..2edd8c682dd 100644
 --- a/dlls/user32/user32.spec
@@ -117,28 +116,28 @@ index 2be2cfce3bf..a8c3090a814 100644
 --- a/dlls/win32u/syscall.c
 +++ b/dlls/win32u/syscall.c
 @@ -111,6 +111,7 @@ static void * const syscalls[] =
-     NtUserCreateDesktopEx,
      NtUserCreateWindowStation,
      NtUserDestroyAcceleratorTable,
+     NtUserEndMenu,
 +    NtUserEnableMouseInPointer,
-     NtUserFindExistingCursorIcon,
-     NtUserGetAncestor,
-     NtUserGetAtomName,
+     NtUserEnumDisplayDevices,
+     NtUserEnumDisplayMonitors,
+     NtUserEnumDisplaySettings,
 diff --git a/dlls/win32u/win32u.spec b/dlls/win32u/win32u.spec
 index d1104df7371..2b840e587d1 100644
 --- a/dlls/win32u/win32u.spec
 +++ b/dlls/win32u/win32u.spec
-@@ -861,7 +861,7 @@
+@@ -860,7 +860,7 @@
  @ stub NtUserEnableChildWindowDpiMessage
  @ stub NtUserEnableIAMAccess
- @ stdcall NtUserEnableMenuItem(long long long)
+ @ stdcall -syscall NtUserEnableMenuItem(long long long)
 -@ stub NtUserEnableMouseInPointer
 +@ stdcall -syscall NtUserEnableMouseInPointer(long)
  @ stub NtUserEnableMouseInPointerForWindow
  @ stub NtUserEnableMouseInputForCursorSuppression
  @ stub NtUserEnableNonClientDpiScaling
  @ stub NtUserEnableResizeLayoutSynchronization
- @ stub NtUserEnableScrollBar
+ @ stdcall -syscall NtUserEnableScrollBar(long long long)
 diff --git a/dlls/win32u/win32u_private.h b/dlls/win32u/win32u_private.h
 index b91cf7d9002..697f7806595 100644
 --- a/dlls/win32u/win32u_private.h
@@ -148,21 +147,21 @@ index b91cf7d9002..697f7806595 100644
 
  /* input.c */
 +extern BOOL enable_mouse_in_pointer DECLSPEC_HIDDEN;
+ extern BOOL destroy_caret(void) DECLSPEC_HIDDEN;
  extern LONG global_key_state_counter DECLSPEC_HIDDEN;
  extern HWND get_active_window(void) DECLSPEC_HIDDEN;
- extern BOOL get_cursor_pos( POINT *pt ) DECLSPEC_HIDDEN;
 diff --git a/dlls/wow64win/syscall.h b/dlls/wow64win/syscall.h
 index a90c4c20d40..0434cae6459 100644
 --- a/dlls/wow64win/syscall.h
 +++ b/dlls/wow64win/syscall.h
 @@ -98,6 +98,7 @@
-     SYSCALL_ENTRY( NtUserCreateDesktopEx ) \
      SYSCALL_ENTRY( NtUserCreateWindowStation ) \
      SYSCALL_ENTRY( NtUserDestroyAcceleratorTable ) \
+     SYSCALL_ENTRY( NtUserEndMenu ) \
 +    SYSCALL_ENTRY( NtUserEnableMouseInPointer ) \
-     SYSCALL_ENTRY( NtUserFindExistingCursorIcon ) \
-     SYSCALL_ENTRY( NtUserGetAncestor ) \
-     SYSCALL_ENTRY( NtUserGetAtomName ) \
+     SYSCALL_ENTRY( NtUserEnumDisplayDevices ) \
+     SYSCALL_ENTRY( NtUserEnumDisplayMonitors ) \
+     SYSCALL_ENTRY( NtUserEnumDisplaySettings ) \
 diff --git a/dlls/wow64win/user.c b/dlls/wow64win/user.c
 index 9d957673ceb..dccfef4527d 100644
 --- a/dlls/wow64win/user.c

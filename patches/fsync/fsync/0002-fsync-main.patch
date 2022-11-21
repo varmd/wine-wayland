@@ -122,7 +122,7 @@ index 7d7259425b..c6e86c196b 100644
 
      thread_data->pthread_id = pthread_self();
 +    thread_data->fsync_apc_futex = NULL;
-     signal_init_thread( teb );
+     pthread_setspecific( teb_key, teb );
      server_init_thread( thread_data->start, &suspend );
 @@ -1300,5 +1300,6 @@
      thread_data->request_fd  = request_pipe[1];
@@ -695,9 +695,9 @@ index 2125b3aa69..493b2d776a 100644
  #define WM_NCMOUSEFIRST WM_NCMOUSEMOVE
  #define WM_NCMOUSELAST  (WM_NCMOUSEFIRST+(WM_MOUSELAST-WM_MOUSEFIRST))
 @@ -143,6 +144,8 @@ struct msg_queue
-     struct thread_input   *input;           /* thread input descriptor */
      struct hook_table     *hooks;           /* hook table */
      timeout_t              last_get_msg;    /* time of last get message call */
+     int                    keystate_lock;   /* owns an input keystate lock */
 +    unsigned int           fsync_idx;
 +    int                    fsync_in_msgwait; /* our thread is currently waiting on us */
  };
@@ -712,9 +712,9 @@ index 2125b3aa69..493b2d776a 100644
  static void msg_queue_destroy( struct object *obj );
  static void msg_queue_poll_event( struct fd *fd, int event );
 @@ -307,12 +313,17 @@ static struct msg_queue *create_msg_queue( struct thread *thread, struct thread_
-         queue->input           = (struct thread_input *)grab_object( input );
          queue->hooks           = NULL;
          queue->last_get_msg    = current_time;
+         queue->keystate_lock   = 0;
 +        queue->fsync_idx       = 0;
 +        queue->fsync_in_msgwait = 0;
          list_init( &queue->send_result );
@@ -736,9 +736,9 @@ index 2125b3aa69..493b2d776a 100644
 +
 +    if (do_fsync() && !is_signaled( queue ))
 +        fsync_clear( &queue->obj );
- }
-
- /* check whether msg is a keyboard message */
+     if (!(queue->wake_bits & (QS_KEY | QS_MOUSEBUTTON)))
+ {
+         if (queue->keystate_lock) unlock_input_keystate( queue->input );
 --- a/server/queue.c
 +++ b/server/queue.c
 @@ -899,6 +900,9 @@ static void cleanup_results( struct msg_queue *queue )

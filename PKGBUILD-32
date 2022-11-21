@@ -5,8 +5,6 @@ depends+=(
 )
 
 makedepends+=(
-    'lib32-alsa-lib'
-    'lib32-expat'
     'lib32-gcc-libs'
     'lib32-libdrm'
     'lib32-vulkan-icd-loader'
@@ -18,7 +16,6 @@ makedepends+=(
     'ninja'
     'python-mako'
     'glslang'
-    'dbus'
     'gperf'
 )
 
@@ -26,10 +23,12 @@ pkgname+=('lib32-wine-wayland')
 
 
 url_libffi="https://github.com/libffi/libffi/archive/refs/tags/v3.4.2.zip"
-url_wayland="https://github.com/wayland-project/wayland/archive/refs/tags/1.20.0.zip"
+url_wayland="https://github.com/wayland-project/wayland/archive/refs/tags/1.21.0.zip"
 
 url_openal="https://github.com/kcat/openal-soft/archive/refs/tags/1.21.1.zip"
-url_mesa="https://github.com/mesa3d/mesa/archive/1378c67bcf9e16aea98ddb8cb6bd37b9ed4e3a81.zip"
+
+url_mesa="https://github.com/mesa3d/mesa/archive/f8bf2a9a15d2572974448ed67a282f195d490323.zip"
+
 url_sdl2="https://github.com/libsdl-org/SDL/archive/refs/tags/release-2.0.12.zip"
 url_freetype2="https://download.savannah.gnu.org/releases/freetype/freetype-2.10.1.tar.xz"
 
@@ -38,7 +37,7 @@ url_libsystemd32="https://github.com/systemd/systemd-stable/archive/v247.2.zip"
 
 
 
-url_libelf="https://sourceware.org/elfutils/ftp/0.185/elfutils-0.185.tar.bz2"
+
 
 
 build_libffi_32() {
@@ -79,42 +78,6 @@ build_libffi_32() {
   cd $pkgdir/usr/lib32/pkgconfig
   sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libffi.pc
 }
-
-build_libelf_32() {
-  cd "${srcdir}"
-
-  rm -rf $(find . -maxdepth 1 -type d -name "*elfutils*" | sed 1q)
-
-  if [ ! -f libelf.tar.bz2 ]; then
-    curl -L $url_libelf > libelf.tar.bz2
-  fi
-
-  tar xjf libelf.tar.bz2
-
-  cd $(find . -maxdepth 1 -type d -name "*elfutils*"  | sed 1q)
-
-
-
-  export CC="gcc -m32"
-  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig:$pkgdir/usr/lib32/pkgconfig"
-
-
-  ./configure --prefix=/usr \
-    --sysconfdir=/etc \
-    --libdir=/usr/lib32 \
-    --disable-libdebuginfod \
-    --disable-debuginfod
-
-  CPUS=$(getconf _NPROCESSORS_ONLN)
-  make -j $CPUS
-  make DESTDIR="$pkgdir" install
-
-  cd $pkgdir/usr/lib32/pkgconfig
-  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libelf.pc
-  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" libdw.pc
-}
-
-
 
 build_systemd_32() {
   cd "${srcdir}"
@@ -254,13 +217,17 @@ build_systemd_32() {
     -Dima=false
     -Dkmod=false
     -Dlibcryptsetup=false
-    -Dlibidn2=true
+    -Dlibidn=false
+    -Dlibidn2=false
     -Dlibiptc=false
+    -Dacl=false
     -Dlz4=false
     -Dman=false
     -Dmicrohttpd=false
     -Dnetworkd=false
     -Dpam=false
+    -Dapparmor=false
+    -Dfdisk=false
     -Drepart=false
     -Dseccomp=false
     -Dnologin-path=/usr/bin/nologin
@@ -379,30 +346,21 @@ build_mesa_32() {
     curl -L $url_mesa > mesa.zip
   fi
 
-
-
   unzip -q mesa.zip
 
   mv $(find . -maxdepth 1 -type d -name "*mesa*" | sed 1q) mesa
   cd $(find . -maxdepth 1 -type d -name "*mesa*" | sed 1q)
 
-  patch -Np1 < ../../lib32/mesa/disable-llvm-amd-build.patch
-  patch -Np1 < ../../lib32/mesa/disable-llvm-radv-device.patch
-  patch -Np1 < ../../lib32/mesa/disable-llvm-amd-vulkan.patch
-  patch -Np1 < ../../lib32/mesa/disable-llvm-amd-compiler.patch
+  patch -Np1 < ../../lib32/mesa/17439.patch
+  patch -Np1 < ../../lib32/mesa/remove-libelf.patch
+  patch -R -Np1 < ../../lib32/mesa/remove-libudev.patch
+  patch -Np1 < ../../lib32/mesa/remove-libudev-2.patch
+  patch -Np1 < ../../lib32/mesa/remove-expat-xmlconfig.patch
+  patch -Np1 < ../../lib32/mesa/remove-expat-meson-util.patch
 
-  cp ../../lib32/mesa/meson.build .
-
-
-  echo "" > src/amd/vulkan/radv_llvm_helper.cpp
-  echo "" > src/amd/vulkan/radv_shader_helper.h
-  echo "" > src/amd/compiler/aco_print_asm.cpp
-
-  export CC="gcc -m32"
-  export CXX="g++ -m32"
+  export CC="gcc -m32  "
+  export CXX="g++ -m32 "
   export PKG_CONFIG_PATH="/usr/lib32/pkgconfig:$pkgdir/usr/lib32/pkgconfig"
-
-  ls -la
 
   arch-meson . build \
     --libdir=/usr/lib32 \
@@ -414,15 +372,7 @@ build_mesa_32() {
     -D vulkan-drivers=amd \
     -D egl=false \
     -D opengl=false \
-    -D gallium-extra-hud=false \
-    -D gallium-nine=false \
-    -D gallium-omx=disabled \
-    -D gallium-va=false \
-    -D gallium-vdpau=false \
-    -D gallium-xa=false \
-    -D gallium-xvmc=false \
-    -D gallium-opencl=disabled \
-    -D gbm=true \
+    -D gbm=false \
     -D gles1=false \
     -D gles2=false \
     -D glvnd=false \
@@ -434,6 +384,7 @@ build_mesa_32() {
     -D osmesa=false \
     -D shared-glapi=false \
     -D zstd=false \
+    -D zlib=enabled \
     -D valgrind=false
 
   # Print config
@@ -520,8 +471,6 @@ build_freetype2_32() {
     curl -L $url_freetype2 > freetype2.tar.xz
   fi
 
-
-
   tar xf freetype2.tar.xz
 
 
@@ -543,6 +492,40 @@ build_freetype2_32() {
   sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" freetype2.pc
 }
 
+build_alsa_lib_fixed_32() {
+  cd "${srcdir}"
+
+  cd $(find . -maxdepth 1 -type d -name "*alsa-lib-1*" | sed 1q)
+
+  export CC="gcc -m32"
+  export CXX="g++ -m32"
+#  export PKG_CONFIG=i686-pc-linux-gnu-pkg-config
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig/"
+  CFLAGS+=" -flto-partition=none "
+
+  make clean
+
+  ./configure \
+      --prefix=/usr \
+      --libdir=/usr/lib32 \
+      --disable-python \
+      --disable-old-symbols \
+      --disable-topology \
+      --disable-rawmidi \
+      --disable-aload \
+      --with-pthread \
+      --disable-ucm \
+      --without-debug
+
+  sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
+
+  make
+  make DESTDIR="$pkgdir" install
+
+  cd $pkgdir/usr/lib32/pkgconfig
+  sed -i "s~\${exec_prefix}/lib32~$pkgdir/usr/lib32~g" alsa.pc
+
+}
 
 
 
@@ -556,8 +539,10 @@ build_32() {
 
 
   #32 bit build fails without these
+  export CFLAGS="${CFLAGS/-Wp,-D_FORTIFY_SOURCE=2/}"
+  export CFLAGS="${CFLAGS/-fno-plt/} -ffat-lto-objects"
   export CFLAGS="${CFLAGS/-fno-plt/}"
-  export LDFLAGS="${LDFLAGS/,-z,now/}"
+  export LDFLAGS="${LDFLAGS/,-z,relro,-z,now/}"
   export LDFLAGS="-L$pkgdir/usr/lib32 $LDFLAGS"
 
   export PKG_CONFIG_PATH="$pkgdir/usr/lib32/pkgconfig:/usr/lib32/pkgconfig"
@@ -620,7 +605,7 @@ build_32() {
 
   CPUS=$(getconf _NPROCESSORS_ONLN)
   if ((CPUS > 10)); then
-    CPUS=9;
+    CPUS=6;
   fi
 
 	make -s -j $CPUS
@@ -635,30 +620,27 @@ package_lib32-wine-wayland() {
 
   if [ -z "${WINE_BUILD_32_DEV:-}" ]; then
     build_libffi_32
-    build_libelf_32
+
     build_systemd_32
     build_wayland_32
-    build_sdl2_32
-
-
-
     build_mesa_32
-
+    build_sdl2_32
     build_openal_32
     build_freetype2_32
+    build_alsa_lib_fixed_32
 
     build_32
   else
     source ../pkgbuild-32-dev
     install_libffi_32
-    install_libelf_32
+
     install_systemd_32
     install_wayland_32
-    install_sdl2_32
-
     install_mesa_32
+    install_sdl2_32
     install_openal_32
     install_freetype2_32
+    install_alsa_lib_fixed_32
 
     build_32
   fi
@@ -690,11 +672,13 @@ package_lib32-wine-wayland() {
 
   mkdir -p $pkgdir/usr/lib/wineland
   mv $pkgdir/usr/lib32 $pkgdir/usr/lib/wineland/lib32
+  mkdir $pkgdir/usr/lib32
 
   cd $pkgdir/usr/lib/wineland/vulkan/icd.d
   sed -i "s~/usr/lib32~/usr/lib/wineland/lib32~g" *
 
   cd "${srcdir}"/wine-wayland-32-build
+
 	make -s	prefix="${pkgdir}/usr" \
     libdir="${pkgdir}/usr/lib32" \
 	  dlldir="${pkgdir}/usr/lib32/wine" install
@@ -712,5 +696,8 @@ package_lib32-wine-wayland() {
   rm -rf *.la
   rm -rf libc.*
   find . -iname "*.so*" -type f -size +1k | xargs -L1 strip -s
+
+  rm -rf "$pkgdir"/usr/lib32/wine/i386-windows/*.a
+  i686-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib32/wine/i386-windows/*.dll
 
 }
