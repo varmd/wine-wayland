@@ -16,8 +16,8 @@ arch=('x86_64')
 options=('!staticlibs' '!docs')
 license=('LGPL')
 
-export LANG=en_US.utf8
-LANG=en_US.utf8
+#export LANG=en_US.utf8
+#LANG=en_US.utf8
 export PKGEXT='.pkg.tar.zst'
 
 depends=(
