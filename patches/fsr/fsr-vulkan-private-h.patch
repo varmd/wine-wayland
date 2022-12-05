@@ -3,7 +3,7 @@
 @@ -63,6 +63,56 @@
      struct VkQueue_T* queues;
      uint32_t queue_count;
- 
+
 +    VkQueueFamilyProperties *queue_props;
 +
 +    struct wine_vk_mapping mapping;
@@ -28,7 +28,7 @@
 +    uint32_t push_size;
 +};
 +
-+struct VkSwapchainKHR_T
++struct VkFSRObject //VkSwapchainKHR_T
 +{
 +    VkSwapchainKHR swapchain; /* native swapchain */
 +
@@ -56,4 +56,4 @@
 +
      struct wine_vk_mapping mapping;
  };
- 
+

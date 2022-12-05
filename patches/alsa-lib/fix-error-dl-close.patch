@@ -1,0 +1,19 @@
+--- a/src/conf.c
++++ b/src/conf.c
+@@ -4014,9 +4022,14 @@
+ 	if (err >= 0) {
+ 		snd_config_t *nroot;
+ 		err = func(root, config, &nroot, private_data);
++
++		printf("%s config call returning 1 \n", func_name);
+ 		if (err < 0)
+ 			SNDERR("function %s returned error: %s", func_name, snd_strerror(err));
+-		snd_dlclose(h);
++//		snd_dlclose(h); //Causes crash for unknown reasons
++
++		printf("----- %s config call returning 1 \n", func_name);
++
+ 		if (err >= 0 && nroot)
+ 			err = snd_config_substitute(root, nroot);
+ 	}
+

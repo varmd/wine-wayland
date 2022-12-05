@@ -3,7 +3,7 @@
 mkdir -p $HOME/.local/share/wineland
 
 if [ -z $WINELAND_FILE_DIR ]; then
-  WINELAND_FILE_DIR="$HOME/.local/share/wineland";  
+  WINELAND_FILE_DIR="$HOME/.local/share/wineland";
 fi
 
 killall -9 wineland-civetweb
@@ -25,7 +25,7 @@ fi
 
 cd $ROOT_DIR
 
-$CIVETWEB -listening_ports 18180 -document_root $ROOT_DIR/ui \
+env $CIVETWEB -listening_ports 18180 -document_root $ROOT_DIR/ui \
 -cgi_environment WAYLAND_DISPLAY=$WAYLAND_DISPLAY,WINELAND_FILE_DIR=$WINELAND_FILE_DIR  \
 -url_rewrite_patterns \
 /list-games=$ROOT_DIR/cgi/list-games.cgi\
@@ -34,5 +34,6 @@ $CIVETWEB -listening_ports 18180 -document_root $ROOT_DIR/ui \
 ,/save-conf=$ROOT_DIR/cgi/save-conf.cgi\
 ,/save-json=$ROOT_DIR/cgi/save-json.cgi\
  &
+
 
 xdg-open http://localhost:18180

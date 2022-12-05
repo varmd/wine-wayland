@@ -1,24 +1,18 @@
-
 EXTRADEFS = -DWINE_NO_LONG_TYPES
 MODULE    = winewayland.drv
-IMPORTS   = uuid user32 gdi32 advapi32 setupapi rpcrt4 win32u
-DELAYIMPORTS = comctl32 ole32 shell32 imm32
-EXTRAINCL =
-
-EXTRALIBS = -lwayland-client  -lwayland-cursor
-
-EXTRADLLFLAGS = -mcygwin
+UNIXLIB   = winewayland.so
+IMPORTS =
+DELAYIMPORTS =
+UNIX_CFLAGS = -I/usr/include/libdrm
+UNIX_LIBS = -lwin32u -lm -lwayland-client -lwayland-cursor -lpthread
 
 C_SRCS = \
-	init.c \
-	settings.c \
-	setup-display.c \
+	dllmain.c \
 	vulkan.c \
-	waylanddrv_main.c \
-  pointer-constraints-unstable-v1-protocol.c \
-  relative-pointer-unstable-v1-protocol.c \
-  relative-pointer-unstable-v1-protocol.c \
-  xdg-shell-protocol.c \
+	init.c \
+  wayland-protocols/pointer-constraints-unstable-v1-protocol.c \
+  wayland-protocols/relative-pointer-unstable-v1-protocol.c \
+  wayland-protocols/xdg-shell-protocol.c \
 	xinerama.c
 
 RC_SRCS = version.rc
