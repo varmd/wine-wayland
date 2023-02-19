@@ -283,11 +283,11 @@ static void *get_shm( unsigned int idx )
         //use large amount of initial array to avoid crashes
         //TODO
         //probably new addresses needs to be set to zero like in server/fsync.c
-        printf("Realloc on %d \n", shm_addrs_size);
+//        printf("Realloc on %d \n", shm_addrs_size);
         shm_addrs = realloc( shm_addrs, (entry + 1) * sizeof(shm_addrs[0]) );
         if (!shm_addrs) {
           ERR("Failed to grow shm_addrs array to size %d.\n", shm_addrs_size);
-          printf("Failed to grow shm_addrs array to size %d.\n", shm_addrs_size);
+//          printf("Failed to grow shm_addrs array to size %d.\n", shm_addrs_size);
           exit(1);
         }
         //if (!(shm_addrs = RtlReAllocateHeap( GetProcessHeap(), HEAP_ZERO_MEMORY,
@@ -302,7 +302,7 @@ static void *get_shm( unsigned int idx )
         if (addr == (void *)-1)
             ERR("Failed to map page %d (offset %#lx).\n", entry, entry * pagesize);
 
-        TRACE("Mapping page %d at %p.\n", entry, addr);
+//        TRACE("Mapping page %d at %p.\n", entry, addr);
 
         if (__sync_val_compare_and_swap( &shm_addrs[entry], 0, addr ))
             munmap( addr, pagesize ); /* someone beat us to it */
@@ -406,7 +406,7 @@ static NTSTATUS get_object( HANDLE handle, struct fsync **obj )
         return ret;
     }
 
-    TRACE("Got shm index %d for handle %p.\n", shm_idx, handle);
+//    TRACE("Got shm index %d for handle %p.\n", shm_idx, handle);
 
     *obj = add_to_list( handle, type, get_shm( shm_idx ) );
     return ret;
@@ -416,7 +416,7 @@ NTSTATUS fsync_close( HANDLE handle )
 {
     UINT_PTR entry, idx = handle_to_index( handle, &entry );
 
-    TRACE("%p.\n", handle);
+//    TRACE("%p.\n", handle);
 
     if (entry < FSYNC_LIST_ENTRIES && fsync_list[entry])
     {
@@ -457,7 +457,7 @@ static NTSTATUS create_fsync( enum fsync_type type, HANDLE *handle,
     if (!ret || ret == STATUS_OBJECT_NAME_EXISTS)
     {
         add_to_list( *handle, type, get_shm( shm_idx ));
-        TRACE("-> handle %p, shm index %d.\n", *handle, shm_idx);
+//        TRACE("-> handle %p, shm index %d.\n", *handle, shm_idx);
     }
 
     free( objattr );
@@ -491,7 +491,7 @@ static NTSTATUS open_fsync( enum fsync_type type, HANDLE *handle,
     {
         add_to_list( *handle, type, get_shm( shm_idx ) );
 
-        TRACE("-> handle %p, shm index %u.\n", *handle, shm_idx);
+//        TRACE("-> handle %p, shm index %u.\n", *handle, shm_idx);
     }
     return ret;
 }
@@ -545,14 +545,14 @@ void fsync_init(void)
       exit(1);
     }
     shm_addrs_size = 1280000;
-    printf("Alloc on %p %d %ld \n", shm_addrs, shm_addrs_size, sizeof(shm_addrs[0]));
+//    printf("Alloc on %p %d %ld \n", shm_addrs, shm_addrs_size, sizeof(shm_addrs[0]));
 }
 
 NTSTATUS fsync_create_semaphore( HANDLE *handle, ACCESS_MASK access,
     const OBJECT_ATTRIBUTES *attr, LONG initial, LONG max )
 {
-    TRACE("name %s, initial %d, max %d.\n",
-        attr ? debugstr_us(attr->ObjectName) : "<no name>", initial, max);
+//    TRACE("name %s, initial %d, max %d.\n",
+//        attr ? debugstr_us(attr->ObjectName) : "<no name>", initial, max);
 
     return create_fsync( FSYNC_SEMAPHORE, handle, access, attr, initial, max );
 }
@@ -560,7 +560,7 @@ NTSTATUS fsync_create_semaphore( HANDLE *handle, ACCESS_MASK access,
 NTSTATUS fsync_open_semaphore( HANDLE *handle, ACCESS_MASK access,
     const OBJECT_ATTRIBUTES *attr )
 {
-    TRACE("name %s.\n", debugstr_us(attr->ObjectName));
+//    TRACE("name %s.\n", debugstr_us(attr->ObjectName));
 
     return open_fsync( FSYNC_SEMAPHORE, handle, access, attr );
 }
@@ -572,7 +572,7 @@ NTSTATUS fsync_release_semaphore( HANDLE handle, ULONG count, ULONG *prev )
     ULONG current;
     NTSTATUS ret;
 
-    TRACE("%p, %d, %p.\n", handle, count, prev);
+//    TRACE("%p, %d, %p.\n", handle, count, prev);
 
     if ((ret = get_object( handle, &obj ))) return ret;
     semaphore = obj->shm;
@@ -599,7 +599,7 @@ NTSTATUS fsync_query_semaphore( HANDLE handle, SEMAPHORE_INFORMATION_CLASS class
     SEMAPHORE_BASIC_INFORMATION *out = info;
     NTSTATUS ret;
 
-    TRACE("%p, %u, %p, %u, %p.\n", handle, class, info, len, ret_len);
+//    TRACE("%p, %u, %p, %u, %p.\n", handle, class, info, len, ret_len);
 
     if (class != SemaphoreBasicInformation)
     {
@@ -622,9 +622,9 @@ NTSTATUS fsync_create_event( HANDLE *handle, ACCESS_MASK access,
 {
     enum fsync_type type = (event_type == SynchronizationEvent ? FSYNC_AUTO_EVENT : FSYNC_MANUAL_EVENT);
 
-    TRACE("name %s, %s-reset, initial %d.\n",
-        attr ? debugstr_us(attr->ObjectName) : "<no name>",
-        event_type == NotificationEvent ? "manual" : "auto", initial);
+//    TRACE("name %s, %s-reset, initial %d.\n",
+//        attr ? debugstr_us(attr->ObjectName) : "<no name>",
+//        event_type == NotificationEvent ? "manual" : "auto", initial);
 
     return create_fsync( type, handle, access, attr, initial, 0xdeadbeef );
 }
@@ -632,7 +632,7 @@ NTSTATUS fsync_create_event( HANDLE *handle, ACCESS_MASK access,
 NTSTATUS fsync_open_event( HANDLE *handle, ACCESS_MASK access,
     const OBJECT_ATTRIBUTES *attr )
 {
-    TRACE("name %s.\n", debugstr_us(attr->ObjectName));
+//    TRACE("name %s.\n", debugstr_us(attr->ObjectName));
 
     return open_fsync( FSYNC_AUTO_EVENT, handle, access, attr );
 }
@@ -644,7 +644,7 @@ NTSTATUS fsync_set_event( HANDLE handle, LONG *prev )
     LONG current;
     NTSTATUS ret;
 
-    TRACE("%p.\n", handle);
+//    TRACE("%p.\n", handle);
 
     if ((ret = get_object( handle, &obj ))) return ret;
     event = obj->shm;
@@ -664,7 +664,7 @@ NTSTATUS fsync_reset_event( HANDLE handle, LONG *prev )
     LONG current;
     NTSTATUS ret;
 
-    TRACE("%p.\n", handle);
+//    TRACE("%p.\n", handle);
 
     if ((ret = get_object( handle, &obj ))) return ret;
     event = obj->shm;
@@ -683,7 +683,7 @@ NTSTATUS fsync_pulse_event( HANDLE handle, LONG *prev )
     LONG current;
     NTSTATUS ret;
 
-    TRACE("%p.\n", handle);
+//    TRACE("%p.\n", handle);
 
     if ((ret = get_object( handle, &obj ))) return ret;
     event = obj->shm;
@@ -713,7 +713,7 @@ NTSTATUS fsync_query_event( HANDLE handle, EVENT_INFORMATION_CLASS class,
     EVENT_BASIC_INFORMATION *out = info;
     NTSTATUS ret;
 
-    TRACE("%p, %u, %p, %u, %p.\n", handle, class, info, len, ret_len);
+//    TRACE("%p, %u, %p, %u, %p.\n", handle, class, info, len, ret_len);
 
     if (class != EventBasicInformation)
     {
@@ -734,8 +734,8 @@ NTSTATUS fsync_query_event( HANDLE handle, EVENT_INFORMATION_CLASS class,
 NTSTATUS fsync_create_mutex( HANDLE *handle, ACCESS_MASK access,
     const OBJECT_ATTRIBUTES *attr, BOOLEAN initial )
 {
-    TRACE("name %s, initial %d.\n",
-        attr ? debugstr_us(attr->ObjectName) : "<no name>", initial);
+//    TRACE("name %s, initial %d.\n",
+//        attr ? debugstr_us(attr->ObjectName) : "<no name>", initial);
 
     return create_fsync( FSYNC_MUTEX, handle, access, attr,
         initial ? GetCurrentThreadId() : 0, initial ? 1 : 0 );
@@ -744,7 +744,7 @@ NTSTATUS fsync_create_mutex( HANDLE *handle, ACCESS_MASK access,
 NTSTATUS fsync_open_mutex( HANDLE *handle, ACCESS_MASK access,
     const OBJECT_ATTRIBUTES *attr )
 {
-    TRACE("name %s.\n", debugstr_us(attr->ObjectName));
+//    TRACE("name %s.\n", debugstr_us(attr->ObjectName));
 
     return open_fsync( FSYNC_MUTEX, handle, access, attr );
 }
@@ -755,7 +755,7 @@ NTSTATUS fsync_release_mutex( HANDLE handle, LONG *prev )
     struct fsync *obj;
     NTSTATUS ret;
 
-    TRACE("%p, %p.\n", handle, prev);
+//    TRACE("%p, %p.\n", handle, prev);
 
     if ((ret = get_object( handle, &obj ))) return ret;
     mutex = obj->shm;
@@ -781,7 +781,7 @@ NTSTATUS fsync_query_mutex( HANDLE handle, MUTANT_INFORMATION_CLASS class,
     MUTANT_BASIC_INFORMATION *out = info;
     NTSTATUS ret;
 
-    TRACE("%p, %u, %p, %u, %p.\n", handle, class, info, len, ret_len);
+//    TRACE("%p, %u, %p, %u, %p.\n", handle, class, info, len, ret_len);
 
     if (class != MutantBasicInformation)
     {
@@ -900,28 +900,7 @@ static NTSTATUS __fsync_wait_objects( DWORD count, const HANDLE *handles,
         return STATUS_NOT_IMPLEMENTED;
 
 
-    #if 0
-    if (TRACE_ON(fsync))
-    {
-        TRACE("Waiting for %s of %d handles:", wait_any ? "any" : "all", count);
-        for (i = 0; i < count; i++)
-            TRACE(" %p", handles[i]);
 
-        if (msgwait)
-            TRACE(" or driver events");
-        if (alertable)
-            TRACE(", alertable");
-
-        if (!timeout)
-            TRACE(", timeout = INFINITE.\n");
-        else
-        {
-            timeleft = update_timeout( end );
-            TRACE(", timeout = %ld.%07ld sec.\n",
-                (long) (timeleft / TICKSPERSEC), (long) (timeleft % TICKSPERSEC));
-        }
-    }
-    #endif
 
     if (wait_any || count == 1)
     {
@@ -964,7 +943,7 @@ static NTSTATUS __fsync_wait_objects( DWORD count, const HANDLE *handles,
 
                         if (current)
                         {
-                            TRACE("Woken up by handle %p [%d].\n", handles[i], i);
+//                            TRACE("Woken up by handle %p [%d].\n", handles[i], i);
                             return i;
                         }
 
@@ -978,14 +957,14 @@ static NTSTATUS __fsync_wait_objects( DWORD count, const HANDLE *handles,
 
                         if (mutex->tid == GetCurrentThreadId())
                         {
-                            TRACE("Woken up by handle %p [%d].\n", handles[i], i);
+//                            TRACE("Woken up by handle %p [%d].\n", handles[i], i);
                             mutex->count++;
                             return i;
                         }
 
                         if (!(tid = __sync_val_compare_and_swap( &mutex->tid, 0, GetCurrentThreadId() )))
                         {
-                            TRACE("Woken up by handle %p [%d].\n", handles[i], i);
+//                            TRACE("Woken up by handle %p [%d].\n", handles[i], i);
                             mutex->count = 1;
                             return i;
                         }
@@ -1000,7 +979,7 @@ static NTSTATUS __fsync_wait_objects( DWORD count, const HANDLE *handles,
 
                         if (__sync_val_compare_and_swap( &event->signaled, 1, 0 ))
                         {
-                            TRACE("Woken up by handle %p [%d].\n", handles[i], i);
+//                            TRACE("Woken up by handle %p [%d].\n", handles[i], i);
                             return i;
                         }
 
@@ -1015,7 +994,7 @@ static NTSTATUS __fsync_wait_objects( DWORD count, const HANDLE *handles,
 
                         if (__atomic_load_n( &event->signaled, __ATOMIC_SEQ_CST ))
                         {
-                            TRACE("Woken up by handle %p [%d].\n", handles[i], i);
+//                            TRACE("Woken up by handle %p [%d].\n", handles[i], i);
                             return i;
                         }
 

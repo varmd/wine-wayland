@@ -14,6 +14,7 @@ makedepends+=(
     'cmake'
     'meson'
     'ninja'
+    'patchelf'
     'python-mako'
     'glslang'
     'gperf'
@@ -24,8 +25,6 @@ pkgname+=('lib32-wine-wayland')
 
 url_libffi="https://github.com/libffi/libffi/archive/refs/tags/v3.4.2.zip"
 url_wayland="https://github.com/wayland-project/wayland/archive/refs/tags/1.21.0.zip"
-
-url_openal="https://github.com/kcat/openal-soft/archive/refs/tags/1.21.1.zip"
 
 url_mesa="https://github.com/mesa3d/mesa/archive/f8bf2a9a15d2572974448ed67a282f195d490323.zip"
 
@@ -288,47 +287,6 @@ build_wayland_32() {
 }
 
 
-
-
-build_openal_32() {
-  if [ -f $pkgdir/libopenal.so ]; then
-    return 1
-  fi
-
-
-  cd "${srcdir}"
-
-  rm -rf $(find . -maxdepth 1 -type d -name "*openal*" | sed 1q)
-
-  if [ ! -f openal.zip ]; then
-    curl -L $url_openal > openal.zip
-  fi
-
-  unzip -q openal.zip
-
-  export CC="gcc -m32"
-  export CXX="g++ -m32"
-  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig:$pkgdir/usr/lib32/pkgconfig"
-
-  cd $(find . -maxdepth 1 -type d -name "*openal*" | sed 1q)
-
-
-  rm -rf build
-
-  cmake -S . -B build \
-    -DCMAKE_INSTALL_PREFIX=/usr \
-    -DCMAKE_BUILD_TYPE=None \
-    -DALSOFT_EXAMPLES=OFF \
-    -DALSOFT_UTILS=OFF \
-    -DCMAKE_INSTALL_LIBDIR=lib32
-  cmake --build build
-  DESTDIR="$pkgdir" cmake --install build
-
-  cd $pkgdir/usr/lib32/pkgconfig
-  sed -i "s~\${exec_prefix}/lib32~$pkgdir/usr/lib32~g" openal.pc
-}
-
-
 build_mesa_32() {
 
   #if [ -d $srcdir/mesa/build ]; then
@@ -534,6 +492,7 @@ build_32() {
   cd "${srcdir}"
 
   mkdir -p $pkgdir/usr/lib32
+  cp /usr/lib32/ld-* $pkgdir/usr/lib32
   cp /usr/lib32/lib* $pkgdir/usr/lib32
 
 
@@ -593,11 +552,10 @@ build_32() {
     --without-xxf86vm \
     --without-xshm \
     --without-usb \
-    --with-freetype \
+    --without-freetype \
     --with-vulkan \
     --with-sdl \
     --with-alsa \
-    --with-openal \
     --without-netapi \
     --without-ldap \
 		--disable-tests
@@ -625,8 +583,7 @@ package_lib32-wine-wayland() {
     build_wayland_32
     build_mesa_32
     build_sdl2_32
-    build_openal_32
-    build_freetype2_32
+    #build_freetype2_32
     build_alsa_lib_fixed_32
 
     build_32
@@ -638,8 +595,7 @@ package_lib32-wine-wayland() {
     install_wayland_32
     install_mesa_32
     install_sdl2_32
-    install_openal_32
-    install_freetype2_32
+    #install_freetype2_32
     install_alsa_lib_fixed_32
 
     build_32
@@ -655,7 +611,6 @@ package_lib32-wine-wayland() {
   rm -rf  $pkgdir/usr/lib32/pkgconfig
   rm -rf  $pkgdir/usr/lib32/cmake
   rm -rf  $pkgdir/usr/lib32/*.a
-  rm -rf  $pkgdir/usr/lib32/libdl*
   rm -rf  $pkgdir/usr/lib32/libasan*
   rm -rf  $pkgdir/usr/lib32/libicu*
   rm -rf  $pkgdir/usr/lib32/libubsan*
@@ -684,8 +639,6 @@ package_lib32-wine-wayland() {
 	  dlldir="${pkgdir}/usr/lib32/wine" install
 
 
-
-
   #cleanup
   rm -rf $pkgdir/usr/lib32/wine/i386-unix/*.a
   rm -rf $pkgdir/usr/lib32/wine/i386-unix/*.def
@@ -694,7 +647,7 @@ package_lib32-wine-wayland() {
   cd $pkgdir/usr/lib/wineland/lib32/
   rm -rf *.spec
   rm -rf *.la
-  rm -rf libc.*
+
   find . -iname "*.so*" -type f -size +1k | xargs -L1 strip -s
 
   rm -rf "$pkgdir"/usr/lib32/wine/i386-windows/*.a

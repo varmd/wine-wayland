@@ -16,7 +16,7 @@ index 84abb0d205..c8047bfa3e 100644
 @@ -487,7 +487,11 @@ NTSTATUS WINAPI NtSetEvent( HANDLE handle, LONG *prev_state )
  NTSTATUS WINAPI NtSetEvent( HANDLE handle, LONG *prev_state )
  {
-     NTSTATUS ret;
+     unsigned int ret;
 +
 +    if (do_fsync())
 +        return fsync_set_event( handle, prev_state );

@@ -15,7 +15,7 @@ index 3d6db08668..2c8ef9bd6b 100644
 @@ -400,7 +400,11 @@ NTSTATUS WINAPI NtQuerySemaphore( HANDLE handle, SEMAPHORE_INFORMATION_CLASS cla
  NTSTATUS WINAPI NtReleaseSemaphore( HANDLE handle, ULONG count, ULONG *previous )
  {
-     NTSTATUS ret;
+     unsigned int ret;
 +
 +    if (do_fsync())
 +        return fsync_release_semaphore( handle, count, previous );

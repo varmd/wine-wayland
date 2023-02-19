@@ -232,11 +232,13 @@ void fsr_real_to_user(POINT *pos)
     fsr_scale_real_to_user(pos);
 }
 
+/*
 static void fsr_rect_user_to_real(RECT *rect)
 {
     fsr_user_to_real((POINT *)&rect->left);
     fsr_user_to_real((POINT *)&rect->right);
 }
+*/
 
 //end fsr
 
@@ -290,8 +292,8 @@ void xinerama_init( unsigned int width, unsigned int height )
 
 static BOOL desktop_get_gpus( struct gdi_gpu **new_gpus, int *count )
 {
-    static const WCHAR wine_adapterW[] = {'W','a','y','l','a','n','d','G','P','U',0};;
     struct gdi_gpu *gpu;
+    static const WCHAR wine_adapterW[] = {'W','a','y','l','a','n','d','G','P','U',0};
 
     gpu = calloc( 1, sizeof(*gpu) );
     if (!gpu) return FALSE;
@@ -322,17 +324,7 @@ static BOOL desktop_get_adapters( ULONG_PTR gpu_id,
 static BOOL desktop_add_monitors( const struct gdi_device_manager *device_manager, void *param )
 {
     struct gdi_monitor monitor = {0};
-    DWORD len = 0;
-    char *name;
-
-    name = malloc(20);
-    snprintf(name, 20, "WaylandOutput0");
-
-    if (RtlUTF8ToUnicodeN(monitor.name, sizeof(monitor.name), &len,
-                          name, strlen(name) + 1))
-    {
-        monitor.name[0] = 0;
-    }
+    UINT len = 0;
 
     SetRect(&monitor.rc_monitor, 0, 0,
             screen_sizes[0].width,
@@ -382,17 +374,16 @@ BOOL WAYLANDDRV_UpdateDisplayDevices( const struct gdi_device_manager *device_ma
                                   BOOL force, void *param )
 {
 
-   static int done = 0;
-
+  static int done = 0;
   struct gdi_adapter *adapters = NULL;
-  struct gdi_monitor *monitors = NULL;
   struct gdi_gpu *gpus  = NULL;
   INT gpu_count, adapter_count;
+  RECT rect = monitor_default_rect(0, 0, 0);
 
   if (done)
     return TRUE;
 
-  RECT rect = monitor_default_rect(0, 0, 0);
+
   DEVMODEW mode =
   {
       .dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_BITSPERPEL | DM_DISPLAYFLAGS | DM_DISPLAYFREQUENCY,
@@ -463,20 +454,16 @@ static int get_matching_output_mode(LPDEVMODEW devmode)
 LONG WAYLANDDRV_ChangeDisplaySettings(LPDEVMODEW displays, HWND hwnd, DWORD flags,
                                    LPVOID lpvoid)
 {
-    LONG ret;
     DEVMODEW *devmode;
 
     for (devmode = displays; devmode->dmSize; devmode = NEXT_DEVMODEW(devmode))
     {
+        /*
         TRACE("device=%s devmode=%dx%d@%d %dbpp\n",
               wine_dbgstr_w(devmode->dmDeviceName), devmode->dmPelsWidth,
               devmode->dmPelsHeight, devmode->dmDisplayFrequency,
               devmode->dmBitsPerPel);
-
-        if (!devmode->dmDeviceName)
-        {
-            return DISP_CHANGE_BADPARAM;
-        }
+        */
 
         if(!get_matching_output_mode(devmode)) {
           return DISP_CHANGE_BADMODE;

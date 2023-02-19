@@ -1,6 +1,6 @@
 # Created by: varmd
 
-RELEASE=7.21
+RELEASE=8.2
 _pkgname=('wine-wayland')
 pkgname=('wine-wayland' 'wineland' )
 
@@ -16,8 +16,6 @@ arch=('x86_64')
 options=('!staticlibs' '!docs')
 license=('LGPL')
 
-#export LANG=en_US.utf8
-#LANG=en_US.utf8
 export PKGEXT='.pkg.tar.zst'
 
 depends=(
@@ -39,6 +37,7 @@ makedepends=(
   'autoconf'
   'ncurses'
   'bison'
+  'patchelf'
   'perl'
   'flex'
   'gcc'
@@ -51,7 +50,7 @@ makedepends=(
 
 source=(
   "https://github.com/wine-mirror/wine/archive/wine-$RELEASE.zip"
-  "https://github.com/civetweb/civetweb/archive/v1.12.zip"
+  "https://github.com/civetweb/civetweb/archive/v1.15.tar.gz"
   "https://github.com/libsdl-org/SDL/archive/refs/tags/release-2.0.16.zip"
   "https://github.com/alsa-project/alsa-lib/archive/refs/tags/v1.2.8.zip"
 )
@@ -194,11 +193,6 @@ prepare() {
     cd "${srcdir}"/"${_winesrcdir}"
 
     patch -Np1 < '../../patches/enable-wayland.patch'
-
-    #fix civ 6
-    #TODO remove when fixed in Wine
-    msg2 "Patching for civ6"
-    patch -Np1 < '../../patches/fix-civ6.patch'
 
     msg2 "Patching broken alsa"
     patch -Np1 < '../../patches/fix-alsa-winecfg.patch'
@@ -362,6 +356,21 @@ prepare() {
       #misc exe
       sed -i '/programs\/winebrowser/d' configure.ac
       sed -i '/programs\/write/d' configure.ac
+      sed -i '/programs\/dpvsetup/d' configure.ac
+      sed -i '/programs\/msinfo32/d' configure.ac
+
+      #misc cpl + exe
+      sed -i '/bthprops/d' configure.ac
+      sed -i '/irprops/d' configure.ac
+      sed -i '/joy\./d' configure.ac
+      sed -i '/programs\/chcp\./d' configure.ac
+
+
+      #misc dll
+
+      #indeo
+      sed -i '/ir50_32/d' configure.ac
+
 
 
 
@@ -397,7 +406,6 @@ build() {
   export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:${srcdir}/sdl2-install/usr/lib/pkgconfig:/usr/lib/pkgconfig"
   export LD_LIBRARY_PATH="/usr/lib:${srcdir}/sdl2-install/usr/lib:${srcdir}/alsa-lib-install/usr/lib"
 
-#  export CFLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=1 -O1"
   export CFLAGS="$CFLAGS"
 
   CFLAGS="${CFLAGS/-Wp,-D_FORTIFY_SOURCE=2/}"
@@ -408,6 +416,9 @@ build() {
 
   export CFLAGS="${CFLAGS/-fno-plt/}"
   export LDFLAGS="${LDFLAGS/,-z,relro,-z,now/}"
+
+
+#    --enable-archs=i386,x86_64 \
 
   msg2 'Building Wine-64...'
 	cd  "${srcdir}"/${_pkgname}-64-build
@@ -447,7 +458,6 @@ build() {
     --with-alsa \
     --with-sdl \
     --with-vulkan \
-    --disable-win16 \
 		--enable-win64 \
 		--with-mingw \
 		--disable-tests
@@ -463,7 +473,6 @@ build() {
 
 package_wineland() {
 
-
   depends=(
     'adwaita-icon-theme'
     'fontconfig'
@@ -473,15 +482,12 @@ package_wineland() {
     'alsa-lib'
     'mesa'
     'vulkan-icd-loader'
-
     'libxml2'
-    'lib32-glibc'
   )
-
 
   #build civetweb for wineland
   cd $srcdir
-  cd civetweb-1.12
+  cd civetweb-1.15
   make build WITH_IPV6=0 USE_LUA=0 PREFIX="$pkgdir/usr"
 
   mkdir -p ${pkgdir}/usr/bin
@@ -495,6 +501,8 @@ package_wineland() {
 
   mkdir -p ${pkgdir}/usr/share/applications
   cp -r ../wineland/wineland.desktop ${pkgdir}/usr/share/applications/wineland.desktop
+
+  cp /usr/bin/patchelf $pkgdir/usr/bin/patchelf-for-wineland
 
 }
 
@@ -541,6 +549,7 @@ package_wine-wayland() {
   strip -s *
 
   x86_64-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/x86_64-windows/*.dll
+  #i686-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/i386-windows/*.dll
 
 
   #SDL2

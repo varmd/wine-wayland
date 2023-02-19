@@ -8,7 +8,7 @@ Wine-wayland allows running DX9/DX11/DX12 and Vulkan games using pure Wayland an
  * You want to remove X11 related packages from your PC
  * You want to experience potentially faster and smoother gaming on Wayland
  * You are concerned about insecure X11 games that can spy on other apps running on X11
- * You want to replace all the lib32 packages with only one package, and still be able to play most 32-bit games
+ * You want to remove all the lib32 packages from your PC and still be able to play most 32-bit games
  * You want to use a launcher which does not require GTK, QT or Electron.
 
 ## Screenshot
@@ -26,7 +26,7 @@ Wine-wayland allows running DX9/DX11/DX12 and Vulkan games using pure Wayland an
 
 ## Installation with wineland
 
-From v6.11, it's possible to install only the wineland launcher, without system-wide installation of wine-wayland. The launcher
+From v6.11, it's possible to install only the wineland launcher, without installing wine-wayland. The launcher
 will then download wine-wayland, dxvk and mangohud from Github and run games without system-wide installation of wine-wayland.
 
 You can download the wineland launcher package from https://github.com/varmd/wine-wayland/releases. This version is automatically built via Github Actions. cd to download folder and install. After installation, refer to the section below on how to configure games for the wineland launcher.
@@ -84,6 +84,13 @@ After setting up your game with the steps above, you can
 run your games from the terminal.
 
     wineland your-game
+
+## Using wineland to setup portable game installtion
+
+First uninstall wine-wayland and lib32-wine-wayland packages if installed, then setup and run your game using
+wineland. Afterwards, you can uninstall wineland and wine-wayland and run the game by going to the wrapper folder and running
+start-portable.sh. For example for Subnautica `cd ~/.local/share/wineland/subnautica` and `sh start-portable.sh`
+
 
 ## Using terminal to run games without wineland launcher
 
@@ -175,6 +182,17 @@ Then in the terminal run sh start-your-game.sh
 * HeidiSQL
 
 ### Changelog
+
+#### Release 8.1
+
+ * Add portable mode to run games without wineland or wine-wayland
+ * Update to Wine 8.2
+ * Update FSYNC to Wine 8.2
+ * Update FSR to Wine 8.2
+ * Update VKD3D
+ * Remove lib32-glibc runtime dependency for wineland
+ * Disable FSR for 32-bit games
+ * Misc fixes and improvements
 
 #### Release 7.21
 

@@ -4,7 +4,7 @@ static int fsr_object_count_max = 5;
 typedef struct VkSwapchainCreateInfoKHR32
 {
     VkStructureType sType;
-    const void *pNext;
+    PTR32 pNext;
     VkSwapchainCreateFlagsKHR flags;
     VkSurfaceKHR DECLSPEC_ALIGN(8) surface;
     uint32_t minImageCount;
@@ -15,7 +15,7 @@ typedef struct VkSwapchainCreateInfoKHR32
     VkImageUsageFlags imageUsage;
     VkSharingMode imageSharingMode;
     uint32_t queueFamilyIndexCount;
-    const uint32_t *pQueueFamilyIndices;
+    PTR32 pQueueFamilyIndices;
     VkSurfaceTransformFlagBitsKHR preTransform;
     VkCompositeAlphaFlagBitsKHR compositeAlpha;
     VkPresentModeKHR presentMode;
@@ -746,11 +746,8 @@ static void destroy_pipeline(struct wine_device *device, struct fs_comp_pipeline
 static VkResult create_pipeline(struct wine_device *device, struct VkFSRObject *swapchain,
     const uint32_t *code, uint32_t code_size, uint32_t push_size, struct fs_comp_pipeline *pipeline)
 {
-#if defined(USE_STRUCT_CONVERSION)
     VkComputePipelineCreateInfo pipelineInfo = {0};
-#else
-    VkComputePipelineCreateInfo pipelineInfo = {0};
-#endif
+
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {0};
     VkShaderModuleCreateInfo shaderInfo = {0};
     VkPushConstantRange pushConstants;
@@ -814,15 +811,9 @@ out:
 static VkResult create_descriptor_set(struct wine_device *device, struct VkFSRObject *swapchain, struct fs_hack_image *hack)
 {
     VkResult res;
-#if defined(USE_STRUCT_CONVERSION)
     VkDescriptorSetAllocateInfo descriptorAllocInfo = {0};
     VkWriteDescriptorSet descriptorWrites[2] = {{0}, {0}};
     VkDescriptorImageInfo userDescriptorImageInfo = {0}, realDescriptorImageInfo = {0};
-#else
-    VkDescriptorSetAllocateInfo descriptorAllocInfo = {0};
-    VkWriteDescriptorSet descriptorWrites[2] = {{0}, {0}};
-    VkDescriptorImageInfo userDescriptorImageInfo = {0}, realDescriptorImageInfo = {0};
-#endif
 
     descriptorAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     descriptorAllocInfo.descriptorPool = swapchain->descriptor_pool;
@@ -910,17 +901,11 @@ static VkResult init_compute_state(struct wine_device *device, struct VkFSRObjec
     VkDescriptorSetLayoutCreateInfo descriptorLayoutInfo = {0};
     VkDeviceSize fsrMemTotal = 0, offs;
     VkImageCreateInfo imageInfo = {0};
-#if defined(USE_STRUCT_CONVERSION)
     VkMemoryRequirements fsrMemReq;
     VkMemoryAllocateInfo allocInfo = {0};
     VkPhysicalDeviceMemoryProperties memProperties;
     VkImageViewCreateInfo viewInfo = {0};
-#else
-    VkMemoryRequirements fsrMemReq;
-    VkMemoryAllocateInfo allocInfo = {0};
-    VkPhysicalDeviceMemoryProperties memProperties;
-    VkImageViewCreateInfo viewInfo = {0};
-#endif
+
     uint32_t fsr_memory_type = -1, i;
 
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -1197,28 +1182,19 @@ static void destroy_fs_hack_image(struct wine_device *device, struct VkFSRObject
     device->funcs.p_vkDestroySemaphore(device->device, hack->blit_finished, NULL);
 }
 
-#if !defined(USE_STRUCT_CONVERSION)
 static VkResult init_fs_hack_images(struct wine_device *device, struct VkFSRObject *swapchain, VkSwapchainCreateInfoKHR *createinfo)
-#else //32bit
-static VkResult init_fs_hack_images(struct wine_device *device, struct VkFSRObject *swapchain, VkSwapchainCreateInfoKHR *createinfo)
-#endif
 {
     VkResult res;
     VkImage *real_images = NULL;
     VkDeviceSize userMemTotal = 0, offs;
     VkImageCreateInfo imageInfo = {0};
     VkSemaphoreCreateInfo semaphoreInfo = {0};
-#if defined(USE_STRUCT_CONVERSION)
+
     VkMemoryRequirements userMemReq;
     VkMemoryAllocateInfo allocInfo = {0};
     VkPhysicalDeviceMemoryProperties memProperties;
     VkImageViewCreateInfo viewInfo = {0};
-#else
-    VkMemoryRequirements userMemReq;
-    VkMemoryAllocateInfo allocInfo = {0};
-    VkPhysicalDeviceMemoryProperties memProperties;
-    VkImageViewCreateInfo viewInfo = {0};
-#endif
+
     uint32_t count, i = 0, user_memory_type = -1;
 
     res = device->funcs.p_vkGetSwapchainImagesKHR(device->device, swapchain->swapchain, &count, NULL);
@@ -1371,7 +1347,7 @@ fail:
 
 
 
-#if !defined(USE_STRUCT_CONVERSION)
+#ifdef _WIN64
 static inline void convert_VkSwapchainCreateInfoKHR_win64_to_host(const VkSwapchainCreateInfoKHR *in, VkSwapchainCreateInfoKHR *out)
 {
     if (!in) return;
@@ -1379,7 +1355,7 @@ static inline void convert_VkSwapchainCreateInfoKHR_win64_to_host(const VkSwapch
     out->sType = in->sType;
     out->pNext = in->pNext;
     out->flags = in->flags;
-    out->surface = wine_surface_from_handle(in->surface)->driver_surface;
+    out->surface = in->surface ? wine_surface_from_handle(in->surface)->driver_surface : 0;
     out->minImageCount = in->minImageCount;
     out->imageFormat = in->imageFormat;
     out->imageColorSpace = in->imageColorSpace;
@@ -1395,15 +1371,15 @@ static inline void convert_VkSwapchainCreateInfoKHR_win64_to_host(const VkSwapch
     out->clipped = in->clipped;
     out->oldSwapchain = in->oldSwapchain;
 }
-#endif /* USE_STRUCT_CONVERSION */
+#endif
 
-#if defined(USE_STRUCT_CONVERSION)
+
 static inline void convert_VkSwapchainCreateInfoKHR_win32_to_host(const VkSwapchainCreateInfoKHR32 *in, VkSwapchainCreateInfoKHR *out)
 {
     if (!in) return;
 
     out->sType = in->sType;
-    out->pNext = in->pNext;
+    out->pNext = NULL;
     out->flags = in->flags;
     out->surface = wine_surface_from_handle(in->surface)->driver_surface;
     out->minImageCount = in->minImageCount;
@@ -1414,19 +1390,19 @@ static inline void convert_VkSwapchainCreateInfoKHR_win32_to_host(const VkSwapch
     out->imageUsage = in->imageUsage;
     out->imageSharingMode = in->imageSharingMode;
     out->queueFamilyIndexCount = in->queueFamilyIndexCount;
-    out->pQueueFamilyIndices = in->pQueueFamilyIndices;
+    out->pQueueFamilyIndices = (const uint32_t *)UlongToPtr(in->pQueueFamilyIndices);
     out->preTransform = in->preTransform;
     out->compositeAlpha = in->compositeAlpha;
     out->presentMode = in->presentMode;
     out->clipped = in->clipped;
     out->oldSwapchain = in->oldSwapchain;
 }
-#endif /* USE_STRUCT_CONVERSION */
+
 
 NTSTATUS wine_vkCreateSwapchainKHR(void *args)
 {
   int i = 0;
-#if !defined(USE_STRUCT_CONVERSION)
+#ifdef _WIN64
   struct vkCreateSwapchainKHR_params *params = args;
 
   const VkSwapchainCreateInfoKHR *create_info = params->pCreateInfo;
@@ -1470,7 +1446,7 @@ NTSTATUS wine_vkCreateSwapchainKHR(void *args)
     object = fsr_objects[i];
     object->fs_hack_enabled = FALSE;
 
-    #if !defined(USE_STRUCT_CONVERSION)
+    #ifdef _WIN64
       convert_VkSwapchainCreateInfoKHR_win64_to_host(params->pCreateInfo, &native_info);
     #else //32 bit
       convert_VkSwapchainCreateInfoKHR_win32_to_host(params->pCreateInfo, &native_info);
@@ -1594,7 +1570,7 @@ NTSTATUS wine_vkCreateSwapchainKHR(void *args)
 NTSTATUS wine_vkDestroySwapchainKHR(void *args)
 {
 
-#if !defined(USE_STRUCT_CONVERSION)
+#ifdef _WIN64
     struct vkDestroySwapchainKHR_params *params = args;
 #else
     struct
@@ -1663,7 +1639,7 @@ NTSTATUS wine_vkDestroySwapchainKHR(void *args)
 
 NTSTATUS wine_vkGetSwapchainImagesKHR(void *args)
 {
-#if !defined(USE_STRUCT_CONVERSION)
+#ifdef _WIN64
     struct vkGetSwapchainImagesKHR_params *params = args;
 #else
 
@@ -1766,11 +1742,7 @@ static void bind_pipeline(struct wine_device *device, VkCommandBuffer cmd, struc
             0, pipeline->push_size, push_data);
 }
 
-#if defined(USE_STRUCT_CONVERSION)
 static void init_barrier(VkImageMemoryBarrier *barrier)
-#else
-static void init_barrier(VkImageMemoryBarrier *barrier)
-#endif
 {
     barrier->sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier->pNext = NULL;
@@ -1786,13 +1758,9 @@ static void init_barrier(VkImageMemoryBarrier *barrier)
 
 static VkResult record_fsr_cmd(struct wine_device *device, struct VkFSRObject *swapchain, struct fs_hack_image *hack)
 {
-#if defined(USE_STRUCT_CONVERSION)
     VkImageMemoryBarrier barriers[3] = {{0}};
     VkCommandBufferBeginInfo beginInfo = {0};
-#else
-    VkImageMemoryBarrier barriers[3] = {{0}};
-    VkCommandBufferBeginInfo beginInfo = {0};
-#endif
+
     union
     {
         uint32_t uint[16];
@@ -1955,7 +1923,7 @@ static VkResult record_fsr_cmd(struct wine_device *device, struct VkFSRObject *s
 
 NTSTATUS wine_vkQueuePresentKHR(void *args)
 {
-#if !defined(USE_STRUCT_CONVERSION)
+#ifdef _WIN64
     struct vkQueuePresentKHR_params *params = args;
 #else
     struct

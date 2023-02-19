@@ -8,35 +8,6 @@
  #include <time.h>
  #include <stdlib.h>
 
-@@ -698,6 +699,8 @@
-     struct VkDevice_T *object;
-     unsigned int i;
-     VkResult res;
-+    // Enable shaderStorageImageWriteWithoutFormat for fshack
-+    VkPhysicalDeviceFeatures features = {0};
-
-     TRACE("%p, %p, %p, %p\n", phys_dev, create_info, allocator, device);
-
-@@ -725,6 +728,19 @@
-
-     object->phys_dev = phys_dev;
-
-+#if !defined(USE_STRUCT_CONVERSION) //disable for 32bit, crashes Witcher 1
-+    //if (create_info_host.pEnabledFeatures) //crashes from Wine 7.21 might not be needed
-+    //{
-+    //    features = *create_info_host.pEnabledFeatures;
-+    //    features.shaderStorageImageWriteWithoutFormat = VK_TRUE;
-+    //    create_info_host.pEnabledFeatures = &features;
-+    //}
-+    //else if (!create_info_host.pEnabledFeatures)
-+    //{
-+    //    features.shaderStorageImageWriteWithoutFormat = VK_TRUE;
-+    //    create_info_host.pEnabledFeatures = &features;
-+    //}
-+#endif
-     res = wine_vk_device_convert_create_info(create_info, &create_info_host);
-     if (res == VK_SUCCESS)
-         res = phys_dev->instance->funcs.p_vkCreateDevice(phys_dev->phys_dev,
 @@ -1470,6 +1470,7 @@
      struct wine_phys_dev *phys_dev = wine_phys_dev_from_handle(handle);
      struct wine_surface *surface = wine_surface_from_handle(surface_handle);

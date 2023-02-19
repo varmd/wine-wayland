@@ -3,10 +3,10 @@
 #
 
 WINE_VK_DXVK_VERSION="2.0"
-WINE_WAYLAND_VERSION="7.21"
-VKD3D_VERSION="2.7"
+WINE_WAYLAND_VERSION="8.2"
+VKD3D_VERSION="2.8"
 MANGOHUD_URL="/v0.6.8/MangoHud-0.6.8.r0.gefdcc6d.tar.gz"
-WINE_WAYLAND_TAG_NUM="2"
+WINE_WAYLAND_TAG_NUM="1"
 
 #partition check
 #df -P ~/.local/share/wineland/game/winebin/usr/bin/wine64 | tail -1 | cut -d' ' -f 1
@@ -27,6 +27,7 @@ killall -9 wineserver &> /dev/null
 pgrep -f "\.exe" | xargs -L1 kill -9 &> /dev/null
 pgrep -f "\.exe" | xargs -L1 kill -9 &> /dev/null
 pgrep -f "\.exe" | xargs -L1 kill -9 &> /dev/null
+pkill -9 "\.exe"
 
 #needs to be here for GDI
 
@@ -53,7 +54,7 @@ LOG_PATH=$PWD/$1/log.log
 
 
 
-WINEDLLOVERRIDES="d3dcompiler_47,d3d9,dxgi,d3d11,d3d12=n,b;gameux=d;dinput=d;winedbg=d;winemenubuilder.exe=d;mscoree=d;mshtml=d;cchromaeditorlibrary64=d;$WINEDLLOVERRIDES"
+WINEDLLOVERRIDES="openal32,d3dcompiler_47,d3d9,dxgi,d3d11,d3d12=n,b;dinput=d;winedbg=d;winemenubuilder.exe=d;mscoree=d;mshtml=d;cchromaeditorlibrary64=d;$WINEDLLOVERRIDES"
 
 WINE_VK_WAYLAND_WIDTH=1920
 WINE_VK_WAYLAND_HEIGHT=1080
@@ -140,8 +141,6 @@ else
   cp -r mangohud/usr/share/vulkan/implicit_layer.d/MangoHud.json mangohud/mangohud.json
 
 
-
-
   if [[ -z "$IS_64_EXE" ]]; then
     echo "Using 32bit mangohud"
     LIB="lib32"
@@ -158,7 +157,7 @@ else
   export VK_LAYER_PATH="$PWD_PATH/mangohud"
   #disable wined3d which runs even with dxvk on and crashes due to opengl
   #wined3d=d disabled as it crashes witcher1
-  #WINEDLLOVERRIDES="gameux=d;wined3d=d;$WINEDLLOVERRIDES"
+  #WINEDLLOVERRIDES="wined3d=d;$WINEDLLOVERRIDES"
 
 fi #end mangohud
 
@@ -166,7 +165,6 @@ fi #end mangohud
 
 
 cd "$PWD_PATH"
-
 
 
 if [ ! -f /usr/lib/wine/x86_64-unix/winewayland.drv.so ]; then
@@ -179,10 +177,14 @@ fi
 
 #download local wine
 if [[ "$USE_LOCAL_WINE" ]]; then
+
+  #copy partable sh
+  cp /usr/lib/wineland/ui/start-portable.sh $PWD_PATH
+
   if [ ! -d $PWD_PATH/winebin ]; then
 
     if [ ! -f $PWD_PATH/../wine-wayland-${WINE_WAYLAND_VERSION}-1-x86_64.pkg.tar.zst ]; then
-      echo "Downloading 64bit wine-wayland"
+      echo "Downloading 64bit wine-wayland from github"
       curl -L "https://github.com/varmd/wine-wayland/releases/download/v${WINE_WAYLAND_VERSION}.${WINE_WAYLAND_TAG_NUM}/wine-wayland-${WINE_WAYLAND_VERSION}-1-x86_64.pkg.tar.zst" > $PWD_PATH/../wine-wayland-${WINE_WAYLAND_VERSION}-1-x86_64.pkg.tar.zst
     fi
 
@@ -193,13 +195,13 @@ if [[ "$USE_LOCAL_WINE" ]]; then
 
     if [[ "$IS_64_EXE" ]]; then
       echo ""
-      #copy sdl2
+      #copy sdl2 and alsa
       cp $PWD_PATH/winebin/usr/lib/wineland/lib/* $PWD_PATH/winebin/usr/lib/
     else
 
 
       if [ ! -f $PWD_PATH/../lib32-wine-wayland-${WINE_WAYLAND_VERSION}-1-x86_64.pkg.tar.zst ]; then
-        echo "Downloading 32bit wine wayland"
+        echo "Downloading 32bit wine wayland from github"
         curl -L "https://github.com/varmd/wine-wayland/releases/download/v${WINE_WAYLAND_VERSION}.${WINE_WAYLAND_TAG_NUM}/lib32-wine-wayland-${WINE_WAYLAND_VERSION}-1-x86_64.pkg.tar.zst" > $PWD_PATH/../lib32-wine-wayland-${WINE_WAYLAND_VERSION}-1-x86_64.pkg.tar.zst
       fi
 
@@ -210,6 +212,8 @@ if [[ "$USE_LOCAL_WINE" ]]; then
       mkdir $PWD_PATH/winebin/usr/lib/wineland/vulkan/orig
       cp $PWD_PATH/winebin/usr/lib/wineland/vulkan/icd.d/*json $PWD_PATH/winebin/usr/lib/wineland/vulkan/orig/
 
+      #copy patchelf for 32bit
+      cp /usr/bin/patchelf-for-wineland $PWD_PATH/winebin/usr/bin/
 
 
     fi
@@ -257,9 +261,12 @@ if [ -d $PWD_PATH/winebin ]; then
       else #home cache
         cp -r $PWD_PATH/winebin $HOME/.cache/wineland/
         NOEXEC_BIN_PATH="$HOME/.cache/wineland/winebin/usr/bin:"
+
         NOEXEC_LIB_PATH="$HOME/.cache/wineland/winebin/usr/lib:"
         _NOEXEC_LIB_PATH="$HOME/.cache/wineland/winebin/usr/lib"
         NOEXEC_LIB32_PATH="$HOME/.cache/wineland/winebin/usr/lib/wineland/lib32:"
+        _NOEXEC_BIN_PATH="$HOME/.cache/wineland/winebin/usr/bin"
+        _NOEXEC_LIB32_PATH="$HOME/.cache/wineland/winebin/usr/lib/wineland/lib32"
 
       fi
     else #tmp
@@ -268,6 +275,8 @@ if [ -d $PWD_PATH/winebin ]; then
       NOEXEC_LIB_PATH="/tmp/wineland/winebin/usr/lib:"
       _NOEXEC_LIB_PATH="/tmp/wineland/winebin/usr/lib"
       NOEXEC_LIB32_PATH="/tmp/wineland/winebin/usr/lib/wineland/lib32:"
+      _NOEXEC_LIB32_PATH="/tmp/wineland/winebin/usr/lib/wineland/lib32"
+      _NOEXEC_BIN_PATH="/tmp/wineland/winebin/usr/bin"
     fi
 
   fi
@@ -301,11 +310,17 @@ if [ -d $PWD_PATH/winebin ]; then
       export VK_ICD_FILENAMES="$_NOEXEC_LIB_PATH/wineland/vulkan/icd.d/intel_icd.i686.json:$_NOEXEC_LIB_PATH/wineland/vulkan/icd.d/radeon_icd.i686.json"
 
       sed -i "s#\"/usr/lib#\"$_NOEXEC_LIB_PATH#g" ${_NOEXEC_LIB_PATH}/wineland/vulkan/icd.d/*json
+
+      #fix libc
+      patchelf-for-wineland --set-interpreter ${_NOEXEC_LIB32_PATH}/ld-linux.so.2 ${_NOEXEC_BIN_PATH}/wine
     else
       #replace with originals from backup
       cp $PWD_PATH/winebin/usr/lib/wineland/vulkan/orig/*json $PWD_PATH/winebin/usr/lib/wineland/vulkan/icd.d/
 
       sed -i "s#\"/usr/lib#\"${PWD_PATH}/winebin/usr/lib#g" $PWD_PATH/winebin/usr/lib/wineland/vulkan/icd.d/*json
+
+      #fix libc
+      patchelf-for-wineland --set-interpreter $PWD_PATH/winebin/usr/lib/wineland/lib32/ld-linux.so.2 $PWD_PATH/winebin/usr/bin/wine
     fi
 
   fi
@@ -415,7 +430,6 @@ FINAL_PATH="$(dirname "$GAME_EXE")"
 FINAL_EXE="$(basename "$GAME_EXE")"
 
 cd $PWD_PATH/wine/drive_c/"$GAME_PATHNAME"/$FINAL_PATH
-
 
 
 #export variables before starting exe

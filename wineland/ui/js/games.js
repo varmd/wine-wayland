@@ -172,7 +172,7 @@ const DocForm = (obj) => `
               <div class="form-group">
                 <div class="custom-checkbox">
                   <input type="checkbox" name="fsr" id="checkbox-fsr" value="1" ${ obj.options.fsr ? 'checked="checked"' : '' }>
-                  <label for="checkbox-fsr">Enable FSR upscaler (enables Wayland fullscreen)</label>
+                  <label for="checkbox-fsr">Enable FSR upscaler (enables Wayland fullscreen). Disabled for 32-bit games.</label>
                 </div>
               </div>
 

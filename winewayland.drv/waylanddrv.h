@@ -106,9 +106,12 @@ extern NTSTATUS WAYLANDDRV_MsgWaitForMultipleObjectsEx( DWORD count, const HANDL
 
 /* Externs for 6.22 */
 
-
-#define GAMMA_RAMP_SIZE 256
-
+/* FSR */
+extern void fsr_set_real_mode(int width, int height);
+extern void fsr_set_current_mode(int width, int height);
+extern BOOL fsr_matches_real_mode(int w, int h);
+extern BOOL fsr_matches_current_mode(int w, int h);
+extern void fsr_real_to_user(POINT *pos);
 
 static inline void reset_bounds( RECT *bounds )
 {
@@ -134,8 +137,6 @@ extern unsigned int force_refresh DECLSPEC_HIDDEN;
 
 extern HMODULE waylanddrv_module DECLSPEC_HIDDEN;
 extern char *process_name DECLSPEC_HIDDEN;
-
-extern void release_win_data( struct waylanddrv_win_data *data ) DECLSPEC_HIDDEN;
 
 extern void wine_vk_surface_destroy( HWND hwnd ) DECLSPEC_HIDDEN;
 

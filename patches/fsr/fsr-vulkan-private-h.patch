@@ -28,7 +28,7 @@
 +    uint32_t push_size;
 +};
 +
-+struct VkFSRObject //VkSwapchainKHR_T
++struct VkFSRObject
 +{
 +    VkSwapchainKHR swapchain; /* native swapchain */
 +

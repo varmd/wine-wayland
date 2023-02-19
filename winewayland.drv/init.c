@@ -43,7 +43,7 @@
 #include "wine/debug.h"
 #include "unixlib.h"
 
-WINE_DEFAULT_DEBUG_CHANNEL(waylanddrv);
+//WINE_DEFAULT_DEBUG_CHANNEL(waylanddrv);
 
 static const struct user_driver_funcs waylanddrv_funcs;
 unsigned int screen_bpp = 32;
@@ -156,3 +156,21 @@ const unixlib_entry_t __wine_unix_call_funcs[] =
 
 
 C_ASSERT( ARRAYSIZE(__wine_unix_call_funcs) == unix_funcs_count );
+
+#ifdef _WIN64
+
+static NTSTATUS waylanddrv_wow64_init( void *arg )
+{
+    struct init_params params;
+
+    return process_attach( &params );
+}
+
+const unixlib_entry_t __wine_unix_call_wow64_funcs[] =
+{
+    waylanddrv_wow64_init
+};
+
+C_ASSERT( ARRAYSIZE(__wine_unix_call_wow64_funcs) == unix_funcs_count );
+
+#endif

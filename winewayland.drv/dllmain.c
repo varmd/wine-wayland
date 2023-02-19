@@ -25,14 +25,12 @@
 
 #include "unixlib.h"
 
-static unixlib_handle_t unix_handle;
-
 /***********************************************************************
  *       dll initialisation routine
  */
 BOOL WINAPI DllMain( HINSTANCE inst, DWORD reason, LPVOID reserved )
 {
-    struct init_params params;
+//    struct init_params params;
 //    void **callback_table;
 
     //static WCHAR *current_exe = NULL;
@@ -46,16 +44,11 @@ BOOL WINAPI DllMain( HINSTANCE inst, DWORD reason, LPVOID reserved )
     if (reason != DLL_PROCESS_ATTACH)
       return TRUE;
 
-//    TRACE("current exe path %s \n", debugstr_wn(current_exepath, lstrlenW( current_exepath )));
 
     DisableThreadLibraryCalls( inst );
-    if (NtQueryVirtualMemory( GetCurrentProcess(), inst, MemoryWineUnixFuncs,
-                              &unix_handle, sizeof(unix_handle), NULL ))
-        return FALSE;
+    if (__wine_init_unix_call()) return FALSE;
 
-    //TRACE("1 current exe path %s \n", debugstr_wn(current_exepath, lstrlenW( current_exepath )));
-
-    if (__wine_unix_call( unix_handle, unix_init, NULL ))
+    if (WINE_UNIX_CALL( unix_init, NULL ))
       return FALSE;
 
     return TRUE;

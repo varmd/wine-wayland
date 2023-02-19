@@ -77,21 +77,6 @@ install_mpg123_32() {
   sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" *123.pc
 }
 
-install_openal_32() {
-
-
-  cd "${srcdir}"
-  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig:$pkgdir/usr/lib32/pkgconfig"
-
-  cd $(find . -maxdepth 1 -type d -name "*openal*" | sed 1q)
-  cmake --build build
-  DESTDIR="$pkgdir" cmake --install build
-
-  cd $pkgdir/usr/lib32/pkgconfig
-  sed -i "s~\${exec_prefix}/lib32~$pkgdir/usr/lib32~g" openal.pc
-}
-
-
 install_mesa_32() {
   cd "${srcdir}"
 
@@ -118,16 +103,6 @@ install_sdl2_32() {
   sed -i "s~=/usr~=$pkgdir/usr/~g" sdl2.pc
 }
 
-
-install_freetype2_32() {
-  cd "${srcdir}"
-  cd $(find . -maxdepth 1 -type d -name "*freetype-*" | sed 1q)
-
-  make DESTDIR="${pkgdir}" install
-
-  cd $pkgdir/usr/lib32/pkgconfig
-  sed -i "s~/usr/lib32~$pkgdir/usr/lib32~g" freetype2.pc
-}
 
 install_alsa_lib_fixed_32() {
   cd "${srcdir}"
