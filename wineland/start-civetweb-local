@@ -1,29 +1,22 @@
 #!/usr/bin/sh
 
-open_url()
-{
-    BROWSER=quickbrowser:x-www-browser:firefox:epiphany:konqueror:chromium:chromium-browser:google-chrome:gnome-web:chrome:falkon:$BROWSER
+open_url(){
+  # added to not rely on an xdg-utils dependency (see PR 61)
+  BROWSER=($BROWSER x-www-browser quickbrowser firefox chromium chromium-browser
+    brave chrome google-chrome librewolf epiphany konqueror falkon opera edge
+    gnome-web vimb vieb browsh carbonyl palemoon
+    com.github.Eloston.UngoogledChromium io.gitlab.librewolf-community
+    org.mozilla.firefox org.chromium.Chromium com.brave.Browser
+    com.opera.Opera com.google.Chrome com.microsoft.Edge dev.vieb.Vieb)
 
-    local oldifs="$IFS"
-    local browser browser_with_arg
-
-    IFS=":"
-    for browser in $BROWSER; do
-        IFS="$oldifs"
-
-        if [ -z "$browser" ]; then
-            continue
-        fi
-
+    for browser in ${BROWSER[*]}; do
+      if command -v $browser &> /dev/null; then
         $browser "$1"
-
-        if [ $? -eq 0 ]; then
-            exit
-        fi
+        exit
+      fi
     done
 }
-
-
+ 
 mkdir -p $HOME/.local/share/wineland
 
 if [ -z $WINELAND_FILE_DIR ]; then
@@ -59,5 +52,8 @@ env $CIVETWEB -listening_ports 18180 -document_root $ROOT_DIR/ui \
 ,/save-json=$ROOT_DIR/cgi/save-json.cgi\
  &
 
-open_url http://localhost:18180
-#quickbrowser http://localhost:8080
+if command -v xdg-open &> /dev/null; then
+  xdg-open http://localhost:18180
+else
+  open_url http://localhost:18180
+fi
