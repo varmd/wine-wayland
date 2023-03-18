@@ -52,8 +52,6 @@ env $CIVETWEB -listening_ports 18180 -document_root $ROOT_DIR/ui \
 ,/save-json=$ROOT_DIR/cgi/save-json.cgi\
  &
 
-if command -v xdg-open &> /dev/null; then
-  xdg-open http://localhost:18180
-else
-  open_url http://localhost:18180
-fi
+url="http://localhost:18180"
+xdg-open $url
+[ $? -ne 0 ] && open_url $url
