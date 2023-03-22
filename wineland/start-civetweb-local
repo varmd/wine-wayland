@@ -2,15 +2,10 @@
 
 open_url(){
   # added to not rely on an xdg-utils dependency (see PR 61)
-  BROWSER=($BROWSER x-www-browser quickbrowser firefox chromium chromium-browser
-    brave chrome google-chrome librewolf epiphany konqueror falkon opera edge
-    gnome-web vimb vieb browsh carbonyl palemoon
-    com.github.Eloston.UngoogledChromium io.gitlab.librewolf-community
-    org.mozilla.firefox org.chromium.Chromium com.brave.Browser
-    com.opera.Opera com.google.Chrome com.microsoft.Edge dev.vieb.Vieb)
+  BROWSER="$BROWSER x-www-browser quickbrowser firefox chromium chromium-browser brave chrome google-chrome librewolf epiphany konqueror falkon opera edge gnome-web vimb vieb browsh carbonyl palemoon com.github.Eloston.UngoogledChromium io.gitlab.librewolf-community org.mozilla.firefox org.chromium.Chromium com.brave.Browser com.opera.Opera com.google.Chrome com.microsoft.Edge dev.vieb.Vieb"
 
-    for browser in ${BROWSER[*]}; do
-      if command -v $browser &> /dev/null; then
+    for browser in $BROWSER; do
+      if command -v $browser > /dev/null 2>&1; then
         $browser "$1"
         exit
       fi
