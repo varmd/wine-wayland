@@ -87,7 +87,7 @@ static const struct user_driver_funcs waylanddrv_funcs =
     .pGetKeyNameText = WAYLANDDRV_GetKeyNameText,
     .pMapVirtualKeyEx = WAYLANDDRV_MapVirtualKeyEx,
 
-    .pMsgWaitForMultipleObjectsEx = WAYLANDDRV_MsgWaitForMultipleObjectsEx,
+    .pProcessEvents = WAYLANDDRV_ProcessEvents,
     //.pSetCapture = WAYLANDDRV_SetCapture,
     .pSetCursor = WAYLANDDRV_SetCursor,
     //.pSetCursorPos = WAYLANDDRV_SetCursorPos,

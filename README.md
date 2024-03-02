@@ -20,7 +20,7 @@ Wine-wayland allows running DX9/DX11/DX12 and Vulkan games using pure Wayland an
 ## Requirements
 
  * Archlinux or Manjaro, Linux 5.16+
- * AMD GPU with Vulkan and Wayland support, 2GB+ VRAM. Intel, Nvidia not tested
+ * AMD GPU with Vulkan and Wayland support, 4GB+ VRAM. Intel, Nvidia not tested
  * Mesa with Wayland and Vulkan support
  * Weston based compositor (tested on wayward), wlroots based compositor (tested on sway), Gnome not tested
 
@@ -54,7 +54,7 @@ download or clone from github, cd to zip directory
     pacman -U wine-wayland*pkg*
 
 
-#### Compile 32-bit (optional, for 32-bit games)
+#### Compile 32-bit add-on (optional, for 32-bit games)
 
 In wine-wayland directory
 
@@ -140,7 +140,6 @@ Then in the terminal run sh start-your-game.sh
 
 * No GDI apps support - though popups and simple launchers should work
 * No OpenGL
-* Crash in alsa-lib since 7.7 - use wineland as a workaround.
 
 ## Games confirmed working
 
@@ -176,12 +175,19 @@ Then in the terminal run sh start-your-game.sh
 * Thea 2: The Shattering
 
 
-## Apps tested
-
-* FLStudio Trial
-* HeidiSQL
-
 ### Changelog
+
+#### Release 9.3
+
+ * Update to Wine 9.3
+ * Update FSYNC to Wine 9.3
+ * Update FSR to Wine 9.3
+ * Update DXVK, VKD3D, Mangohud
+ * Switch to the new 32-bit on 64-bit Wine feature for 32-bit games,
+   this will require reinstalling any existing 32-bit games.
+ * Reduce download size to 28MB for 64-bit, 24MB for 32-bit.
+ * Reduce installation size to 120MB for 64-bit and 104MB for 32-bit.
+ * Misc fixes and improvements
 
 #### Release 8.1
 

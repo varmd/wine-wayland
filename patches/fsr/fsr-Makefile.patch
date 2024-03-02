@@ -7,6 +7,6 @@
 -UNIX_LIBS = -lwin32u $(PTHREAD_LIBS)
 -
 +UNIX_LIBS = -lm -lwin32u $(PTHREAD_LIBS)
- C_SRCS = \
+ SOURCES = \
  	loader.c \
  	loader_thunks.c \

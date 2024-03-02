@@ -30,10 +30,10 @@
 +
 +struct VkFSRObject
 +{
-+    VkSwapchainKHR swapchain; /* native swapchain */
++    VkSwapchainKHR swapchain_handle; /* native swapchain */
 +
 +    /* fs hack data below */
-+    BOOL fs_hack_enabled;
++    BOOL fsr_enabled;
 +    VkExtent2D user_extent;
 +    VkExtent2D real_extent;
 +    VkImageUsageFlags surface_usage;

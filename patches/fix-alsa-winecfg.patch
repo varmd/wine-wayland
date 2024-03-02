@@ -56,9 +56,9 @@
      psp[pg].dwSize = sizeof (PROPSHEETPAGEW);
      psp[pg].dwFlags = PSP_USETITLE;
      psp[pg].hInstance = hInstance;
--    psp[pg].u.pszTemplate = MAKEINTRESOURCEW (IDD_APPCFG);
-+    psp[pg].u.pszTemplate = MAKEINTRESOURCEW (IDD_AUDIOCFG);
-     psp[pg].u2.pszIcon = NULL;
+-    psp[pg].pszTemplate = MAKEINTRESOURCEW (IDD_APPCFG);
++    psp[pg].pszTemplate = MAKEINTRESOURCEW (IDD_AUDIOCFG);
+     psp[pg].pszIcon = NULL;
 -    psp[pg].pfnDlgProc = AppDlgProc;
 -    psp[pg].pszTitle = load_string (IDS_TAB_APPLICATIONS);
 +    psp[pg].pfnDlgProc = AudioDlgProc;
@@ -71,9 +71,9 @@
      psp[pg].dwSize = sizeof (PROPSHEETPAGEW);
      psp[pg].dwFlags = PSP_USETITLE;
      psp[pg].hInstance = hInstance;
--    psp[pg].u.pszTemplate = MAKEINTRESOURCEW (IDD_AUDIOCFG);
-+    psp[pg].u.pszTemplate = MAKEINTRESOURCEW (IDD_APPCFG);
-     psp[pg].u2.pszIcon = NULL;
+-    psp[pg].pszTemplate = MAKEINTRESOURCEW (IDD_AUDIOCFG);
++    psp[pg].pszTemplate = MAKEINTRESOURCEW (IDD_APPCFG);
+     psp[pg].pszIcon = NULL;
 -    psp[pg].pfnDlgProc = AudioDlgProc;
 -    psp[pg].pszTitle =  load_string (IDS_TAB_AUDIO);
 +    psp[pg].pfnDlgProc = AppDlgProc;
@@ -96,14 +96,6 @@
 
      if (lpCmdLine[1] == '?')
      {
-@@ -202,6 +211,7 @@
-         printf("Options:\n");
-         printf("  [no option] Launch the graphical version of this program.\n");
-         printf("  /v          Display the current global Windows version.\n");
-+        printf("  /a          Switch to audio tab and quit.\n");
-         printf("  /v version  Set global Windows version to 'version'.\n");
-         printf("  /?          Display this information and exit.\n\n");
-         printf("Valid versions for 'version':\n\n");
 @@ -259,7 +269,10 @@
      cmd_ret = ProcessCmdLine(cmdline);
      if (cmd_ret >= 0) return cmd_ret;

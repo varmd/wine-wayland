@@ -2,10 +2,10 @@ MODULE    = winewayland.drv
 UNIXLIB   = winewayland.so
 IMPORTS =
 DELAYIMPORTS =
-UNIX_CFLAGS = -I/usr/include/libdrm
+UNIX_CFLAGS = -I/usr/include/libdrm -I/usr/include/
 UNIX_LIBS = -lwin32u -lm -lwayland-client -lwayland-cursor -lpthread
 
-C_SRCS = \
+SOURCES = \
 	dllmain.c \
 	vulkan.c \
 	init.c \

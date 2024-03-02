@@ -1,9 +1,9 @@
 /*
- * X11 driver definitions
+ * Wayland driver definitions
  *
  * Copyright 1996 Alexandre Julliard
  * Copyright 1999 Patrik Stridvall
- * Copyright 2020 varmd
+ * Copyright 2020-2024 varmd
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -61,46 +61,40 @@
 #define MAX_DASHLEN 16
 
 /* Externs for 6.22 */
-extern NTSTATUS (WINAPI *pNtWaitForMultipleObjects)(ULONG,const HANDLE*,BOOLEAN,
-                                                    BOOLEAN,const LARGE_INTEGER*) DECLSPEC_HIDDEN;
 
-extern LONG WAYLANDDRV_ChangeDisplaySettings(LPDEVMODEW displays, HWND hwnd, DWORD flags, LPVOID lpvoid) DECLSPEC_HIDDEN;
+extern LONG WAYLANDDRV_ChangeDisplaySettings(LPDEVMODEW displays, HWND hwnd, DWORD flags, LPVOID lpvoid);
 extern BOOL WAYLANDDRV_UpdateDisplayDevices( const struct gdi_device_manager *device_manager,
-  BOOL force, void *param ) DECLSPEC_HIDDEN;
+  BOOL force, void *param );
 
-extern BOOL WAYLANDDRV_GetCurrentDisplaySettings(LPCWSTR name, BOOL is_primary, LPDEVMODEW devmode) DECLSPEC_HIDDEN;
+extern BOOL WAYLANDDRV_GetCurrentDisplaySettings(LPCWSTR name, BOOL is_primary, LPDEVMODEW devmode);
 
-extern BOOL WAYLANDDRV_ClipCursor(LPCRECT clip) DECLSPEC_HIDDEN;
+extern BOOL WAYLANDDRV_CreateWindow(HWND hwnd);
+extern void WAYLANDDRV_DestroyWindow(HWND hwnd);
 
-extern BOOL WAYLANDDRV_CreateWindow(HWND hwnd) DECLSPEC_HIDDEN;
-extern void WAYLANDDRV_DestroyWindow(HWND hwnd) DECLSPEC_HIDDEN;
-
-extern UINT WAYLANDDRV_ShowWindow(HWND hwnd, INT cmd, RECT *rect, UINT swp) DECLSPEC_HIDDEN;
-extern LRESULT WAYLANDDRV_SysCommand(HWND hwnd, WPARAM wparam, LPARAM lparam) DECLSPEC_HIDDEN;
+extern UINT WAYLANDDRV_ShowWindow(HWND hwnd, INT cmd, RECT *rect, UINT swp);
+extern LRESULT WAYLANDDRV_SysCommand(HWND hwnd, WPARAM wparam, LPARAM lparam);
 
 extern BOOL WAYLANDDRV_WindowPosChanging(HWND hwnd, HWND insert_after, UINT swp_flags,
                                            const RECT *window_rect, const RECT *client_rect,
-                                           RECT *visible_rect, struct window_surface **surface) DECLSPEC_HIDDEN;
+                                           RECT *visible_rect, struct window_surface **surface);
 extern void WAYLANDDRV_WindowPosChanged(HWND hwnd, HWND insert_after, UINT swp_flags,
                                           const RECT *window_rect, const RECT *client_rect,
                                           const RECT *visible_rect, const RECT *valid_rects,
-                                          struct window_surface *surface) DECLSPEC_HIDDEN;
+                                          struct window_surface *surface);
 
-extern BOOL WAYLANDDRV_ClipCursor(LPCRECT clip) DECLSPEC_HIDDEN;
-extern BOOL WAYLANDDRV_GetCursorPos(LPPOINT pos) DECLSPEC_HIDDEN;
+extern BOOL WAYLANDDRV_ClipCursor(const RECT *clip, BOOL reset);
+extern BOOL WAYLANDDRV_GetCursorPos(LPPOINT pos);
 
-extern void WAYLANDDRV_SetCursor(HCURSOR cursor) DECLSPEC_HIDDEN;
+extern void WAYLANDDRV_SetCursor(HWND hwnd, HCURSOR cursor);
 
-extern SHORT WAYLANDDRV_VkKeyScanEx(WCHAR wChar, HKL hkl) DECLSPEC_HIDDEN;
-extern UINT WAYLANDDRV_MapVirtualKeyEx(UINT wCode, UINT wMapType, HKL hkl) DECLSPEC_HIDDEN;
+extern SHORT WAYLANDDRV_VkKeyScanEx(WCHAR wChar, HKL hkl);
+extern UINT WAYLANDDRV_MapVirtualKeyEx(UINT wCode, UINT wMapType, HKL hkl);
 extern INT WAYLANDDRV_ToUnicodeEx(UINT virtKey, UINT scanCode, const BYTE *lpKeyState,
-                                    LPWSTR bufW, int bufW_size, UINT flags, HKL hkl) DECLSPEC_HIDDEN;
+                                    LPWSTR bufW, int bufW_size, UINT flags, HKL hkl);
 
-extern INT WAYLANDDRV_GetKeyNameText(LONG lparam, LPWSTR buffer, INT size) DECLSPEC_HIDDEN;
+extern INT WAYLANDDRV_GetKeyNameText(LONG lparam, LPWSTR buffer, INT size);
 
-extern NTSTATUS WAYLANDDRV_MsgWaitForMultipleObjectsEx( DWORD count, const HANDLE *handles,
-                                              const LARGE_INTEGER *timeout,
-                                              DWORD mask, DWORD flags ) DECLSPEC_HIDDEN;
+extern NTSTATUS WAYLANDDRV_ProcessEvents( DWORD mask );
 
 
 
@@ -112,6 +106,7 @@ extern void fsr_set_current_mode(int width, int height);
 extern BOOL fsr_matches_real_mode(int w, int h);
 extern BOOL fsr_matches_current_mode(int w, int h);
 extern void fsr_real_to_user(POINT *pos);
+extern void fsr_user_to_real(POINT *pos);
 
 static inline void reset_bounds( RECT *bounds )
 {
@@ -130,22 +125,22 @@ static inline void add_bounds_rect( RECT *bounds, const RECT *rect )
 
 #define xstrdup(s) (fail_on_null(strdup(s), 0, __FILE__, __LINE__))
 
-extern const struct vulkan_funcs *get_vulkan_driver(UINT) DECLSPEC_HIDDEN;
+extern const struct vulkan_funcs *get_vulkan_driver(UINT);
 
-extern unsigned int screen_bpp DECLSPEC_HIDDEN;
-extern unsigned int force_refresh DECLSPEC_HIDDEN;
+extern unsigned int screen_bpp;
+extern unsigned int force_refresh;
 
-extern HMODULE waylanddrv_module DECLSPEC_HIDDEN;
-extern char *process_name DECLSPEC_HIDDEN;
+extern HMODULE waylanddrv_module;
+extern char *process_name;
 
-extern void wine_vk_surface_destroy( HWND hwnd ) DECLSPEC_HIDDEN;
+extern void wine_vk_surface_destroy( HWND hwnd );
 
-extern RECT get_virtual_screen_rect(void) DECLSPEC_HIDDEN;
-extern RECT get_primary_monitor_rect(void) DECLSPEC_HIDDEN;
+extern RECT get_virtual_screen_rect(void);
+extern RECT get_primary_monitor_rect(void);
 
-extern void xinerama_init( unsigned int width, unsigned int height ) DECLSPEC_HIDDEN;
+extern void xinerama_init( unsigned int width, unsigned int height );
 
-extern BOOL is_desktop_fullscreen(void) DECLSPEC_HIDDEN;
+extern BOOL is_desktop_fullscreen(void);
 
 static inline BOOL is_window_rect_mapped( const RECT *rect )
 {

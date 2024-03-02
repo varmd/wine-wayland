@@ -304,7 +304,7 @@ class localStorageServer {
       clearTimeout(global_iid);
       global_iid = null;
       fetch('/save-json', {
-        method: 'post',
+        method: 'POST',
         headers: {
           'Accept': 'application/json, text/plain, */*',
           'Content-Type': 'application/json'

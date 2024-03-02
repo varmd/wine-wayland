@@ -491,16 +491,12 @@ static void (*pvkDestroySurfaceKHR)(VkInstance, VkSurfaceKHR, const VkAllocation
 static void (*pvkDestroySwapchainKHR)(VkDevice, VkSwapchainKHR, const VkAllocationCallbacks *);
 
 static VkResult (*pvkEnumerateInstanceExtensionProperties)(const char *, uint32_t *, VkExtensionProperties *);
-static VkResult (*pvkGetDeviceGroupSurfacePresentModesKHR)(VkDevice, VkSurfaceKHR, VkDeviceGroupPresentModeFlagsKHR *);
+
 static void * (*pvkGetDeviceProcAddr)(VkDevice, const char *);
 static void * (*pvkGetInstanceProcAddr)(VkInstance, const char *);
-static VkResult (*pvkGetPhysicalDevicePresentRectanglesKHR)(VkPhysicalDevice, VkSurfaceKHR, uint32_t *, VkRect2D *);
-static VkResult (*pvkGetPhysicalDeviceSurfaceCapabilities2KHR)(VkPhysicalDevice, const VkPhysicalDeviceSurfaceInfo2KHR *, VkSurfaceCapabilities2KHR *);
-static VkResult (*pvkGetPhysicalDeviceSurfaceCapabilitiesKHR)(VkPhysicalDevice, VkSurfaceKHR, VkSurfaceCapabilitiesKHR *);
-static VkResult (*pvkGetPhysicalDeviceSurfaceFormats2KHR)(VkPhysicalDevice, const VkPhysicalDeviceSurfaceInfo2KHR *, uint32_t *, VkSurfaceFormat2KHR *);
-static VkResult (*pvkGetPhysicalDeviceSurfaceFormatsKHR)(VkPhysicalDevice, VkSurfaceKHR, uint32_t *, VkSurfaceFormatKHR *);
-static VkResult (*pvkGetPhysicalDeviceSurfacePresentModesKHR)(VkPhysicalDevice, VkSurfaceKHR, uint32_t *, VkPresentModeKHR *);
-static VkResult (*pvkGetPhysicalDeviceSurfaceSupportKHR)(VkPhysicalDevice, uint32_t, VkSurfaceKHR, VkBool32 *);
+
+
+
 static VkBool32 (*pvkGetPhysicalDeviceWaylandPresentationSupportKHR)(VkPhysicalDevice, uint32_t, struct wl_display *);
 static VkResult (*pvkGetSwapchainImagesKHR)(VkDevice, VkSwapchainKHR, uint32_t *, VkImage *);
 static VkResult (*pvkQueuePresentKHR)(VkQueue, const VkPresentInfoKHR *);
@@ -529,17 +525,12 @@ static void wine_vk_init(void)
     LOAD_FUNCPTR(vkEnumerateInstanceExtensionProperties);
     LOAD_FUNCPTR(vkGetDeviceProcAddr);
     LOAD_FUNCPTR(vkGetInstanceProcAddr);
-    LOAD_OPTIONAL_FUNCPTR(vkGetPhysicalDeviceSurfaceCapabilities2KHR);
-    LOAD_FUNCPTR(vkGetPhysicalDeviceSurfaceCapabilitiesKHR);
-    LOAD_OPTIONAL_FUNCPTR(vkGetPhysicalDeviceSurfaceFormats2KHR);
-    LOAD_FUNCPTR(vkGetPhysicalDeviceSurfaceFormatsKHR);
-    LOAD_FUNCPTR(vkGetPhysicalDeviceSurfacePresentModesKHR);
-    LOAD_FUNCPTR(vkGetPhysicalDeviceSurfaceSupportKHR);
+
+
     LOAD_FUNCPTR(vkGetPhysicalDeviceWaylandPresentationSupportKHR);
     LOAD_FUNCPTR(vkGetSwapchainImagesKHR);
     LOAD_FUNCPTR(vkQueuePresentKHR);
-    LOAD_OPTIONAL_FUNCPTR(vkGetDeviceGroupSurfacePresentModesKHR);
-    LOAD_OPTIONAL_FUNCPTR(vkGetPhysicalDevicePresentRectanglesKHR);
+
 #undef LOAD_FUNCPTR
 #undef LOAD_OPTIONAL_FUNCPTR
 
@@ -1972,7 +1963,7 @@ static void draw_gdi_wayland_window (struct wayland_window *window) {
 /***********************************************************************
  *		ClipCursor (WAYLANDDRV.@)
  */
-BOOL WAYLANDDRV_ClipCursor( LPCRECT clip )
+BOOL WAYLANDDRV_ClipCursor( const RECT *clip, BOOL reset )
 {
     RECT virtual_rect = get_virtual_screen_rect();
 
@@ -2012,17 +2003,9 @@ BOOL WAYLANDDRV_ClipCursor( LPCRECT clip )
 
       }
 
-
       return TRUE;
 
     }
-
-    #if 0
-    TRACE( "virtual rect %s clip rect %s\n",
-              wine_dbgstr_rect(&virtual_rect),
-              wine_dbgstr_rect(clip)
-    );
-    #endif
 
     // we are clipping if the clip rectangle is smaller than the screen
     if (clip->left > virtual_rect.left || clip->right < virtual_rect.right ||
@@ -2345,7 +2328,7 @@ static void set_custom_cursor( HCURSOR handle ) {
 }
 
 
-void WAYLANDDRV_SetCursor( HCURSOR handle )
+void WAYLANDDRV_SetCursor( HWND hwnd, HCURSOR handle )
 {
 
     if(global_hide_cursor || !wayland_default_cursor) {
@@ -3066,13 +3049,19 @@ BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
   UNICODE_STRING class_name = { .Buffer = class_buff, .MaximumLength = sizeof(class_buff) };
 
   static const WCHAR desktop_class[] = {'#', '3', '2', '7', '6', '9', 0};
+  static const WCHAR tray_class[] = {'S','h','e','l','l','_','T','r','a','y','W','n','d', 0};
 
+  static const WCHAR update_class[] = {'r','u','n','d','l','l','3','2', 0};
   static const WCHAR ole_class[] = {'O','l','e','M','a','i','n','T','h','r','e','a','d','W','n','d','C','l','a','s','s', 0};
   static const WCHAR msg_class[] = {'M','e','s','s','a','g','e', 0};
   static const WCHAR ime_class[] = {'I','M','E', 0};
-
+  static const WCHAR ime_class2[] = {'W','i','n','e', ' ', 'I','M','E', 0};
+  static const WCHAR dde_class1[] = {'W','i','n','e','D','d','e','S','e','r','v','e','r','N','a','m','e', 0};
+  static const WCHAR dde_class2[] = {'W','i','n','e','D','d','e','E','v','e','n','t','C','l','a','s','s', 0};
   static const WCHAR tooltip_class[] = {'t','o','o','l','t','i','p','s','_',
   'c','l','a','s','s','3','2', 0};
+
+
   static const WCHAR sdl_class[] = {'S','D','L','_','a','p','p', 0};
   static const WCHAR unreal_class[] = {'U','n','r','e','a','l','W','i','n','d','o','w', 0};
   //POEWindowClass
@@ -3122,11 +3111,10 @@ BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
 
   if( NtUserGetClassName(hwnd, FALSE, &class_name )) {
 
-    TRACE( "Changing %p %s \n",
-      hwnd, debugstr_w(class_name.Buffer)
-    );
-
     if(!wcsicmp(class_name.Buffer, msg_class)) {
+      return TRUE;
+    }
+    if(!wcsicmp(class_name.Buffer, update_class)) {
       return TRUE;
     }
     if(!wcsicmp(class_name.Buffer, ole_class)) {
@@ -3135,10 +3123,22 @@ BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
     if(!wcsicmp(class_name.Buffer, ime_class)) {
       return TRUE;
     }
+    if(!wcsicmp(class_name.Buffer, ime_class2)) {
+      return TRUE;
+    }
     if(!wcsicmp(class_name.Buffer, desktop_class)) {
       return TRUE;
     }
+    if(!wcsicmp(class_name.Buffer, tray_class)) {
+      return TRUE;
+    }
     if(!wcsicmp(class_name.Buffer, tooltip_class)) {
+      return TRUE;
+    }
+    if(!wcsicmp(class_name.Buffer, dde_class1)) {
+      return TRUE;
+    }
+    if(!wcsicmp(class_name.Buffer, dde_class2)) {
       return TRUE;
     }
 
@@ -3155,6 +3155,10 @@ BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
     if(!wcsicmp(class_name.Buffer, flstudio_hwnd_class)) {
       return TRUE;
     }
+
+    TRACE( "Changing %p %s \n",
+      hwnd, debugstr_w(class_name.Buffer)
+    );
 
     //Upscale
 
@@ -3568,26 +3572,26 @@ void WAYLANDDRV_DestroyWindow( HWND hwnd )
 }
 
 //Win32 loop callback
-NTSTATUS WAYLANDDRV_MsgWaitForMultipleObjectsEx( DWORD count, const HANDLE *handles,
-                                              const LARGE_INTEGER *timeout,
-                                              DWORD mask, DWORD flags )
+BOOL WAYLANDDRV_ProcessEvents( DWORD mask )
 {
-
+//    unsigned int count = 0;
     if (wayland_display && desktop_tid && GetCurrentThreadId() == desktop_tid && !global_wait_for_configure)
     {
 
         while (wl_display_prepare_read(wayland_display) != 0) {
           wl_display_dispatch_pending(wayland_display);
+//          count++;
         }
 
         wl_display_flush(wayland_display);
         wl_display_read_events(wayland_display);
         wl_display_dispatch_pending(wayland_display);
+
+        return FALSE;
     }
 
 
-    return NtWaitForMultipleObjects( count, handles, !(flags & MWMO_WAITALL),
-                                     !!(flags & MWMO_ALERTABLE), timeout );
+    return FALSE;
 
 }
 
@@ -3624,9 +3628,6 @@ static VkResult wine_vk_instance_convert_create_info(const VkInstanceCreateInfo 
 
         for (i = 0; i < src->enabledExtensionCount; i++)
         {
-            /* Substitute extension with X11 ones else copy. Long-term, when we
-             * support more extensions, we should store these in a list.
-             */
             if (!strcmp(src->ppEnabledExtensionNames[i], "VK_KHR_win32_surface"))
             {
 
@@ -3645,7 +3646,7 @@ static VkResult wine_vk_instance_convert_create_info(const VkInstanceCreateInfo 
     return VK_SUCCESS;
 }
 
-static VkSurfaceKHR WAYLANDDRV_wine_get_native_surface(VkSurfaceKHR surface)
+static VkSurfaceKHR WAYLANDDRV_wine_get_host_surface(VkSurfaceKHR surface)
 {
    return surface;
 }
@@ -3704,6 +3705,12 @@ static VkResult WAYLANDDRV_vkCreateSwapchainKHR(VkDevice device,
       );
       fsr_set_current_mode(create_info->imageExtent.width, create_info->imageExtent.height);
     }
+
+
+    TRACE("Vulkan vkCreateSwapchainKHR done %d %d \n",
+        create_info->imageExtent.width,
+        create_info->imageExtent.height
+      );
 
 
     if (allocator)
@@ -3962,133 +3969,7 @@ static VkResult WAYLANDDRV_vkEnumerateInstanceExtensionProperties(const char *la
 
 
 
-static VkResult WAYLANDDRV_vkGetPhysicalDevicePresentRectanglesKHR(VkPhysicalDevice phys_dev,
-        VkSurfaceKHR surface, uint32_t *count, VkRect2D *rects)
-{
-    //TRACE("%p, 0x%s, %p, %p\n", phys_dev, wine_dbgstr_longlong(surface), count, rects);
 
-    return pvkGetPhysicalDevicePresentRectanglesKHR(phys_dev, surface, count, rects);
-}
-
-/* Set the image extent in the capabilities to match what Windows expects. */
-static void set_image_extent(VkSurfaceKHR surface, VkSurfaceCapabilitiesKHR *caps)
-{
-
-    BOOL zero_extents = FALSE;
-
-
-
-    if (surface == VK_NULL_HANDLE || !global_vulkan_hwnd)
-        zero_extents = TRUE;
-
-
-
-//    if (NtUserGetWindowLongW(wine_vk_surface->hwnd, GWL_STYLE) & WS_MINIMIZE)
-//        zero_extents = TRUE;
-
-    if (zero_extents)
-    {
-        caps->minImageExtent.width = 0;
-        caps->minImageExtent.height = 0;
-        caps->maxImageExtent.width = 0;
-        caps->maxImageExtent.height = 0;
-        caps->currentExtent.width = 0;
-        caps->currentExtent.height = 0;
-    }
-    else
-    {
-        RECT client;
-        NtUserGetClientRect(global_vulkan_hwnd, &client);
-
-        caps->minImageExtent.width = client.right;
-        caps->minImageExtent.height = client.bottom;
-        caps->maxImageExtent.width = client.right;
-        caps->maxImageExtent.height = client.bottom;
-        caps->currentExtent.width = client.right;
-        caps->currentExtent.height = client.bottom;
-    }
-
-}
-
-
-static VkResult WAYLANDDRV_vkGetPhysicalDeviceSurfaceCapabilities2KHR(VkPhysicalDevice phys_dev,
-        const VkPhysicalDeviceSurfaceInfo2KHR *surface_info, VkSurfaceCapabilities2KHR *capabilities)
-{
-   TRACE("%p, %p, %p\n", phys_dev, surface_info, capabilities);
-
-   pvkGetPhysicalDeviceSurfaceCapabilities2KHR(phys_dev, surface_info, capabilities);
-   set_image_extent(surface_info->surface, &capabilities->surfaceCapabilities);
-   return VK_SUCCESS;
-}
-
-
-static VkResult WAYLANDDRV_vkGetPhysicalDeviceSurfaceCapabilitiesKHR(VkPhysicalDevice phys_dev,
-        VkSurfaceKHR surface, VkSurfaceCapabilitiesKHR *capabilities)
-{
-    if(surface != VK_NULL_HANDLE) {
-      pvkGetPhysicalDeviceSurfaceCapabilitiesKHR(phys_dev, surface, capabilities);
-      set_image_extent(surface, capabilities);
-      return VK_SUCCESS;
-    }
-
-    return VK_ERROR_SURFACE_LOST_KHR;
-}
-
-static VkResult WAYLANDDRV_vkGetPhysicalDeviceSurfaceFormats2KHR(VkPhysicalDevice phys_dev,
-        const VkPhysicalDeviceSurfaceInfo2KHR *surface_info, uint32_t *count, VkSurfaceFormat2KHR *formats)
-{
-//    VkResult result;
-    TRACE("%p, %p, %p, %p\n", phys_dev, surface_info, count, formats);
-
-    if (pvkGetPhysicalDeviceSurfaceFormats2KHR)
-        return pvkGetPhysicalDeviceSurfaceFormats2KHR(phys_dev, surface_info, count, formats);
-
-    return VK_ERROR_SURFACE_LOST_KHR;
-
-}
-
-static VkResult WAYLANDDRV_vkGetPhysicalDeviceSurfaceFormatsKHR(VkPhysicalDevice phys_dev,
-        VkSurfaceKHR surface, uint32_t *count, VkSurfaceFormatKHR *formats)
-{
-    VkResult res;
-
-    TRACE("%p, 0x%s, %d, %p\n", phys_dev, wine_dbgstr_longlong(surface), *count, formats);
-    if( surface != VK_NULL_HANDLE ) {
-
-      res = pvkGetPhysicalDeviceSurfaceFormatsKHR(phys_dev, surface, count, formats);
-//      TRACE("%p, 0x%s, %d, %p\n", phys_dev, wine_dbgstr_longlong(surface), *count, formats);
-
-      return res;
-    }
-
-    return VK_ERROR_SURFACE_LOST_KHR;
-}
-
-static VkResult WAYLANDDRV_vkGetPhysicalDeviceSurfacePresentModesKHR(VkPhysicalDevice phys_dev,
-        VkSurfaceKHR surface, uint32_t *count, VkPresentModeKHR *modes)
-{
-
-    VkResult res;
-    TRACE("%p, 0x%s, %d, %p\n", phys_dev, wine_dbgstr_longlong(surface), *count, modes);
-    if( surface != VK_NULL_HANDLE ) {
-      res = pvkGetPhysicalDeviceSurfacePresentModesKHR(phys_dev, surface, count, modes);
-
-      return res;
-    }
-
-    return VK_ERROR_SURFACE_LOST_KHR;
-}
-
-static VkResult WAYLANDDRV_vkGetPhysicalDeviceSurfaceSupportKHR(VkPhysicalDevice phys_dev,
-        uint32_t index, VkSurfaceKHR surface, VkBool32 *supported)
-{
-    if(surface != VK_NULL_HANDLE) {
-      TRACE("%p, %u, 0x%s, %p\n", phys_dev, index, wine_dbgstr_longlong(surface), supported);
-      return pvkGetPhysicalDeviceSurfaceSupportKHR(phys_dev, index, surface, supported);
-    }
-
-    return VK_ERROR_SURFACE_LOST_KHR;
-}
 
 static VkBool32 WAYLANDDRV_vkGetPhysicalDeviceWin32PresentationSupportKHR(VkPhysicalDevice phys_dev,
         uint32_t index)
@@ -4199,14 +4080,6 @@ static VkBool32 WAYLANDDRV_query_fsr(VkSurfaceKHR surface, VkExtent2D *real_sz,
 }
 #endif
 
-static VkResult WAYLANDDRV_vkGetDeviceGroupSurfacePresentModesKHR(VkDevice device,
-        VkSurfaceKHR surface, VkDeviceGroupPresentModeFlagsKHR *flags)
-{
-    //TRACE("%p, 0x%s, %p\n", device, wine_dbgstr_longlong(surface), flags);
-
-    return pvkGetDeviceGroupSurfacePresentModesKHR(device, surface, flags);
-}
-
 static void *WAYLANDDRV_vkGetDeviceProcAddr(VkDevice device, const char *name)
 {
     void *proc_addr;
@@ -4244,23 +4117,18 @@ static const struct vulkan_funcs vulkan_funcs =
     .p_vkDestroySurfaceKHR = WAYLANDDRV_vkDestroySurfaceKHR,
     .p_vkDestroySwapchainKHR = WAYLANDDRV_vkDestroySwapchainKHR,
     .p_vkEnumerateInstanceExtensionProperties = WAYLANDDRV_vkEnumerateInstanceExtensionProperties,
-    .p_vkGetDeviceGroupSurfacePresentModesKHR = WAYLANDDRV_vkGetDeviceGroupSurfacePresentModesKHR,
+
     .p_vkGetDeviceProcAddr = WAYLANDDRV_vkGetDeviceProcAddr,
     .p_vkGetInstanceProcAddr = WAYLANDDRV_vkGetInstanceProcAddr,
-    .p_vkGetPhysicalDevicePresentRectanglesKHR = WAYLANDDRV_vkGetPhysicalDevicePresentRectanglesKHR,
-    .p_vkGetPhysicalDeviceSurfaceCapabilities2KHR = WAYLANDDRV_vkGetPhysicalDeviceSurfaceCapabilities2KHR,
-    .p_vkGetPhysicalDeviceSurfaceCapabilitiesKHR = WAYLANDDRV_vkGetPhysicalDeviceSurfaceCapabilitiesKHR,
-    .p_vkGetPhysicalDeviceSurfaceFormats2KHR = WAYLANDDRV_vkGetPhysicalDeviceSurfaceFormats2KHR,
-    .p_vkGetPhysicalDeviceSurfaceFormatsKHR = WAYLANDDRV_vkGetPhysicalDeviceSurfaceFormatsKHR,
-    .p_vkGetPhysicalDeviceSurfacePresentModesKHR = WAYLANDDRV_vkGetPhysicalDeviceSurfacePresentModesKHR,
-    .p_vkGetPhysicalDeviceSurfaceSupportKHR = WAYLANDDRV_vkGetPhysicalDeviceSurfaceSupportKHR,
+
+
     .p_vkGetPhysicalDeviceWin32PresentationSupportKHR = WAYLANDDRV_vkGetPhysicalDeviceWin32PresentationSupportKHR,
 
     .p_vkGetSwapchainImagesKHR = WAYLANDDRV_vkGetSwapchainImagesKHR,
     .p_vkQueuePresentKHR = WAYLANDDRV_vkQueuePresentKHR,
-    .p_wine_get_native_surface = WAYLANDDRV_wine_get_native_surface,
+    .p_wine_get_host_surface = WAYLANDDRV_wine_get_host_surface,
     #ifdef HAS_FSR
-    .query_fs_hack = WAYLANDDRV_query_fsr
+    .query_fsr = WAYLANDDRV_query_fsr
     #endif
 };
 

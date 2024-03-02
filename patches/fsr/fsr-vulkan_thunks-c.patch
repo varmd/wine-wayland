@@ -1,32 +1,16 @@
 --- a/dlls/winevulkan/vulkan_thunks.c
 +++ b/dlls/winevulkan/vulkan_thunks.c
-@@ -18347,6 +18348,7 @@
-         type == VK_OBJECT_TYPE_INSTANCE ||
-         type == VK_OBJECT_TYPE_PHYSICAL_DEVICE ||
-         type == VK_OBJECT_TYPE_QUEUE ||
-+        type == VK_OBJECT_TYPE_SWAPCHAIN_KHR ||
-         type == VK_OBJECT_TYPE_SURFACE_KHR;
- }
+@@ -44933,7 +44933,8 @@
 
-@@ -18667,7 +18669,7 @@
-     thunk64_vkCreateSamplerYcbcrConversionKHR,
-     thunk64_vkCreateSemaphore,
-     thunk64_vkCreateShaderModule,
--    thunk64_vkCreateSwapchainKHR,
-+    wine_vkCreateSwapchainKHR,
-     thunk64_vkCreateValidationCacheEXT,
-     thunk64_vkCreateWin32SurfaceKHR,
-     thunk64_vkDebugMarkerSetObjectNameEXT,
-@@ -18711,7 +18713,7 @@
-     thunk64_vkDestroySemaphore,
-     thunk64_vkDestroyShaderModule,
-     thunk64_vkDestroySurfaceKHR,
--    thunk64_vkDestroySwapchainKHR,
-+    wine_vkDestroySwapchainKHR,
-     thunk64_vkDestroyValidationCacheEXT,
-     thunk64_vkDeviceWaitIdle,
-     thunk64_vkEndCommandBuffer,
-@@ -18847,7 +18849,7 @@
+     init_conversion_context(ctx);
+     convert_VkPresentInfoKHR_win64_to_driver(ctx, params->pPresentInfo, &pPresentInfo_host);
+-    params->result = wine_queue_from_handle(params->queue)->device->funcs.p_vkQueuePresentKHR(wine_queue_from_handle(params->queue)->host_queue, &pPresentInfo_host);
++    params->pPresentInfo = &pPresentInfo_host;
++    wine_vkQueuePresentKHR(params);
+     free_conversion_context(ctx);
+     return STATUS_SUCCESS;
+ }
+@@ -47095,7 +47095,7 @@
      thunk64_vkGetShaderInfoAMD,
      thunk64_vkGetShaderModuleCreateInfoIdentifierEXT,
      thunk64_vkGetShaderModuleIdentifierEXT,
@@ -35,48 +19,4 @@
      thunk64_vkGetValidationCacheDataEXT,
      thunk64_vkInitializePerformanceApiINTEL,
      thunk64_vkInvalidateMappedMemoryRanges,
-@@ -18858,7 +18860,7 @@
-     thunk64_vkQueueBindSparse,
-     thunk64_vkQueueEndDebugUtilsLabelEXT,
-     thunk64_vkQueueInsertDebugUtilsLabelEXT,
--    thunk64_vkQueuePresentKHR,
-+    wine_vkQueuePresentKHR,
-     thunk64_vkQueueSetPerformanceConfigurationINTEL,
-     thunk64_vkQueueSubmit,
-     thunk64_vkQueueSubmit2,
-@@ -19188,7 +19190,7 @@
-     thunk32_vkCreateSamplerYcbcrConversionKHR,
-     thunk32_vkCreateSemaphore,
-     thunk32_vkCreateShaderModule,
--    thunk32_vkCreateSwapchainKHR,
-+    thunk32_vkCreateSwapchainKHR,//wine_vkCreateSwapchainKHR,
-     thunk32_vkCreateValidationCacheEXT,
-     thunk32_vkCreateWin32SurfaceKHR,
-     thunk32_vkDebugMarkerSetObjectNameEXT,
-@@ -19232,7 +19234,7 @@
-     thunk32_vkDestroySemaphore,
-     thunk32_vkDestroyShaderModule,
-     thunk32_vkDestroySurfaceKHR,
--    thunk32_vkDestroySwapchainKHR,
-+    thunk32_vkDestroySwapchainKHR,//wine_vkDestroySwapchainKHR,
-     thunk32_vkDestroyValidationCacheEXT,
-     thunk32_vkDeviceWaitIdle,
-     thunk32_vkEndCommandBuffer,
-@@ -19368,7 +19370,7 @@
-     thunk32_vkGetShaderInfoAMD,
-     thunk32_vkGetShaderModuleCreateInfoIdentifierEXT,
-     thunk32_vkGetShaderModuleIdentifierEXT,
--    thunk32_vkGetSwapchainImagesKHR,
-+    thunk32_vkGetSwapchainImagesKHR,//wine_vkGetSwapchainImagesKHR,
-     thunk32_vkGetValidationCacheDataEXT,
-     thunk32_vkInitializePerformanceApiINTEL,
-     thunk32_vkInvalidateMappedMemoryRanges,
-@@ -19379,7 +19381,7 @@
-     thunk32_vkQueueBindSparse,
-     thunk32_vkQueueEndDebugUtilsLabelEXT,
-     thunk32_vkQueueInsertDebugUtilsLabelEXT,
--    thunk32_vkQueuePresentKHR,
-+    thunk32_vkQueuePresentKHR,//wine_vkQueuePresentKHR,
-     thunk32_vkQueueSetPerformanceConfigurationINTEL,
-     thunk32_vkQueueSubmit,
-     thunk32_vkQueueSubmit2,
+

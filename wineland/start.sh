@@ -2,15 +2,13 @@
 # Copyright 2020-2022 varmd
 #
 
-WINE_VK_DXVK_VERSION="2.0"
-WINE_WAYLAND_VERSION="8.2"
-VKD3D_VERSION="2.8"
-MANGOHUD_URL="/v0.6.8/MangoHud-0.6.8.r0.gefdcc6d.tar.gz"
+WINE_VK_DXVK_VERSION="2.3"
+WINE_WAYLAND_VERSION="9.3"
+VKD3D_VERSION="2.11.1"
+#MANGOHUD_URL="/v0.6.8/MangoHud-0.6.8.r0.gefdcc6d.tar.gz"
+MANGOHUD_URL="/v0.7.1/MangoHud-0.7.1.tar.gz"
+MANGOHUD_VERSION="MangoHud-0.7.1"
 WINE_WAYLAND_TAG_NUM="1"
-
-#partition check
-#df -P ~/.local/share/wineland/game/winebin/usr/bin/wine64 | tail -1 | cut -d' ' -f 1
-
 
 #for i in $(ls -d */); do echo ${i%%/}; done
 #for i in $(set -- */; printf "%s\n" "${@%/}");
@@ -81,20 +79,12 @@ fi
 
 
 cd "$GAME_PATH"
-#is 64bit
 
+#is 64bit
 IS_64_EXE=`file $GAME_EXE | grep PE32+`
 
 
-if [[ -z "$IS_64_EXE" ]]; then
-  echo "32bit game"
-  WINE_CMD="wine"
-  export LD_LIBRARY_PATH="/usr/lib/wineland/lib32:$LD_LIBRARY_PATH"
-  export VK_ICD_FILENAMES="/usr/lib/wineland/vulkan/icd.d/intel_icd.i686.json:/usr/lib/wineland/vulkan/icd.d/radeon_icd.i686.json"
-else
-  echo "64bit game"
-  export LD_LIBRARY_PATH="/usr/lib/wineland/lib:$LD_LIBRARY_PATH"
-fi
+export LD_LIBRARY_PATH="/usr/lib/wineland/lib:$LD_LIBRARY_PATH"
 
 cd "$PWD_PATH"
 
@@ -118,46 +108,45 @@ export WINEFSYNC
 export WINEPREFIX=$PWD_PATH/wine
 MANGO_PREFIX=$PWD_PATH/mangohud
 
-
-
 if [[ -z "$MANGOHUD" ]]; then
+
   echo ""
+
 else
-  if [ ! -d $MANGO_PREFIX ]; then
-  cd "$PWD_PATH"
-    if [ ! -d $PWD/mangohud ]; then
-      mkdir mangohud
-      cd mangohud
-      curl  -L "https://github.com/flightlessmango/MangoHud/releases/download${MANGOHUD_URL}" > mangohud.tar.gz
-      tar xf mangohud.tar.gz
-      tar xf MangoHud/MangoHud-package.tar
-      cd "$PWD_PATH"
-    fi
+
+  # remove old mangohud
+  if [ -f $PWD/mangohud/mangohud.json ]; then
+    rm -rf $PWD/mangohud
   fi
 
+  if [ ! -d $PWD/mangohud ]; then
+
+    if [ ! -f $PWD_PATH/../${MANGOHUD_VERSION}.tar.gz ]; then
+      echo "Downloading MangoHud"
+      curl  -L "https://github.com/flightlessmango/MangoHud/releases/download${MANGOHUD_URL}" > $PWD_PATH/../${MANGOHUD_VERSION}.tar.gz
+    fi
+
+    cd "$PWD_PATH"
+    mkdir mangohud
+    cd mangohud
+    cp $PWD_PATH/../${MANGOHUD_VERSION}.tar.gz mangohud.tar.gz
+    tar xf mangohud.tar.gz
+    tar xf MangoHud/MangoHud-package.tar
+    cd "$PWD_PATH"
+
+  fi
+
+  cp -r mangohud/usr/lib/mangohud/* /run/user/$UID/mangohud-wine-wayland
+  cp -r mangohud/usr/share/vulkan/implicit_layer.d/MangoHud.x86_64.json $PWD_PATH/mangohud/MangoHud.x86_64.json
+  sed -i "s/\/usr\/lib\/mangohud/\/run\/user\/${UID}\/mangohud-wine-wayland/g" mangohud/MangoHud.x86_64.json
 
   mkdir -p /run/user/$UID/mangohud-wine-wayland
-  cp -r mangohud/usr/lib/mangohud/* /run/user/$UID/mangohud-wine-wayland
-  cp -r mangohud/usr/share/vulkan/implicit_layer.d/MangoHud.json mangohud/mangohud.json
 
-
-  if [[ -z "$IS_64_EXE" ]]; then
-    echo "Using 32bit mangohud"
-    LIB="lib32"
-  else
-    echo "Using 64bit mangohud"
-    LIB="lib64"
-  fi
-
-  sed -i "s/\/usr\/lib\/mangohud/\/run\/user\/${UID}\/mangohud-wine-wayland/g" mangohud/mangohud.json
-  sed -i "s/\$LIB/${LIB}/g" mangohud/mangohud.json
-
-  export VK_INSTANCE_LAYERS=VK_LAYER_MANGOHUD_overlay
+  echo "Using mangohud"
+  export VK_INSTANCE_LAYERS=VK_LAYER_MANGOHUD_overlay_x86_64
   export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d:"$PWD_PATH/mangohud"
   export VK_LAYER_PATH="$PWD_PATH/mangohud"
-  #disable wined3d which runs even with dxvk on and crashes due to opengl
-  #wined3d=d disabled as it crashes witcher1
-  #WINEDLLOVERRIDES="wined3d=d;$WINEDLLOVERRIDES"
+
 
 fi #end mangohud
 
@@ -167,7 +156,7 @@ fi #end mangohud
 cd "$PWD_PATH"
 
 
-if [ ! -f /usr/lib/wine/x86_64-unix/winewayland.drv.so ]; then
+if [ ! -f /usr/lib/wine/x86_64-unix/winewayland.so ]; then
   USE_LOCAL_WINE=1
 fi
 
@@ -178,7 +167,7 @@ fi
 #download local wine
 if [[ "$USE_LOCAL_WINE" ]]; then
 
-  #copy partable sh
+  #copy portable sh
   cp /usr/lib/wineland/ui/start-portable.sh $PWD_PATH
 
   if [ ! -d $PWD_PATH/winebin ]; then
@@ -193,10 +182,12 @@ if [[ "$USE_LOCAL_WINE" ]]; then
     cp ${PWD_PATH}/../wine-wayland-${WINE_WAYLAND_VERSION}-1-x86_64.pkg.tar.zst .
     tar xf wine-wayland-${WINE_WAYLAND_VERSION}-1-x86_64.pkg.tar.zst
 
+    echo ""
+    #copy sdl2 and alsa
+    cp $PWD_PATH/winebin/usr/lib/wineland/lib/* $PWD_PATH/winebin/usr/lib/
+
     if [[ "$IS_64_EXE" ]]; then
-      echo ""
-      #copy sdl2 and alsa
-      cp $PWD_PATH/winebin/usr/lib/wineland/lib/* $PWD_PATH/winebin/usr/lib/
+      D=1
     else
 
 
@@ -207,14 +198,6 @@ if [[ "$USE_LOCAL_WINE" ]]; then
 
       cp $PWD_PATH/../lib32-wine-wayland-${WINE_WAYLAND_VERSION}-1-x86_64.pkg.tar.zst .
       tar xf lib32-wine-wayland-${WINE_WAYLAND_VERSION}-1-x86_64.pkg.tar.zst
-
-      #copy vulkan json files to backups
-      mkdir $PWD_PATH/winebin/usr/lib/wineland/vulkan/orig
-      cp $PWD_PATH/winebin/usr/lib/wineland/vulkan/icd.d/*json $PWD_PATH/winebin/usr/lib/wineland/vulkan/orig/
-
-      #copy patchelf for 32bit
-      cp /usr/bin/patchelf-for-wineland $PWD_PATH/winebin/usr/bin/
-
 
     fi
 
@@ -235,14 +218,13 @@ fi
 if [ -d $PWD_PATH/winebin ]; then
 
   #check for noexec and copy winebin so games still work with noexec for ~/.local/share/wineland
-  GAME_PART=`df -P $PWD_PATH/winebin/usr/bin/wine64 | tail -1 | cut -d' ' -f 1`
+  GAME_PART=`df -P $PWD_PATH/winebin/usr/bin/$WINE_CMD | tail -1 | cut -d' ' -f 1`
   GAME_NOEXEC=`cat /proc/mounts | grep $GAME_PART | grep noexec`
 
   TMP_NOEXEC=`cat /proc/mounts | grep \/tmp | grep noexec`
   HOME_NOEXEC=`cat /proc/mounts | grep \/home | grep noexec`
 
   EXEC_LIB="$PWD_PATH/winebin/usr/lib:"
-  EXEC_LIB32="$PWD_PATH/winebin/usr/lib/wineland/lib32:"
 
   rm -rf $HOME/.cache/wineland /tmp/wineland
   mkdir -p /tmp/wineland/ $HOME/.cache/wineland/
@@ -251,7 +233,7 @@ if [ -d $PWD_PATH/winebin ]; then
     echo "noexec detected, copying wine files to /tmp or ~/.cache"
 
     EXEC_LIB=""
-    EXEC_LIB32=""
+
 
     if [[ "$TMP_NOEXEC" ]]; then
       if [[ "$HOME_NOEXEC" ]]; then
@@ -261,69 +243,23 @@ if [ -d $PWD_PATH/winebin ]; then
       else #home cache
         cp -r $PWD_PATH/winebin $HOME/.cache/wineland/
         NOEXEC_BIN_PATH="$HOME/.cache/wineland/winebin/usr/bin:"
-
         NOEXEC_LIB_PATH="$HOME/.cache/wineland/winebin/usr/lib:"
-        _NOEXEC_LIB_PATH="$HOME/.cache/wineland/winebin/usr/lib"
-        NOEXEC_LIB32_PATH="$HOME/.cache/wineland/winebin/usr/lib/wineland/lib32:"
-        _NOEXEC_BIN_PATH="$HOME/.cache/wineland/winebin/usr/bin"
-        _NOEXEC_LIB32_PATH="$HOME/.cache/wineland/winebin/usr/lib/wineland/lib32"
+
 
       fi
     else #tmp
       cp -r $PWD_PATH/winebin /tmp/wineland
       NOEXEC_BIN_PATH="/tmp/wineland/winebin/usr/bin:"
       NOEXEC_LIB_PATH="/tmp/wineland/winebin/usr/lib:"
-      _NOEXEC_LIB_PATH="/tmp/wineland/winebin/usr/lib"
-      NOEXEC_LIB32_PATH="/tmp/wineland/winebin/usr/lib/wineland/lib32:"
-      _NOEXEC_LIB32_PATH="/tmp/wineland/winebin/usr/lib/wineland/lib32"
-      _NOEXEC_BIN_PATH="/tmp/wineland/winebin/usr/bin"
     fi
 
   fi
 
 
   mkdir -p /tmp/wineland/ $HOME/.cache/wineland/
+  export LD_LIBRARY_PATH="${NOEXEC_LIB_PATH}${EXEC_LIB}$LD_LIBRARY_PATH"
+  export PATH="${NOEXEC_BIN_PATH}$PWD_PATH/winebin/usr/bin:$PATH"
 
-
-
-  if [[ "$IS_64_EXE" ]]; then
-
-    echo "Using local wine 64bit"
-
-    export LD_LIBRARY_PATH="${NOEXEC_LIB_PATH}${EXEC_LIB}$LD_LIBRARY_PATH"
-    export PATH="${NOEXEC_BIN_PATH}$PWD_PATH/winebin/usr/bin:$PATH"
-  else
-    echo "Using local wine 32bit"
-
-    export LD_LIBRARY_PATH="${NOEXEC_LIB_PATH}${NOEXEC_LIB32_PATH}${EXEC_LIB32}${EXEC_LIB}$LD_LIBRARY_PATH"
-    export PATH="${NOEXEC_BIN_PATH}$PWD_PATH/winebin/usr/bin:$PATH"
-
-    export VK_ICD_FILENAMES="$PWD_PATH/winebin/usr/lib/wineland/vulkan/icd.d/intel_icd.i686.json:$PWD_PATH/winebin/usr/lib/wineland/vulkan/icd.d/radeon_icd.i686.json"
-
-
-
-
-    if [[ "$GAME_NOEXEC" ]]; then
-      #replace with originals from backup
-      cp ${_NOEXEC_LIB_PATH}/wineland/vulkan/orig/*json ${_NOEXEC_LIB_PATH}/wineland/vulkan/icd.d/
-
-      export VK_ICD_FILENAMES="$_NOEXEC_LIB_PATH/wineland/vulkan/icd.d/intel_icd.i686.json:$_NOEXEC_LIB_PATH/wineland/vulkan/icd.d/radeon_icd.i686.json"
-
-      sed -i "s#\"/usr/lib#\"$_NOEXEC_LIB_PATH#g" ${_NOEXEC_LIB_PATH}/wineland/vulkan/icd.d/*json
-
-      #fix libc
-      patchelf-for-wineland --set-interpreter ${_NOEXEC_LIB32_PATH}/ld-linux.so.2 ${_NOEXEC_BIN_PATH}/wine
-    else
-      #replace with originals from backup
-      cp $PWD_PATH/winebin/usr/lib/wineland/vulkan/orig/*json $PWD_PATH/winebin/usr/lib/wineland/vulkan/icd.d/
-
-      sed -i "s#\"/usr/lib#\"${PWD_PATH}/winebin/usr/lib#g" $PWD_PATH/winebin/usr/lib/wineland/vulkan/icd.d/*json
-
-      #fix libc
-      patchelf-for-wineland --set-interpreter $PWD_PATH/winebin/usr/lib/wineland/lib32/ld-linux.so.2 $PWD_PATH/winebin/usr/bin/wine
-    fi
-
-  fi
 
 fi
 
@@ -331,26 +267,36 @@ fi
 cd "$PWD_PATH"
 
 if [ ! -d $PWD_PATH/dxvk ]; then
-    echo "Downloading dxvk"
+
+    if [ ! -f $PWD_PATH/../dxvk-${WINE_VK_DXVK_VERSION}.tar.gz ]; then
+      echo "Downloading dxvk"
+      echo "https://github.com/doitsujin/dxvk/releases/download/v${WINE_VK_DXVK_VERSION}/dxvk-${WINE_VK_DXVK_VERSION}.tar.gz";
+      curl  -L "https://github.com/doitsujin/dxvk/releases/download/v${WINE_VK_DXVK_VERSION}/dxvk-${WINE_VK_DXVK_VERSION}.tar.gz" > $PWD_PATH/../dxvk-$WINE_VK_DXVK_VERSION.tar.gz
+    fi
+
     mkdir dxvk
     cd dxvk
-    echo "https://github.com/doitsujin/dxvk/releases/download/v${WINE_VK_DXVK_VERSION}/dxvk-${WINE_VK_DXVK_VERSION}.tar.gz";
-    curl  -L "https://github.com/doitsujin/dxvk/releases/download/v${WINE_VK_DXVK_VERSION}/dxvk-${WINE_VK_DXVK_VERSION}.tar.gz" > dxvk-$WINE_VK_DXVK_VERSION.tar.gz
+    cp $PWD_PATH/../dxvk-$WINE_VK_DXVK_VERSION.tar.gz .
     tar xf dxvk-$WINE_VK_DXVK_VERSION.tar.gz
     cd "$PWD_PATH"
     REFRESH_DXVK=1
 fi
 
-if [ ! -d $PWD_PATH/vkd3d ]; then
-    echo "Downloading vkd3d"
-    mkdir vkd3d
-    cd vkd3d
+if [[ "$IS_64_EXE" ]]; then
+  if [ ! -d $PWD_PATH/vkd3d ]; then
 
+      if [ ! -f $PWD_PATH/../vkd3d-${VKD3D_VERSION}.tar.zst ]; then
+        echo "Downloading vkd3d"
+        curl  -L "https://github.com/HansKristian-Work/vkd3d-proton/releases/download/v${VKD3D_VERSION}/vkd3d-proton-${VKD3D_VERSION}.tar.zst" > $PWD_PATH/../vkd3d-${VKD3D_VERSION}.tar.zst
+      fi
 
-    curl  -L "https://github.com/HansKristian-Work/vkd3d-proton/releases/download/v${VKD3D_VERSION}/vkd3d-proton-${VKD3D_VERSION}.tar.zst" > vkd3d-${VKD3D_VERSION}.tar.zst
-    tar xf vkd3d-${VKD3D_VERSION}.tar.zst
-    cd "$PWD_PATH"
-    REFRESH_VKD3D=1
+      mkdir vkd3d
+      cd vkd3d
+      cp $PWD_PATH/../vkd3d-${VKD3D_VERSION}.tar.zst .
+      tar xf vkd3d-${VKD3D_VERSION}.tar.zst
+      cd "$PWD_PATH"
+      REFRESH_VKD3D=1
+  fi
 fi
 
 if [ ! -d $WINEPREFIX ]; then
@@ -361,27 +307,38 @@ if [ ! -d $WINEPREFIX ]; then
 
 
   if [[ -z "$IS_64_EXE" ]]; then
-    echo "32bit wine"
+    echo "32bit exe"
     WINE_CMD="wine"
-
-    export WINEARCH=win32
+    export WINEARCH=win64
     WINE_VK_VULKAN_ONLY=1 wineboot -u
     sleep 4
 
   else
     echo "64bit wine"
+    export WINEARCH=win64
     WINE_VK_VULKAN_ONLY=1 wineboot -u
     sleep 4
   fi
 
+  echo ${WINE_WAYLAND_VERSION} > $PWD_PATH/wine/version
+
   # Fixes no sound in some games
-  wine64 winecfg /a
+  $WINE_CMD winecfg /a
 else
 
   #rm $PWD_PATH/wine/.update-timestamp
   #echo "disable" > $PWD_PATH/wine/.update-timestamp
-  WINE_VK_VULKAN_ONLY=1 wineboot -u &> /dev/null
-  echo ""
+
+  # speed up launch
+  touch $PWD_PATH/wine/version
+  CURR_VER=$(< $PWD_PATH/wine/version )
+  if [ "$CURR_VER" != "$WINE_WAYLAND_VERSION" ]; then
+    rm $PWD_PATH/wine/.update-timestamp
+    WINE_VK_VULKAN_ONLY=1 wineboot -u &> /dev/null
+    echo ${WINE_WAYLAND_VERSION} > $PWD_PATH/wine/version
+  else
+    echo "disable" > $PWD_PATH/wine/.update-timestamp
+  fi
 
 
 fi
@@ -391,7 +348,7 @@ if [[ -z "$REFRESH_DXVK" ]]; then
 else
   if [[ -z "$IS_64_EXE" ]]; then
     echo "refreshing 32bit dxvk"
-    cp -r dxvk/dxvk-${WINE_VK_DXVK_VERSION}/x32/* wine/drive_c/windows/system32/
+    cp -r dxvk/dxvk-${WINE_VK_DXVK_VERSION}/x32/* wine/drive_c/windows/syswow64/
   else
     echo "refreshing 64bit dxvk"
     cp -r dxvk/dxvk-${WINE_VK_DXVK_VERSION}/x64/* wine/drive_c/windows/system32/
@@ -437,5 +394,4 @@ export WINEDEBUG=fixme-all,-all,+waylanddrv
 
 echo "Launching $1"
 $WINE_CMD $FINAL_EXE $GAME_OPTIONS  &> $LOG_PATH
-
 

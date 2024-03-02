@@ -54,7 +54,7 @@ static struct screen_size {
     {1366,  768},
     {1600,  900},
     {1706, 960},
-    {2048, 1536},
+//    {2048, 1536}, //TODO broken with FSR
     {2560, 1440},
     {3840, 2160}
 };
@@ -324,14 +324,12 @@ static BOOL desktop_get_adapters( ULONG_PTR gpu_id,
 static BOOL desktop_add_monitors( const struct gdi_device_manager *device_manager, void *param )
 {
     struct gdi_monitor monitor = {0};
-    UINT len = 0;
 
     SetRect(&monitor.rc_monitor, 0, 0,
             screen_sizes[0].width,
             screen_sizes[0].height);
 
     monitor.rc_work = monitor.rc_monitor;
-    monitor.state_flags = DISPLAY_DEVICE_ATTACHED | DISPLAY_DEVICE_ACTIVE;
 
     device_manager->add_monitor( &monitor, param );
     return TRUE;
@@ -379,16 +377,16 @@ BOOL WAYLANDDRV_UpdateDisplayDevices( const struct gdi_device_manager *device_ma
   struct gdi_gpu *gpus  = NULL;
   INT gpu_count, adapter_count;
   RECT rect = monitor_default_rect(0, 0, 0);
+  DEVMODEW mode =
+  {
+      //.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_BITSPERPEL | DM_DISPLAYFLAGS | DM_DISPLAYFREQUENCY,
+      .dmFields = DM_DISPLAYORIENTATION | DM_PELSWIDTH | DM_PELSHEIGHT | DM_BITSPERPEL |
+                        DM_DISPLAYFLAGS | DM_DISPLAYFREQUENCY | DM_POSITION,
+      .dmBitsPerPel = 32, .dmPelsWidth = rect.right, .dmPelsHeight = rect.bottom, .dmDisplayFrequency = 60,
+  };
 
   if (done)
     return TRUE;
-
-
-  DEVMODEW mode =
-  {
-      .dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_BITSPERPEL | DM_DISPLAYFLAGS | DM_DISPLAYFREQUENCY,
-      .dmBitsPerPel = 32, .dmPelsWidth = rect.right, .dmPelsHeight = rect.bottom, .dmDisplayFrequency = 60,
-  };
 
   if (!force && !force_refresh) return TRUE;
 
@@ -407,16 +405,16 @@ BOOL WAYLANDDRV_UpdateDisplayDevices( const struct gdi_device_manager *device_ma
     desktop_add_monitors(device_manager, param);
     //TODO
     populate_devmode(rect.right, rect.bottom, 32, &mode);
-    device_manager->add_mode(&mode, param);
+    device_manager->add_mode(&mode, TRUE, param );
     for (int i=0; i < ARRAY_SIZE(screen_sizes); i++)
     {
       if ( (screen_sizes[i].width != rect.right) || (screen_sizes[i].height != rect.bottom)  ) {
         DEVMODEW mode1 = {0};
         DEVMODEW mode2 = {0};
         populate_devmode(screen_sizes[i].width, screen_sizes[i].height, 32, &mode1);
-        device_manager->add_mode(&mode1, param);
+        device_manager->add_mode(&mode1, FALSE, param );
         populate_devmode(screen_sizes[i].width, screen_sizes[i].height, 16, &mode2);
-        device_manager->add_mode(&mode2, param);
+        device_manager->add_mode(&mode2, FALSE, param );
        }
     }
   }

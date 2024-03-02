@@ -3,9 +3,9 @@
 @@ -44,6 +47,8 @@
 
      /* winevulkan specific functions */
-     VkSurfaceKHR (*p_wine_get_native_surface)(VkSurfaceKHR);
+     VkSurfaceKHR (*p_wine_get_host_surface)(VkSurfaceKHR);
 +
-+    VkBool32 (*query_fs_hack)(VkSurfaceKHR surface, VkExtent2D *real_sz, VkExtent2D *user_sz, VkRect2D *dst_blit, VkFilter *filter, BOOL *fsr, float *sharpness);
++    VkBool32 (*query_fsr)(VkSurfaceKHR surface, VkExtent2D *real_sz, VkExtent2D *user_sz, VkRect2D *dst_blit, VkFilter *filter, BOOL *fsr, float *sharpness);
  };
 
- extern const struct vulkan_funcs * CDECL __wine_get_vulkan_driver(UINT version);
+ static inline void *get_vulkan_driver_device_proc_addr(

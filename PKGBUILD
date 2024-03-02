@@ -1,6 +1,6 @@
 # Created by: varmd
 
-RELEASE=8.2
+RELEASE=9.3
 _pkgname=('wine-wayland')
 pkgname=('wine-wayland' 'wineland' )
 
@@ -21,7 +21,6 @@ export PKGEXT='.pkg.tar.zst'
 depends=(
   'adwaita-icon-theme'
   'fontconfig'
-  'libxml2'
   'freetype2'
   'gcc-libs'
   'desktop-file-utils'
@@ -37,13 +36,11 @@ makedepends=(
   'autoconf'
   'ncurses'
   'bison'
-  'patchelf'
   'perl'
   'flex'
   'gcc'
   'vulkan-headers'
   'gettext'
-  'zstd'
   'mingw-w64-gcc'
 )
 
@@ -52,10 +49,13 @@ source=(
   "https://github.com/wine-mirror/wine/archive/wine-$RELEASE.zip"
   "https://github.com/civetweb/civetweb/archive/v1.15.tar.gz"
   "https://github.com/libsdl-org/SDL/archive/refs/tags/release-2.0.16.zip"
-  "https://github.com/alsa-project/alsa-lib/archive/refs/tags/v1.2.8.zip"
+#  "https://github.com/alsa-project/alsa-lib/archive/refs/tags/v1.2.8.zip"
 )
 
-sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP')
+sha256sums=(
+ 'SKIP' 'SKIP' 'SKIP'
+ #'SKIP'
+)
 
 
 STRBUILD32="builder"
@@ -66,20 +66,15 @@ if [ "$USER" = "$STRBUILD32" ]; then
 fi
 
 if [ -z "${WINE_BUILD_32:-}" ]; then
-  #msg2 "Not building wine 32"
+  msg2 "Not building wine 32"
   D=1
 else
   source ./PKGBUILD-32
-  #msg2 "Also building wine 32"
+  msg2 "Also building wine 32"
 fi
 
-
-
-#OPTIONS=(!docs !libtool !zipman !purge !debug)
 OPTIONS=(!strip !docs !libtool !zipman !purge !debug)
 makedepends=(${makedepends[@]} ${depends[@]})
-
-
 
 
 build_sdl2() {
@@ -156,6 +151,7 @@ build_alsa_lib_patched() {
       --disable-old-symbols \
       --disable-topology \
       --disable-rawmidi \
+      --disable-python \
       --disable-aload \
       --with-pthread \
       --disable-ucm \
@@ -184,10 +180,19 @@ prepare() {
   else
     cd ..
 
+    # Remove collabora driver for now
+    rm -rf "${srcdir}"/"${_winesrcdir}"/dlls/winewayland*
 
-    rm -f "${srcdir}"/"${_winesrcdir}"/dlls/winewayland*
+    # Remove winevulkan update that breaks FSR
+    #rm -rf "${srcdir}"/"${_winesrcdir}"/dlls/winevulkan*
+    #cp -r patches/winevulkan-9.3-0 "${srcdir}"/"${_winesrcdir}"/dlls/winevulkan
+    #cp -r patches/winevulkan-9.2/vulkan_driver.h "${srcdir}"/"${_winesrcdir}"/include/wine/
 
-#    ln -s $PWD/collabora-waylanddrv "${srcdir}"/"${_winesrcdir}"/dlls/winewayland.drv
+    # Add shims
+    rm -rf "${srcdir}"/"${_winesrcdir}"/dlls/opengl32
+    cp -r shims/opengl32 "${srcdir}"/"${_winesrcdir}"/dlls/
+
+
     ln -s $PWD/winewayland.drv "${srcdir}"/"${_winesrcdir}"/dlls/winewayland.drv
 
     cd "${srcdir}"/"${_winesrcdir}"
@@ -264,6 +269,7 @@ prepare() {
     sed -i '/programs\/wmplayer/d' configure.ac
     sed -i '/programs\/spoolsv/d' configure.ac
     sed -i '/programs\/schtasks/d' configure.ac
+    sed -i '/programs\/wusa/d' configure.ac
     sed -i '/systeminfo/d' configure.ac
 
 
@@ -324,6 +330,8 @@ prepare() {
 
     sed -i '/dlls\/gameux/d' configure.ac
 
+    sed -i '/dlls\/wmphoto/d' configure.ac
+
     # Test
       # Direct3d Retained Mode
       sed -i '/dlls\/d3drm/d' configure.ac
@@ -348,6 +356,9 @@ prepare() {
       sed -i '/dlls\/wiaservc/d' configure.ac
       sed -i '/dlls\/prntvpt/d' configure.ac
 
+      sed -i '/dlls\/msvcrtd/d' configure.ac
+      sed -i '/dlls\/wldap32/d' configure.ac
+
       #wbem
       sed -i '/dlls\/wbemprox/d' configure.ac
       sed -i '/dlls\/wbemdisp/d' configure.ac
@@ -358,6 +369,13 @@ prepare() {
       sed -i '/programs\/write/d' configure.ac
       sed -i '/programs\/dpvsetup/d' configure.ac
       sed -i '/programs\/msinfo32/d' configure.ac
+      sed -i '/programs\/winver/d' configure.ac
+      sed -i '/programs\/uninstaller/d' configure.ac
+
+      ### WMI command-line (WMIC)
+      sed -i '/programs\/wmic/d' configure.ac
+      ### Display information about the Microsoft-Windows-Eventlog event publisher
+      sed -i '/programs\/wmic/d' configure.ac
 
       #misc cpl + exe
       sed -i '/bthprops/d' configure.ac
@@ -366,10 +384,26 @@ prepare() {
       sed -i '/programs\/chcp\./d' configure.ac
 
 
-      #misc dll
+      ###misc dll
+
+
+      #Speech Application Programming Interface or SAPI
+      sed -i '/dlls\/sapi/d' configure.ac
+      #Background Intelligent Transfer Service Proxy
+      sed -i '/dlls\/qmgrprxy/d' configure.ac
+
 
       #indeo
       sed -i '/ir50_32/d' configure.ac
+
+      #acl
+      sed -i '/acledit/d' configure.ac
+
+      #misc tools
+      sed -i '/tools\/winedump/d' configure.ac
+
+
+
 
 
 
@@ -400,7 +434,7 @@ build() {
 
   #build sdl2 here to avoid x11 dependencies from official archlinux sdl2
   build_sdl2
-  build_alsa_lib_patched
+  #build_alsa_lib_patched
 
   export PKG_CONFIG_PATH="${srcdir}/alsa-lib-install/usr/lib/pkgconfig"
   export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:${srcdir}/sdl2-install/usr/lib/pkgconfig:/usr/lib/pkgconfig"
@@ -409,16 +443,24 @@ build() {
   export CFLAGS="$CFLAGS"
 
   CFLAGS="${CFLAGS/-Wp,-D_FORTIFY_SOURCE=2/}"
+  CFLAGS="${CFLAGS/-O2/}"
 
 
 
-  export CFLAGS="${CFLAGS/-fno-plt/} -ffat-lto-objects"
+  export CFLAGS="${CFLAGS/-fno-plt/} -ffat-lto-objects -O1 "
 
   export CFLAGS="${CFLAGS/-fno-plt/}"
   export LDFLAGS="${LDFLAGS/,-z,relro,-z,now/}"
 
 
 #    --enable-archs=i386,x86_64 \
+
+  if [ -z "${WINE_BUILD_32:-}" ]; then
+    I386=
+  else
+    I386=i386,
+  fi
+
 
   msg2 'Building Wine-64...'
 	cd  "${srcdir}"/${_pkgname}-64-build
@@ -429,6 +471,7 @@ build() {
   ../${_winesrcdir}/configure \
 		--prefix='/usr' \
 		--libdir='/usr/lib' \
+		--enable-archs=${I386}x86_64 \
 		--without-x \
     --without-oss \
 		--without-capi \
@@ -482,7 +525,6 @@ package_wineland() {
     'alsa-lib'
     'mesa'
     'vulkan-icd-loader'
-    'libxml2'
   )
 
   #build civetweb for wineland
@@ -509,7 +551,10 @@ package_wineland() {
 
 package_wine-wayland() {
 
-
+  CPUS=$(getconf _NPROCESSORS_ONLN)
+  if ((CPUS > 10)); then
+    CPUS=6;
+  fi
 
   if [ -z "${WINE_BUILD_32_DEV_SKIP_64:-}" ]; then
     echo "Building 64bit complete"
@@ -521,7 +566,6 @@ package_wine-wayland() {
   depends=(
     'adwaita-icon-theme'
     'fontconfig'
-    'libxml2'
     'freetype2'
     'gcc-libs'
     'desktop-file-utils'
@@ -536,7 +580,7 @@ package_wine-wayland() {
 
 
 	cd "${srcdir}/${_pkgname}"-64-build
-	make -s	prefix="${pkgdir}/usr" \
+	make -j $CPUS -s prefix="${pkgdir}/usr" \
 			libdir="${pkgdir}/usr/lib" \
 			dlldir="${pkgdir}/usr/lib/wine" install
 
@@ -549,7 +593,18 @@ package_wine-wayland() {
   strip -s *
 
   x86_64-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/x86_64-windows/*.dll
-  #i686-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/i386-windows/*.dll
+
+  if [ -z "${WINE_BUILD_32:-}" ]; then
+    #msg2 "Not building wine 32"
+    cp $pkgdir/usr/bin/wine64 $pkgdir/usr/bin/wine
+  else
+ #   source ./PKGBUILD-32
+    cp $pkgdir/usr/bin/wine $pkgdir/usr/bin/wine64
+    i686-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/i386-windows/*.dll
+    rm -rf $srcdir/i386-windows/
+    mv "$pkgdir"/usr/lib/wine/i386-windows/ $srcdir/
+  fi
+
 
 
   #SDL2
@@ -562,7 +617,8 @@ package_wine-wayland() {
   rm -rf $pkgdir/usr/share/aclocal
   rm -rf $pkgdir/usr/share/applications
   cp --preserve=links ${srcdir}/sdl2-install/usr/lib/libSDL2* $pkgdir/usr/lib/wineland/lib/
-  cp --preserve=links ${srcdir}/alsa-lib-install/usr/lib/liba* $pkgdir/usr/lib/wineland/lib/
+
+  #cp --preserve=links ${srcdir}/alsa-lib-install/usr/lib/liba* $pkgdir/usr/lib/wineland/lib/
   rm -rf $pkgdir/usr/lib/libSDL2*
   rm -rf $pkgdir/usr/lib/wineland/*.a
   rm -rf $pkgdir/usr/lib/wine/x86_64-windows/*.a
@@ -571,7 +627,16 @@ package_wine-wayland() {
 
   rm -rf $pkgdir/usr/lib/wine/x86_64-windows/dxgi.dll
 
+  # Obsolete for 64bit games
+  rm -rf $pkgdir/usr/lib/wine/x86_64-windows/wined3d.dll
+  rm -rf $pkgdir/usr/lib/wine/x86_64-windows/ddraw.dll
 
+  # Useless for games
+  rm -rf $pkgdir/usr/lib/wine/x86_64-windows/winspool.drv
+
+  #misc nls
+  rm  $pkgdir/usr/share/wine/nls/c_949.nls
+  rm  $pkgdir/usr/share/wine/nls/c_708.nls
 
 
 }
