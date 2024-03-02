@@ -545,8 +545,6 @@ package_wineland() {
   mkdir -p ${pkgdir}/usr/share/applications
   cp -r ../wineland/wineland.desktop ${pkgdir}/usr/share/applications/wineland.desktop
 
-  cp /usr/bin/patchelf $pkgdir/usr/bin/patchelf-for-wineland
-
 }
 
 
