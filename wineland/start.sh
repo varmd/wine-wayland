@@ -1,5 +1,5 @@
 #
-# Copyright 2020-2022 varmd
+# Copyright 2020-2024 varmd
 #
 
 WINE_VK_DXVK_VERSION="2.3"
@@ -8,7 +8,7 @@ VKD3D_VERSION="2.11.1"
 #MANGOHUD_URL="/v0.6.8/MangoHud-0.6.8.r0.gefdcc6d.tar.gz"
 MANGOHUD_URL="/v0.7.1/MangoHud-0.7.1.tar.gz"
 MANGOHUD_VERSION="MangoHud-0.7.1"
-WINE_WAYLAND_TAG_NUM="1"
+WINE_WAYLAND_TAG_NUM="2"
 
 #for i in $(ls -d */); do echo ${i%%/}; done
 #for i in $(set -- */; printf "%s\n" "${@%/}");
