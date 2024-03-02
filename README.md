@@ -185,7 +185,7 @@ Then in the terminal run sh start-your-game.sh
  * Update DXVK, VKD3D, Mangohud
  * Switch to the new 32-bit on 64-bit Wine feature for 32-bit games,
    this will require reinstalling any existing 32-bit games.
- * Reduce download size to 28MB for 64-bit, 24MB for 32-bit.
+ * Reduce download size to 20MB for 64-bit, 17MB for 32-bit.
  * Reduce installation size to 120MB for 64-bit and 104MB for 32-bit.
  * Misc fixes and improvements
 
