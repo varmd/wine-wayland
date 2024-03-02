@@ -1,8 +1,19 @@
 # Created by: varmd
 
+STRBUILD32="builder"
+if [ "$USER" = "$STRBUILD32" ]; then
+  WINE_BUILD_32=1
+fi
+
+if [ -z "${WINE_BUILD_32:-}" ]; then
+  pkgname=('wine-wayland' 'wineland')
+else
+  pkgname=('wine-wayland' 'wineland' 'lib32-wine-wayland')
+fi
+
 RELEASE=9.3
 _pkgname=('wine-wayland')
-pkgname=('wine-wayland' 'wineland' )
+
 
 pkgver=`echo $RELEASE | sed s~-~~`
 pkgrel=1
@@ -57,22 +68,6 @@ sha256sums=(
  'SKIP' 'SKIP' 'SKIP'
  #'SKIP'
 )
-
-
-STRBUILD32="builder"
-
-
-if [ "$USER" = "$STRBUILD32" ]; then
-  WINE_BUILD_32=1
-fi
-
-if [ -z "${WINE_BUILD_32:-}" ]; then
-  msg2 "Not building wine 32"
-  D=1
-else
-  source ./PKGBUILD-32
-  msg2 "Also building wine 32"
-fi
 
 OPTIONS=(!strip !docs !libtool !zipman !purge !debug)
 makedepends=(${makedepends[@]} ${depends[@]})
@@ -426,11 +421,10 @@ prepare() {
 
 build() {
 
-
-  if [ -z "${WINE_BUILD_32_DEV_SKIP_64:-}" ]; then
-    echo "Building 64bit"
+  if [ -z "${WINE_BUILD_32:-}" ]; then
+    D=1
   else
-    return 0;
+    msg2 "Also building wine32"
   fi
 
   #build sdl2 here to avoid x11 dependencies from official archlinux sdl2
@@ -515,6 +509,24 @@ build() {
 
 }
 
+package_lib32-wine-wayland() {
+
+  provides=('lib32-wine-wayland')
+
+  depends=(
+    'wine-wayland'
+  )
+
+  mkdir -p $pkgdir/usr/lib/wine
+  mv $srcdir/i386-windows "$pkgdir"/usr/lib/wine/i386-windows/
+
+  #cleanup
+  rm -rf "$pkgdir"/usr/lib/wine/i386-windows/*.a
+  #i686-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/i386-windows/*.dll
+
+}
+
+
 package_wineland() {
 
   depends=(
@@ -597,7 +609,6 @@ package_wine-wayland() {
     #msg2 "Not building wine 32"
     cp $pkgdir/usr/bin/wine64 $pkgdir/usr/bin/wine
   else
- #   source ./PKGBUILD-32
     cp $pkgdir/usr/bin/wine $pkgdir/usr/bin/wine64
     i686-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/i386-windows/*.dll
     rm -rf $srcdir/i386-windows/
@@ -639,3 +650,5 @@ package_wine-wayland() {
 
 
 }
+
+
