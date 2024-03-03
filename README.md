@@ -108,7 +108,6 @@ Then in the terminal run sh start-your-game.sh
 
 ### Environment variables when running games without the wineland launcher
 
-* Use `export LD_LIBRARY_PATH="/usr/lib/wineland/lib32:$LD_LIBRARY_PATH"` and `export VK_ICD_FILENAMES="/usr/lib/wineland/vulkan/icd.d/intel_icd.i686.json:/usr/lib/wineland/vulkan/icd.d/radeon_icd.i686.json"` when running 32-bit wine apps outside of the wineland launcher
 * Use `export WINE_VK_VULKAN_ONLY=1` if a game is not starting or there is no keyboard/mouse focus
 * Use `export XCURSOR_SIZE="xx"` and `export XCURSOR_THEME=themename` to set cursor theme and increase cursor size
 * Use `export WINE_VK_HIDE_CURSOR=1` to hide cursors, when games do not hide cursors - for example when using a controller

@@ -50,7 +50,7 @@ fi
 cd $ROOT_DIR
 
 env $CIVETWEB -listening_ports 18180 -document_root $ROOT_DIR/ui \
--cgi_environment WAYLAND_DISPLAY=$WAYLAND_DISPLAY,WINELAND_FILE_DIR=$WINELAND_FILE_DIR  \
+-cgi_environment WAYLAND_DISPLAY=$WAYLAND_DISPLAY,WINELAND_FILE_DIR=$WINELAND_FILE_DIR,HOME=$HOME  \
 -url_rewrite_patterns \
 /list-games=$ROOT_DIR/cgi/list-games.cgi\
 ,/launch-game=$ROOT_DIR/cgi/launch-game.cgi\
