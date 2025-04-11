@@ -30,7 +30,7 @@
 #include "wingdi.h"
 
 #include "wine/wgl.h"
-#include "wine/wgl_driver.h"
+
 
 struct registry_entry
 {
@@ -45,9 +45,8 @@ extern struct opengl_funcs null_opengl_funcs ;
 
 static inline struct opengl_funcs *get_dc_funcs( HDC hdc )
 {
-    struct opengl_funcs *funcs = __wine_get_wgl_driver( hdc, WINE_WGL_DRIVER_VERSION );
-    if (!funcs) RtlSetLastWin32Error( ERROR_INVALID_HANDLE );
-    else if (funcs == (void *)-1) funcs = &null_opengl_funcs;
+    struct opengl_funcs *funcs;
+    funcs = &null_opengl_funcs;
     return funcs;
 }
 

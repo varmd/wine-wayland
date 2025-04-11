@@ -619,3 +619,266 @@ static const char* vkey_to_name( UINT vkey )
             return vkey_names[j].name;
     return NULL;
 }
+
+/***********************************************************************
+ *           WAYLAND_ToUnicodeEx
+ */
+INT WAYLANDDRV_ToUnicodeEx( UINT virt, UINT scan, const BYTE *state,
+                               LPWSTR buf, int size, UINT flags, HKL hkl )
+{
+
+
+
+    WCHAR buffer[2];
+    BOOL shift = state[VK_SHIFT] & 0x80;
+    BOOL ctrl = state[VK_CONTROL] & 0x80;
+    BOOL numlock = state[VK_NUMLOCK] & 0x01;
+
+    buffer[0] = buffer[1] = 0;
+
+    if (scan & 0x8000) return 0;  /* key up */
+
+    /* FIXME: hardcoded layout */
+
+    if (!ctrl)
+    {
+        switch (virt)
+        {
+        case VK_BACK:       buffer[0] = '\b'; break;
+        case VK_OEM_1:      buffer[0] = shift ? ':' : ';'; break;
+        case VK_OEM_2:      buffer[0] = shift ? '?' : '/'; break;
+        case VK_OEM_3:      buffer[0] = shift ? '~' : '`'; break;
+        case VK_OEM_4:      buffer[0] = shift ? '{' : '['; break;
+        case VK_OEM_5:      buffer[0] = shift ? '|' : '\\'; break;
+        case VK_OEM_6:      buffer[0] = shift ? '}' : ']'; break;
+        case VK_OEM_7:      buffer[0] = shift ? '"' : '\''; break;
+        case VK_OEM_COMMA:  buffer[0] = shift ? '<' : ','; break;
+        case VK_OEM_MINUS:  buffer[0] = shift ? '_' : '-'; break;
+        case VK_OEM_PERIOD: buffer[0] = shift ? '>' : '.'; break;
+        case VK_OEM_PLUS:   buffer[0] = shift ? '+' : '='; break;
+        case VK_RETURN:     buffer[0] = '\r'; break;
+        case VK_SPACE:      buffer[0] = ' '; break;
+        case VK_TAB:        buffer[0] = '\t'; break;
+        case VK_MULTIPLY:   buffer[0] = '*'; break;
+        case VK_ADD:        buffer[0] = '+'; break;
+        case VK_SUBTRACT:   buffer[0] = '-'; break;
+        case VK_DIVIDE:     buffer[0] = '/'; break;
+        default:
+            if (virt >= '0' && virt <= '9')
+            {
+                buffer[0] = shift ? ")!@#$%^&*("[virt - '0'] : virt;
+                break;
+            }
+            if (virt >= 'A' && virt <= 'Z')
+            {
+                buffer[0] =  shift || (state[VK_CAPITAL] & 0x01) ? virt : virt + 'a' - 'A';
+                break;
+            }
+            if (virt >= VK_NUMPAD0 && virt <= VK_NUMPAD9 && numlock && !shift)
+            {
+                buffer[0] = '0' + virt - VK_NUMPAD0;
+                break;
+            }
+            if (virt == VK_DECIMAL && numlock && !shift)
+            {
+                buffer[0] = '.';
+                break;
+            }
+            break;
+        }
+    }
+    else /* Control codes */
+    {
+        if (virt >= 'A' && virt <= 'Z')
+            buffer[0] = virt - 'A' + 1;
+        else
+        {
+            switch (virt)
+            {
+            case VK_OEM_4:
+                buffer[0] = 0x1b;
+                break;
+            case VK_OEM_5:
+                buffer[0] = 0x1c;
+                break;
+            case VK_OEM_6:
+                buffer[0] = 0x1d;
+                break;
+            case VK_SUBTRACT:
+                buffer[0] = 0x1e;
+                break;
+            }
+        }
+    }
+
+    lstrcpynW( buf, buffer, size );
+    //TRACE( "returning %d / %s\n", strlenW( buffer ), debugstr_wn(buf, strlenW( buffer )));
+    return lstrlenW( buffer );
+}
+
+
+/***********************************************************************
+ *           WAYLAND_MapVirtualKeyEx
+ */
+UINT WAYLANDDRV_MapVirtualKeyEx( UINT code, UINT maptype, HKL hkl )
+{
+    UINT ret = 0;
+    const char *s;
+    char key;
+
+    //TRACE( "code=%d %x, maptype=%d, hkl %p \n", code, code, maptype, hkl );
+
+    switch (maptype)
+    {
+    case MAPVK_VK_TO_VSC_EX:
+    case MAPVK_VK_TO_VSC:
+        /* vkey to scancode */
+        switch (code)
+        {
+        //case VK_LSHIFT:
+        //case VK_RSHIFT:
+        //case VK_SHIFT:
+        //    code = VK_SHIFT;
+        //    break;
+        case VK_CONTROL:
+            code = VK_CONTROL;
+            break;
+        case VK_MENU:
+            code = VK_LMENU;
+            break;
+        }
+        if (code < ( sizeof(vkey_to_scancode) / sizeof(vkey_to_scancode[0]) ) ) ret = vkey_to_scancode[code];
+        break;
+    case MAPVK_VSC_TO_VK:
+    case MAPVK_VSC_TO_VK_EX:
+        /* scancode to vkey */
+        ret = scancode_to_vkey( code );
+        if (maptype == MAPVK_VSC_TO_VK)
+            switch (ret)
+            {
+            //case VK_LSHIFT:
+            //case VK_RSHIFT:
+            //case VK_SHIFT:
+            //    ret = VK_SHIFT; break;
+            case VK_LCONTROL:
+            case VK_RCONTROL:
+                ret = VK_CONTROL; break;
+            case VK_LMENU:
+            case VK_RMENU:
+                ret = VK_MENU; break;
+            }
+        break;
+    case MAPVK_VK_TO_CHAR:
+
+        if ((code >= 0x30 && code <= 0x39) || (code >= 0x41 && code <= 0x5a))
+        {
+            key = code;
+            if (code >= 0x41)
+                key += 0x20;
+            ret = toupper(key);
+            //TRACE( "returning char code of %d \n", ret );
+        } else {
+          s = vkey_to_name( code );
+          if (s && (strlen( s ) == 1))
+              ret = s[0];
+          else
+              ret = 0;
+        }
+
+        break;
+    default:
+        FIXME( "Unknown maptype %d\n", maptype );
+        break;
+    }
+    //TRACE( "returning 0x%04x   %x %d \n", ret, ret, ret );
+    return ret;
+}
+
+
+/***********************************************************************
+ *           WAYLAND_GetKeyboardLayout
+ */
+HKL WAYLANDDRV_GetKeyboardLayout( DWORD thread_id )
+{
+    return (HKL)MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
+
+}
+
+/***********************************************************************
+ *           WAYLAND_VkKeyScanEx
+ */
+SHORT WAYLANDDRV_VkKeyScanEx( WCHAR ch, HKL hkl )
+{
+    //TRACE("%s \n", debugstr_w(ch));
+
+    SHORT ret = -1;
+    if (ch < sizeof(char_vkey_map) / sizeof(char_vkey_map[0])) ret = char_vkey_map[ch];
+    return ret;
+}
+
+
+/***********************************************************************
+ *           WAYLAND_GetKeyNameText
+ */
+INT WAYLANDDRV_GetKeyNameText( LONG lparam, LPWSTR buffer, INT size )
+{
+    int scancode, vkey;
+    const char *name;
+    char key[2];
+    DWORD len;
+
+    scancode = (lparam >> 16) & 0x1FF;
+    vkey = scancode_to_vkey( scancode );
+
+
+    //TRACE( "scancode is %d %d\n", scancode, vkey);
+
+    if (lparam & (1 << 25))
+    {
+        /* Caller doesn't care about distinctions between left and
+           right keys. */
+        switch (vkey)
+        {
+        case VK_LSHIFT:
+        case VK_RSHIFT:
+            vkey = VK_SHIFT; break;
+        case VK_LCONTROL:
+        case VK_RCONTROL:
+            vkey = VK_CONTROL; break;
+        case VK_LMENU:
+        case VK_RMENU:
+            vkey = VK_MENU; break;
+        }
+    }
+
+    if (scancode & 0x100) vkey |= 0x100;
+
+    if ((vkey >= 0x30 && vkey <= 0x39) || (vkey >= 0x41 && vkey <= 0x5a))
+    {
+        key[0] = vkey;
+        if (vkey >= 0x41)
+            key[0] += 0x20;
+        key[1] = 0;
+        name = key;
+    }
+    else
+    {
+        name = vkey_to_name( vkey );
+    }
+
+    RtlUTF8ToUnicodeN( buffer, size * sizeof(WCHAR), &len, name, strlen( name ) + 1 );
+    len /= sizeof(WCHAR);
+    if (len) len--;
+
+    if (!len)
+    {
+        char name[16];
+        len = sprintf( name, "Key 0x%02x", vkey );
+        len = min( len + 1, size );
+        ascii_to_unicode( buffer, name, len );
+        if (len) buffer[--len] = 0;
+    }
+
+//    TRACE( "lparam 0x%08x -> %s\n", lparam, debugstr_w( buffer ));
+    return len;
+}

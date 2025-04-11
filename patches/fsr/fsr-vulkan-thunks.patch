@@ -1,0 +1,38 @@
+--- a/dlls/winevulkan/vulkan_thunks.c
++++ b/dlls/winevulkan/vulkan_thunks.c
+@@ -45837,7 +45837,7 @@
+ }
+
+ #ifdef _WIN64
+-static NTSTATUS thunk64_vkCreateSwapchainKHR(void *args)
++static NTSTATUS thunk64_vkCreateSwapchainKHR2(void *args)
+ {
+     struct vkCreateSwapchainKHR_params *params = args;
+
+@@ -47296,7 +47296,7 @@
+ }
+
+ #ifdef _WIN64
+-static NTSTATUS thunk64_vkDestroySwapchainKHR(void *args)
++static NTSTATUS thunk64_vkDestroySwapchainKHR2(void *args)
+ {
+     struct vkDestroySwapchainKHR_params *params = args;
+
+@@ -52811,7 +52811,7 @@
+ }
+
+ #ifdef _WIN64
+-static NTSTATUS thunk64_vkGetSwapchainImagesKHR(void *args)
++static NTSTATUS thunk64_vkGetSwapchainImagesKHR2(void *args)
+ {
+     struct vkGetSwapchainImagesKHR_params *params = args;
+
+@@ -53325,7 +53325,7 @@
+ }
+
+ #ifdef _WIN64
+-static NTSTATUS thunk64_vkQueuePresentKHR(void *args)
++static NTSTATUS thunk64_vkQueuePresentKHR2(void *args)
+ {
+     struct vkQueuePresentKHR_params *params = args;
+

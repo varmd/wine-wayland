@@ -19,8 +19,8 @@ Wine-wayland allows running DX9/DX11/DX12 and Vulkan games using pure Wayland an
 
 ## Requirements
 
- * Archlinux or Manjaro, Linux 5.16+
- * AMD GPU with Vulkan and Wayland support, 4GB+ VRAM. Intel, Nvidia not tested
+ * Archlinux or Manjaro, Linux 6.14+
+ * AMD GPU with Vulkan and Wayland support, 4GB+ VRAM. Intel not tested
  * Mesa with Wayland and Vulkan support
  * Weston based compositor (tested on wayward), wlroots based compositor (tested on sway), Gnome not tested
 
@@ -175,6 +175,16 @@ Then in the terminal run sh start-your-game.sh
 
 
 ### Changelog
+
+#### Release 10.5
+
+ * Update to Wine 10.5
+ * Remove FSYNC, switch to NTSYNC
+ * Update FSR to Wine 10.5
+ * Update DXVK, VKD3D, Mangohud
+ * Reduce installation size to 99MB for 64-bit and 102MB for 32-bit.
+ * Misc fixes and improvements
+
 
 #### Release 9.3
 

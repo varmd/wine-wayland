@@ -63,8 +63,7 @@
 /* Externs for 6.22 */
 
 extern LONG WAYLANDDRV_ChangeDisplaySettings(LPDEVMODEW displays, HWND hwnd, DWORD flags, LPVOID lpvoid);
-extern BOOL WAYLANDDRV_UpdateDisplayDevices( const struct gdi_device_manager *device_manager,
-  BOOL force, void *param );
+extern UINT WAYLANDDRV_UpdateDisplayDevices( const struct gdi_device_manager *device_manager, void *param );
 
 extern BOOL WAYLANDDRV_GetCurrentDisplaySettings(LPCWSTR name, BOOL is_primary, LPDEVMODEW devmode);
 
@@ -72,15 +71,19 @@ extern BOOL WAYLANDDRV_CreateWindow(HWND hwnd);
 extern void WAYLANDDRV_DestroyWindow(HWND hwnd);
 
 extern UINT WAYLANDDRV_ShowWindow(HWND hwnd, INT cmd, RECT *rect, UINT swp);
-extern LRESULT WAYLANDDRV_SysCommand(HWND hwnd, WPARAM wparam, LPARAM lparam);
+extern LRESULT WAYLANDDRV_SysCommand(HWND hwnd, WPARAM wparam, LPARAM lparam, const POINT *pos);
 
-extern BOOL WAYLANDDRV_WindowPosChanging(HWND hwnd, HWND insert_after, UINT swp_flags,
-                                           const RECT *window_rect, const RECT *client_rect,
-                                           RECT *visible_rect, struct window_surface **surface);
-extern void WAYLANDDRV_WindowPosChanged(HWND hwnd, HWND insert_after, UINT swp_flags,
-                                          const RECT *window_rect, const RECT *client_rect,
-                                          const RECT *visible_rect, const RECT *valid_rects,
+extern BOOL WAYLANDDRV_CreateWindowSurface( HWND hwnd, BOOL layered, const RECT *surface_rect, struct window_surface **surface );
+
+extern BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, UINT swp_flags, BOOL shaped, const struct window_rects *rects );
+
+extern void WAYLANDDRV_WindowPosChanged(HWND hwnd, HWND insert_after,
+                                          HWND owner_hint,
+                                          UINT swp_flags,
+                                          BOOL fullscreen,
+                                          const struct window_rects *new_rects,
                                           struct window_surface *surface);
+
 
 extern BOOL WAYLANDDRV_ClipCursor(const RECT *clip, BOOL reset);
 extern BOOL WAYLANDDRV_GetCursorPos(LPPOINT pos);
@@ -133,6 +136,7 @@ extern unsigned int force_refresh;
 extern HMODULE waylanddrv_module;
 extern char *process_name;
 
+extern UINT WAYLANDDRV_VulkanInit( UINT, void *, const struct vulkan_driver_funcs ** );
 extern void wine_vk_surface_destroy( HWND hwnd );
 
 extern RECT get_virtual_screen_rect(void);

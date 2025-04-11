@@ -2,13 +2,13 @@
 # Copyright 2020-2024 varmd
 #
 
-WINE_VK_DXVK_VERSION="2.3"
-WINE_WAYLAND_VERSION="9.3"
-VKD3D_VERSION="2.11.1"
-#MANGOHUD_URL="/v0.6.8/MangoHud-0.6.8.r0.gefdcc6d.tar.gz"
-MANGOHUD_URL="/v0.7.1/MangoHud-0.7.1.tar.gz"
-MANGOHUD_VERSION="MangoHud-0.7.1"
-WINE_WAYLAND_TAG_NUM="4"
+WINE_VK_DXVK_VERSION="2.6.1"
+WINE_WAYLAND_VERSION="10.5"
+VKD3D_VERSION="2.14.1"
+
+MANGOHUD_URL="/v0.8.1/MangoHud-0.8.1.r0.gfea4292.tar.gz"
+MANGOHUD_VERSION="MangoHud-0.8.1"
+WINE_WAYLAND_TAG_NUM="0"
 
 #for i in $(ls -d */); do echo ${i%%/}; done
 #for i in $(set -- */; printf "%s\n" "${@%/}");
@@ -136,11 +136,12 @@ else
 
   fi
 
+  mkdir -p /run/user/$UID/mangohud-wine-wayland
   cp -r mangohud/usr/lib/mangohud/* /run/user/$UID/mangohud-wine-wayland
   cp -r mangohud/usr/share/vulkan/implicit_layer.d/MangoHud.x86_64.json $PWD_PATH/mangohud/MangoHud.x86_64.json
   sed -i "s/\/usr\/lib\/mangohud/\/run\/user\/${UID}\/mangohud-wine-wayland/g" mangohud/MangoHud.x86_64.json
 
-  mkdir -p /run/user/$UID/mangohud-wine-wayland
+
 
   echo "Using mangohud"
   export VK_INSTANCE_LAYERS=VK_LAYER_MANGOHUD_overlay_x86_64
@@ -310,13 +311,13 @@ if [ ! -d $WINEPREFIX ]; then
     echo "32bit exe"
     WINE_CMD="wine"
     export WINEARCH=win64
-    WINE_VK_VULKAN_ONLY=1 wineboot -u
+    WINE_VK_VULKAN_ONLY=1 wineboot -u &> /dev/null
     sleep 4
 
   else
     echo "64bit wine"
     export WINEARCH=win64
-    WINE_VK_VULKAN_ONLY=1 wineboot -u
+    WINE_VK_VULKAN_ONLY=1 wineboot -u &> /dev/null
     sleep 4
   fi
 

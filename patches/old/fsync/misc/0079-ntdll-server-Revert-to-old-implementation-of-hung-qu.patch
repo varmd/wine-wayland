@@ -29,19 +29,6 @@ diff --git a/server/queue.c b/server/queue.c
 index e76203cc73..66c1a642e0 100644
 --- a/server/queue.c
 +++ b/server/queue.c
-@@ -915,12 +930,6 @@ static int msg_queue_add_queue( struct object *obj, struct wait_queue_entry *ent
-     }
-     if (process->idle_event && !(queue->wake_mask & QS_SMRESULT)) set_event( process->idle_event );
-
--    /* On Windows, we are considered hung iff we have not somehow processed
--     * messages OR done a MsgWait call in the last 5 seconds. Note that in the
--     * latter case repeatedly waiting for 0 seconds is not hung, but waiting
--     * forever is hung, so this is correct. */
--    queue->last_get_msg = current_time;
--
-     if (queue->fd && list_empty( &obj->wait_queue ))  /* first on the queue */
-         set_fd_events( queue->fd, POLLIN );
-     add_queue( obj, entry );
 @@ -1566,6 +1575,7 @@ static int send_hook_ll_message( struct desktop *desktop, struct message *hardwa
 
      if (!(hook_thread = get_first_global_hook( id ))) return 0;

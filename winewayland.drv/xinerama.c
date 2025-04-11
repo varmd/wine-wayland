@@ -36,6 +36,7 @@
 #include "winreg.h"
 
 #include "setupapi.h"
+
 #define WIN32_NO_STATUS
 #include "winternl.h"
 #include "wine/debug.h"
@@ -68,6 +69,8 @@ static int global_current_mode = 0;
 static int global_real_mode = 0;
 
 
+//fsr
+
 static LONG fsr_set_sizes(int mode)
 {
   //TODO
@@ -91,7 +94,7 @@ static LONG fsr_set_sizes(int mode)
       offs_y = (screen_sizes[realMode].height - height) / 2;
       fs_width = screen_sizes[realMode].width;
       fs_height = (int)height;
-  }else{
+  } else {
       /* scale to fit height */
       width = screen_sizes[realMode].height * (width / height);
       height = screen_sizes[realMode].height;
@@ -117,10 +120,6 @@ static LONG fsr_set_sizes(int mode)
   //TRACE("Ignoring mode change request mode=%d\n", mode);
   return 1;
 }
-
-
-
-//fsr
 
 void fsr_set_real_mode(int width, int height)
 {
@@ -232,14 +231,6 @@ void fsr_real_to_user(POINT *pos)
     fsr_scale_real_to_user(pos);
 }
 
-/*
-static void fsr_rect_user_to_real(RECT *rect)
-{
-    fsr_user_to_real((POINT *)&rect->left);
-    fsr_user_to_real((POINT *)&rect->right);
-}
-*/
-
 //end fsr
 
 static RECT monitor_default_rect(int width, int height, int force) {
@@ -277,49 +268,8 @@ void xinerama_init( unsigned int width, unsigned int height )
 
     TRACE("Virtual rect %d %d %s \n",  width, height, wine_dbgstr_rect( &virtual_screen_rect ));
 
-    #if 0
-    static const WCHAR generic_device[] = {
-        'G','e','n','e','r','i','c',' ',
-        'D','e','v','i','c','e',0};
-
-        UNICODE_STRING device_name;
-    RtlInitUnicodeString(&device_name, generic_device);
-
-    NtUserChangeDisplaySettings(&device_name, &mode, NULL,
-      CDS_GLOBAL | CDS_NORESET | CDS_UPDATEREGISTRY, NULL);
-   #endif
 }
 
-static BOOL desktop_get_gpus( struct gdi_gpu **new_gpus, int *count )
-{
-    struct gdi_gpu *gpu;
-    static const WCHAR wine_adapterW[] = {'W','a','y','l','a','n','d','G','P','U',0};
-
-    gpu = calloc( 1, sizeof(*gpu) );
-    if (!gpu) return FALSE;
-
-    lstrcpyW( gpu->name, wine_adapterW );
-
-    *new_gpus = gpu;
-    *count = 1;
-    return TRUE;
-}
-
-static BOOL desktop_get_adapters( ULONG_PTR gpu_id,
-  struct gdi_adapter **new_adapters, int *count )
-{
-    struct gdi_adapter *adapter;
-
-    adapter = calloc( 1, sizeof(*adapter) );
-    if (!adapter) return FALSE;
-
-    adapter->state_flags = DISPLAY_DEVICE_PRIMARY_DEVICE;
-    adapter->state_flags |= DISPLAY_DEVICE_ATTACHED_TO_DESKTOP;
-
-    *new_adapters = adapter;
-    *count = 1;
-    return TRUE;
-}
 
 static BOOL desktop_add_monitors( const struct gdi_device_manager *device_manager, void *param )
 {
@@ -349,128 +299,61 @@ static void populate_devmode(int width, int height, int bpp, DEVMODEW *mode)
 
 
 
-BOOL WAYLANDDRV_GetCurrentDisplaySettings(LPCWSTR name, BOOL is_primary, LPDEVMODEW devmode)
+UINT WAYLANDDRV_UpdateDisplayDevices( const struct gdi_device_manager *device_manager, void *param )
 {
 
-    devmode->dmFields = DM_DISPLAYORIENTATION | DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT |
-                     DM_DISPLAYFLAGS | DM_DISPLAYFREQUENCY;
-    devmode->dmDisplayOrientation = DMDO_DEFAULT;
-    devmode->dmDisplayFlags = 0;
-    devmode->dmBitsPerPel = 32;
-    devmode->dmPelsWidth = screen_sizes[0].width;
-    devmode->dmPelsHeight = screen_sizes[0].height;
-    devmode->dmDisplayFrequency = 60000 / 1000;
-    devmode->dmFields |= DM_POSITION;
-    devmode->dmPosition.x = 0;
-    devmode->dmPosition.y = 0;
+  struct pci_id pci_id = {0};
 
-    return TRUE;
-}
+  DWORD state_flags = DISPLAY_DEVICE_ATTACHED_TO_DESKTOP | DISPLAY_DEVICE_PRIMARY_DEVICE;
 
+  UINT dpi = NtUserGetSystemDpiForProcess( NULL );
 
-BOOL WAYLANDDRV_UpdateDisplayDevices( const struct gdi_device_manager *device_manager,
-                                  BOOL force, void *param )
-{
-
-  static int done = 0;
-  struct gdi_adapter *adapters = NULL;
-  struct gdi_gpu *gpus  = NULL;
-  INT gpu_count, adapter_count;
   RECT rect = monitor_default_rect(0, 0, 0);
   DEVMODEW mode =
   {
-      //.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_BITSPERPEL | DM_DISPLAYFLAGS | DM_DISPLAYFREQUENCY,
-      .dmFields = DM_DISPLAYORIENTATION | DM_PELSWIDTH | DM_PELSHEIGHT | DM_BITSPERPEL |
-                        DM_DISPLAYFLAGS | DM_DISPLAYFREQUENCY | DM_POSITION,
-      .dmBitsPerPel = 32, .dmPelsWidth = rect.right, .dmPelsHeight = rect.bottom, .dmDisplayFrequency = 60,
+      .dmFields = DM_DISPLAYORIENTATION | DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT |
+                     DM_DISPLAYFLAGS | DM_DISPLAYFREQUENCY | DM_POSITION,
+      .dmBitsPerPel = 32,
+      .dmPelsWidth = rect.right,
+      .dmPelsHeight = rect.bottom,
+      .dmDisplayFrequency = 60,
+      .dmDisplayFlags = 0,
+      .dmSize = sizeof(mode)
   };
-
-  if (done)
-    return TRUE;
-
-  if (!force && !force_refresh) return TRUE;
+  int modes_count = 0;
+  DEVMODEW *modes;
 
   TRACE("via desktop %d %d\n", rect.right, rect.bottom);
 
-  /* Initialize GPUs */
-  if (!desktop_get_gpus(&gpus, &gpu_count))
-      return TRUE;
+  if (!(modes = malloc(ARRAY_SIZE(screen_sizes) * 2 * sizeof(*modes))))
+    return FALSE;
 
-  device_manager->add_gpu( &gpus[0], param );
+  device_manager->add_gpu("Wine GPU", &pci_id, NULL, param);
 
-  /* Initialize adapters */
-  if (desktop_get_adapters(gpus[0].id, &adapters, &adapter_count)) {
+  device_manager->add_source( "Default Source", state_flags, dpi, param);
+  desktop_add_monitors(device_manager, param);
+  //TODO
+  populate_devmode(rect.right, rect.bottom, 32, &mode);
+  mode.dmFields |= DM_POSITION;
+  mode.dmPosition.x = 0;
+  mode.dmPosition.y = 0;
 
-    device_manager->add_adapter( &adapters[0], param );
-    desktop_add_monitors(device_manager, param);
-    //TODO
-    populate_devmode(rect.right, rect.bottom, 32, &mode);
-    device_manager->add_mode(&mode, TRUE, param );
-    for (int i=0; i < ARRAY_SIZE(screen_sizes); i++)
-    {
-      if ( (screen_sizes[i].width != rect.right) || (screen_sizes[i].height != rect.bottom)  ) {
-        DEVMODEW mode1 = {0};
-        DEVMODEW mode2 = {0};
-        populate_devmode(screen_sizes[i].width, screen_sizes[i].height, 32, &mode1);
-        device_manager->add_mode(&mode1, FALSE, param );
-        populate_devmode(screen_sizes[i].width, screen_sizes[i].height, 16, &mode2);
-        device_manager->add_mode(&mode2, FALSE, param );
-       }
-    }
+  for (int i=0; i < ARRAY_SIZE(screen_sizes); i++)
+  {
+      DEVMODEW mode1 = {.dmSize = sizeof(mode1)};
+      populate_devmode(screen_sizes[i].width, screen_sizes[i].height, 32, &mode1);
+      modes[modes_count] = mode1;
+      modes_count++;
   }
 
-  free(adapters);
 
-  free(gpus);
-  done = 1;
-  force_refresh = 0;
+  device_manager->add_modes(&mode, modes_count, modes, param);
+
+  TRACE("via desktop %d %d %d \n", rect.right, rect.bottom, modes_count);
+
+  free(modes);
+
   return TRUE;
 }
 
-static int get_matching_output_mode(LPDEVMODEW devmode)
-{
-    for (int i=0; i < ARRAY_SIZE(screen_sizes); i++)
-    {
-        if (devmode->dmPelsWidth == screen_sizes[i].width &&
-            devmode->dmPelsHeight == screen_sizes[i].height &&
-            32 == devmode->dmBitsPerPel &&
-            60000 / 1000 == devmode->dmDisplayFrequency)
-        {
-            return 1;
-        }
-    }
-
-    return 0;
-}
-
-#define NEXT_DEVMODEW(mode) ((DEVMODEW *)((char *)((mode) + 1) + (mode)->dmDriverExtra))
-
-/***********************************************************************
- *		ChangeDisplaySettings  (WAYLAND.@)
- *
- */
-LONG WAYLANDDRV_ChangeDisplaySettings(LPDEVMODEW displays, HWND hwnd, DWORD flags,
-                                   LPVOID lpvoid)
-{
-    DEVMODEW *devmode;
-
-    for (devmode = displays; devmode->dmSize; devmode = NEXT_DEVMODEW(devmode))
-    {
-        /*
-        TRACE("device=%s devmode=%dx%d@%d %dbpp\n",
-              wine_dbgstr_w(devmode->dmDeviceName), devmode->dmPelsWidth,
-              devmode->dmPelsHeight, devmode->dmDisplayFrequency,
-              devmode->dmBitsPerPel);
-        */
-
-        if(!get_matching_output_mode(devmode)) {
-          return DISP_CHANGE_BADMODE;
-        }
-
-    }
-
-
-    return DISP_CHANGE_SUCCESSFUL;
-
-}
 

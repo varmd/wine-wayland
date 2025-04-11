@@ -30,17 +30,6 @@
  */
 BOOL WINAPI DllMain( HINSTANCE inst, DWORD reason, LPVOID reserved )
 {
-//    struct init_params params;
-//    void **callback_table;
-
-    //static WCHAR *current_exe = NULL;
-    //static WCHAR current_exepath[MAX_PATH] = {0};
-    //GetModuleFileNameW(NULL, current_exepath, ARRAY_SIZE(current_exepath));
-//    current_exe = (WCHAR *)get_basename(current_exepath);
-
-
-
-
     if (reason != DLL_PROCESS_ATTACH)
       return TRUE;
 

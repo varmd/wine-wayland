@@ -101,7 +101,15 @@ diff --git a/server/completion.c b/server/completion.c
 index 8b8983a157..85850835bf 100644
 --- a/server/completion.c
 +++ b/server/completion.c
-@@ -65,6 +65,7 @S@ static const struct object_ops completion_ops =
+@@ -85,6 +85,7 @S@ static const struct object_ops completion_wait_ops =
+     add_queue,                      /* add_queue */
+     remove_queue,                   /* remove_queue */
+     completion_wait_signaled,       /* signaled */
++    NULL,                           /* get_fsync_idx */
+     completion_wait_satisfied,      /* satisfied */
+     no_signal,                      /* signal */
+     no_get_fd,                      /* get_fd */
+@@ -165,6 +165,7 @S@ static const struct object_ops completion_ops =
      add_queue,                 /* add_queue */
      remove_queue,              /* remove_queue */
      completion_signaled,       /* signaled */
@@ -337,6 +345,26 @@ index 3a0e4b4d1d..1845d961e7 100644
      NULL,                         /* satisfied */
      no_signal,                    /* signal */
      no_get_fd,                    /* get_fd */
+diff --git a/server/hook.c b/server/object.c
+index 3a0e4b4d1d..1845d961e7 100644
+--- a/server/object.c
++++ b/server/object.c
+@@ -100,6 +100,7 @@ static const struct object_ops apc_reserve_ops =
+     no_add_queue,               /* add_queue */
+     NULL,                       /* remove_queue */
+     NULL,                       /* signaled */
++    NULL,                         /* get_fsync_idx */
+     no_satisfied,               /* satisfied */
+     no_signal,                  /* signal */
+     no_get_fd,                  /* get_fd */
+@@ -125,6 +125,7 @@ static const struct object_ops completion_reserve_ops =
+     no_add_queue,              /* add_queue */
+     NULL,                      /* remove_queue */
+     NULL,                      /* signaled */
++    NULL,                         /* get_fsync_idx */
+     no_satisfied,              /* satisfied */
+     no_signal,                 /* signal */
+     no_get_fd,                 /* get_fd */
 diff --git a/server/mailslot.c b/server/mailslot.c
 index 95308c40b0..f5cf216caa 100644
 --- a/server/mailslot.c
@@ -457,6 +485,14 @@ index 19a5426b1f..3be5d7968e 100644
      no_satisfied,                            /* satisfied */
      no_signal,                               /* signal */
      named_pipe_device_file_get_fd,           /* get_fd */
+@@ -330,6 +330,7 @@ static const struct object_ops named_pipe_dir_ops =
+     add_queue,                               /* add_queue */
+     remove_queue,                            /* remove_queue */
+     default_fd_signaled,                     /* signaled */
++    NULL,                                    /* get_fsync_idx */
+     no_satisfied,                            /* satisfied */
+     no_signal,                               /* signal */
+     named_pipe_dir_get_fd,                   /* get_fd */
 diff --git a/server/object.h b/server/object.h
 index b5c50e1cee..b3d4e33344 100644
 --- a/server/object.h

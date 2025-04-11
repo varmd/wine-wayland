@@ -1,26 +1,8 @@
 --- a/dlls/winevulkan/vulkan.c
 +++ b/dlls/winevulkan/vulkan.c
-@@ -1558,7 +1558,7 @@
-     free(object);
- }
-
--VkResult wine_vkCreateSwapchainKHR(VkDevice device_handle, const VkSwapchainCreateInfoKHR *create_info,
-+VkResult wine_vkCreateSwapchainKHR2(VkDevice device_handle, const VkSwapchainCreateInfoKHR *create_info,
-                                    const VkAllocationCallbacks *allocator, VkSwapchainKHR *swapchain_handle)
- {
-     struct wine_swapchain *object, *old_swapchain = wine_swapchain_from_handle(create_info->oldSwapchain);
-@@ -1601,7 +1601,7 @@
-     return res;
- }
-
--void wine_vkDestroySwapchainKHR(VkDevice device_handle, VkSwapchainKHR swapchain_handle,
-+void wine_vkDestroySwapchainKHR2(VkDevice device_handle, VkSwapchainKHR swapchain_handle,
-                                 const VkAllocationCallbacks *allocator)
- {
-     struct wine_device *device = wine_device_from_handle(device_handle);
 @@ -1998,3 +1998,6 @@
- {
-     return !!vk_funcs->p_vkGetDeviceProcAddr(device->device, name);
+     struct vulkan_device *device = vulkan_device_from_handle(UlongToPtr(params->device));
+     return !!vk_funcs->p_vkGetDeviceProcAddr(device->host.device, UlongToPtr(params->name));
  }
 +
 +

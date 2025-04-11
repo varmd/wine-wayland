@@ -1,11 +1,16 @@
 --- a/dlls/winevulkan/vulkan_thunks.h
 +++ b/dlls/winevulkan/vulkan_thunks.h
-@@ -17,6 +17,8 @@
+@@ -17,6 +17,13 @@
+ VkResult wine_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDevice *pDevice, void *client_ptr);
  VkResult wine_vkCreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkImage *pImage);
  VkResult wine_vkCreateInstance(const VkInstanceCreateInfo *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkInstance *pInstance, void *client_ptr);
- VkResult wine_vkCreateWin32SurfaceKHR(VkInstance instance, const VkWin32SurfaceCreateInfoKHR *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkSurfaceKHR *pSurface);
-+NTSTATUS wine_vkGetSwapchainImagesKHR(void *args);
-+NTSTATUS wine_vkQueuePresentKHR(void *args);
++NTSTATUS thunk64_vkCreateSwapchainKHR(void *args);
++NTSTATUS thunk64_vkDestroySwapchainKHR(void *args);
++NTSTATUS thunk64_vkGetSwapchainImagesKHR(void *args);
++NTSTATUS thunk64_vkQueuePresentKHR(void *args);
++NTSTATUS fsr_vkGetSwapchainImagesKHR(void *args);
++void fsr_vkDestroySwapchainKHR(VkDevice device_handle, VkSwapchainKHR swapchain_handle, const VkAllocationCallbacks *allocator);
++VkResult fsr_vkQueuePresentKHR(VkQueue queue_handle, const VkPresentInfoKHR *pPresentInfo);
  void wine_vkDestroyCommandPool(VkDevice device, VkCommandPool commandPool, const VkAllocationCallbacks *pAllocator);
  void wine_vkDestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT callback, const VkAllocationCallbacks *pAllocator);
  void wine_vkDestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT messenger, const VkAllocationCallbacks *pAllocator);

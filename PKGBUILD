@@ -11,7 +11,7 @@ else
   pkgname=('wine-wayland' 'wineland' 'lib32-wine-wayland')
 fi
 
-RELEASE=9.3
+RELEASE=10.5
 _pkgname=('wine-wayland')
 
 
@@ -24,13 +24,15 @@ pkgdesc='Wine wayland'
 url=''
 arch=('x86_64')
 
-options=('!staticlibs' '!docs')
+options=('!staticlibs' '!docs' '!debug' '!lto')
 license=('LGPL')
 
 export PKGEXT='.pkg.tar.zst'
 
+#export COMPRESSZST=(zstd -10 -c -z -q - )
+
 depends=(
-  'adwaita-icon-theme'
+  'adwaita-cursors'
   'fontconfig'
   'freetype2'
   'gcc-libs'
@@ -61,7 +63,7 @@ source=(
   "https://github.com/wine-mirror/wine/archive/wine-$RELEASE.zip"
   "https://github.com/civetweb/civetweb/archive/v1.15.tar.gz"
   "https://github.com/libsdl-org/SDL/archive/refs/tags/release-2.0.16.zip"
-#  "https://github.com/alsa-project/alsa-lib/archive/refs/tags/v1.2.8.zip"
+
 )
 
 sha256sums=(
@@ -122,47 +124,6 @@ build_sdl2() {
   sed -i "s~/usr/include~${srcdir}/sdl2-install/usr/include~g" sdl2.pc
 }
 
-build_alsa_lib_patched() {
-  cd "${srcdir}"
-
-
-
-  if [ -e ${srcdir}/alsa-lib-install ]; then
-    cd $(find . -maxdepth 1 -type d -name "*alsa-lib-1*" | sed 1q)
-  else
-
-    cd $(find . -maxdepth 1 -type d -name "*alsa-lib-1*" | sed 1q)
-
-    mkdir -p $srcdir/alsa-lib-install
-
-    export PKG_CONFIG_PATH="$srcdir/alsa-lib-install/usr/lib/pkgconfig"
-    CFLAGS+=" -flto-partition=none "
-
-    autoreconf -fiv
-    patch -Np1 < ../../patches/alsa-lib/fix-error-dl-close.patch
-
-    ./configure \
-      --prefix=/usr \
-      --disable-python \
-      --disable-old-symbols \
-      --disable-topology \
-      --disable-rawmidi \
-      --disable-python \
-      --disable-aload \
-      --with-pthread \
-      --disable-ucm \
-      --without-debug
-  fi
-
-
-  make
-  make DESTDIR="${srcdir}/alsa-lib-install/" install
-
-  cd ${srcdir}/alsa-lib-install/usr/lib/pkgconfig
-  sed -i "s~/usr/lib~${srcdir}/alsa-lib-install/usr/lib~g" alsa.pc
-  sed -i "s~/usr/include~${srcdir}/alsa-lib-install/usr/include~g" alsa.pc
-}
-
 
 
 
@@ -170,7 +131,7 @@ build_alsa_lib_patched() {
 
 prepare() {
 
-  if [ -e "${srcdir}"/"${_winesrcdir}"/server/fsync.c ]; then
+  if [ -e "${srcdir}"/"${_winesrcdir}"/dlls/winevulkan/vulkan-fsr-include.c ]; then
     msg2 "Stale src/ folder. Delete src/ folder or run makepkg --noextract."
     exit;
   else
@@ -178,18 +139,17 @@ prepare() {
 
     # Remove collabora driver for now
     rm -rf "${srcdir}"/"${_winesrcdir}"/dlls/winewayland*
-
-    # Remove winevulkan update that breaks FSR
-    #rm -rf "${srcdir}"/"${_winesrcdir}"/dlls/winevulkan*
-    #cp -r patches/winevulkan-9.3-0 "${srcdir}"/"${_winesrcdir}"/dlls/winevulkan
-    #cp -r patches/winevulkan-9.2/vulkan_driver.h "${srcdir}"/"${_winesrcdir}"/include/wine/
+    ln -s $PWD/winewayland.drv "${srcdir}"/"${_winesrcdir}"/dlls/winewayland.drv
 
     # Add shims
+
     rm -rf "${srcdir}"/"${_winesrcdir}"/dlls/opengl32
     cp -r shims/opengl32 "${srcdir}"/"${_winesrcdir}"/dlls/
+    rm -rf "${srcdir}"/"${_winesrcdir}"/dlls/winspool.drv
+    ln -s $PWD/shims/winspool.drv "${srcdir}"/"${_winesrcdir}"/dlls/
 
 
-    ln -s $PWD/winewayland.drv "${srcdir}"/"${_winesrcdir}"/dlls/winewayland.drv
+
 
     cd "${srcdir}"/"${_winesrcdir}"
 
@@ -198,36 +158,43 @@ prepare() {
     msg2 "Patching broken alsa"
     patch -Np1 < '../../patches/fix-alsa-winecfg.patch'
 
-    msg2 "Patching wayland"
-    patch programs/explorer/desktop.c < ../../patches/wayland-explorer.patch
-
     cd "${srcdir}"/"${_winesrcdir}"
 
-    cp ../../patches/fsync/fsync-copy/ntdll/* dlls/ntdll/unix/
-    cp ../../patches/fsync/fsync-copy/server/* server/
+# FSYNC
 
-    cd "${srcdir}"/"${_winesrcdir}"
+#    cp ../../patches/fsync/fsync-copy/ntdll/* dlls/ntdll/unix/
+#    cp ../../patches/fsync/fsync-copy/server/* server/
+
+#    cd "${srcdir}"/"${_winesrcdir}"
 
 
-    cp ../../patches/fsync/fsync-copy/ntdll/* dlls/ntdll/unix/
-    cp ../../patches/fsync/fsync-copy/server/* server/
+#    cp ../../patches/fsync/fsync-copy/ntdll/* dlls/ntdll/unix/
+#    cp ../../patches/fsync/fsync-copy/server/* server/
 
-    msg2 "Fsync"
+ #   msg2 "Fsync"
 
-    for _f in ../../patches/fsync/fsync/*.patch; do
-      msg2 "Applying ${_f}"
-      patch -Np1 < ${_f}
-    done
+ #   for _f in ../../patches/fsync/fsync/*.patch; do
+ #     msg2 "Applying ${_f}"
+ #     patch -Np1 < ${_f}
+ #   done
 
-    for _f in ../../patches/fsync/fsync/ntdll/*.patch; do
-      msg2 "Applying ${_f}"
-      patch -Np1 < ${_f}
-   done
+ #   for _f in ../../patches/fsync/fsync/ntdll/*.patch; do
+#      msg2 "Applying ${_f}"
+ #     patch -Np1 < ${_f}
+ #  done
 
-    for _f in ../../patches/fsync/misc/*.patch; do
-      msg2 "Applying ${_f}"
-      patch -Np1 < ${_f}
-    done
+
+
+#    for _f in ../../patches/fsync/misc/*.patch; do
+#      msg2 "Applying ${_f}"
+#      patch -Np1 < ${_f}
+#    done
+
+   msg2 "NTSYNC"
+
+
+   patch -Np1 < '../../patches/ntsync-7226.patch'
+
 
 
     msg2 "Applying FSR patches"
@@ -235,7 +202,7 @@ prepare() {
       msg2 "Applying ${_f}"
       patch -Np1 < ${_f}
     done
-   cp '../../patches/fsr/vulkan-fsr-include.c' dlls/winevulkan/
+    ln -s  $PWD/'../../patches/fsr/vulkan-fsr-include.c' dlls/winevulkan/
 
 
 
@@ -266,6 +233,26 @@ prepare() {
     sed -i '/programs\/spoolsv/d' configure.ac
     sed -i '/programs\/schtasks/d' configure.ac
     sed -i '/programs\/wusa/d' configure.ac
+    sed -i '/programs\/robocopy/d' configure.ac
+    sed -i '/programs\/cabarc/d' configure.ac
+    sed -i '/programs\/mofcomp/d' configure.ac
+    sed -i '/programs\/mshta/d' configure.ac
+    sed -i '/programs\/dism/d' configure.ac
+    sed -i '/programs\/certutil/d' configure.ac
+    sed -i '/programs\/dpnsvr/d' configure.ac
+    sed -i '/programs\/fc/d' configure.ac
+    sed -i '/programs\/findstr/d' configure.ac
+    sed -i '/programs\/sdbinst/d' configure.ac
+    sed -i '/programs\/termsv/d' configure.ac
+    sed -i '/programs\/xcopy/d' configure.ac
+    sed -i '/programs\/extrac32/d' configure.ac
+    sed -i '/programs\/expand/d' configure.ac
+    sed -i '/programs\/attrib/d' configure.ac
+    sed -i '/programs\/arp/d' configure.ac
+    sed -i '/programs\/makecab/d' configure.ac
+    sed -i '/programs\/pnputil/d' configure.ac
+    sed -i '/programs\/ngen/d' configure.ac
+
     sed -i '/systeminfo/d' configure.ac
 
 
@@ -278,6 +265,8 @@ prepare() {
     sed -i '/programs\/wsript/d' configure.ac
     sed -i '/programs\/dplaysvr/d' configure.ac
     sed -i '/programs\/winefile/d' configure.ac
+    sed -i '/programs\/where/d' configure.ac
+    sed -i '/programs\/fsutil/d' configure.ac
 
     sed -i '/dlls\/d3d8/d' configure.ac
     sed -i '/dlls\/dxerr8/d' configure.ac
@@ -286,8 +275,13 @@ prepare() {
     sed -i '/msstyles/d' configure.ac
 
     #ie stuff
-    #sed -i '/dlls\/shdocvw/d' configure.ac
-    #sed -i '/dlls\/ieframe/d' configure.ac
+
+    sed -i '/dlls\/shdocvw/d' configure.ac
+    sed -i '/WINAPI IEParseDisplayNameWithBCW/d' dlls/shell32/shfldr_desktop.c
+    sed -i "s~IEParseDisplayNameWithBCW~S_OK;//~g" dlls/shell32/shfldr_desktop.c
+    sed -i "s~shdocvw~ ~g" dlls/shell32/Makefile.in
+
+    sed -i '/dlls\/ieframe/d' configure.ac
     sed -i '/dhtmled\.ocx/d' configure.ac
     sed -i '/inetcpl\.cpl/d' configure.ac
 
@@ -323,6 +317,8 @@ prepare() {
     sed -i '/programs\/cscript/d' configure.ac
     sed -i '/programs\/wscript/d' configure.ac
     sed -i '/dlls\/hhctrl/d' configure.ac
+    sed -i '/dlls\/spoolss/d' configure.ac
+    sed -i '/dlls\/localspl/d' configure.ac
 
     sed -i '/dlls\/gameux/d' configure.ac
 
@@ -335,6 +331,21 @@ prepare() {
       sed -i '/dlls\/activeds/d' configure.ac
       sed -i '/dlls\/cards/d' configure.ac
       sed -i '/dlls\/d3dx10/d' configure.ac
+
+      #d3dx9
+      sed -i '/dlls\/d3dx9_24/d' configure.ac
+      sed -i '/dlls\/d3dx9_25/d' configure.ac
+      sed -i '/dlls\/d3dx9_26/d' configure.ac
+      sed -i '/dlls\/d3dx9_27/d' configure.ac
+      sed -i '/dlls\/d3dx9_28/d' configure.ac
+      sed -i '/dlls\/d3dx9_29/d' configure.ac
+      sed -i '/dlls\/d3dx9_30/d' configure.ac
+      sed -i '/dlls\/d3dxcompiler_33/d' configure.ac
+      sed -i '/dlls\/d3dxcompiler_34/d' configure.ac
+      sed -i '/dlls\/d3dxcompiler_35/d' configure.ac
+      sed -i '/dlls\/d3dxcompiler_36/d' configure.ac
+
+
       # Webservices
       sed -i '/dlls\/wsdapi/d' configure.ac
       sed -i '/dlls\/webservices/d' configure.ac
@@ -353,7 +364,6 @@ prepare() {
       sed -i '/dlls\/prntvpt/d' configure.ac
 
       sed -i '/dlls\/msvcrtd/d' configure.ac
-      sed -i '/dlls\/wldap32/d' configure.ac
 
       #wbem
       sed -i '/dlls\/wbemprox/d' configure.ac
@@ -381,13 +391,22 @@ prepare() {
 
 
       ###misc dll
-
+      #Wine Bluetooth driver
+      sed -i '/dlls\/winebth/d' configure.ac
+      #MSCMS - Color Management System for Wine
+      sed -i '/dlls\/mscms/d' configure.ac
 
       #Speech Application Programming Interface or SAPI
       sed -i '/dlls\/sapi/d' configure.ac
       #Background Intelligent Transfer Service Proxy
       sed -i '/dlls\/qmgrprxy/d' configure.ac
 
+      #UI Automation Core
+      sed -i '/dlls\/uiautomationcore/d' configure.ac
+
+
+      #.Net
+      sed -i '/dlls\/diasymreader/d' configure.ac
 
       #indeo
       sed -i '/ir50_32/d' configure.ac
@@ -429,26 +448,21 @@ build() {
 
   #build sdl2 here to avoid x11 dependencies from official archlinux sdl2
   build_sdl2
-  #build_alsa_lib_patched
 
-  export PKG_CONFIG_PATH="${srcdir}/alsa-lib-install/usr/lib/pkgconfig"
+
   export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:${srcdir}/sdl2-install/usr/lib/pkgconfig:/usr/lib/pkgconfig"
-  export LD_LIBRARY_PATH="/usr/lib:${srcdir}/sdl2-install/usr/lib:${srcdir}/alsa-lib-install/usr/lib"
+  export LD_LIBRARY_PATH="/usr/lib:${srcdir}/sdl2-install/usr/lib"
 
   export CFLAGS="$CFLAGS"
 
   CFLAGS="${CFLAGS/-Wp,-D_FORTIFY_SOURCE=2/}"
   CFLAGS="${CFLAGS/-O2/}"
 
+  export CFLAGS="${CFLAGS/-fno-plt/} -O2 "
+  export CFLAGS="${CFLAGS/-flto/}"
+  export CFLAGS="${CFLAGS/-ffat-lto-objects/}"
 
-
-  export CFLAGS="${CFLAGS/-fno-plt/} -ffat-lto-objects -O1 "
-
-  export CFLAGS="${CFLAGS/-fno-plt/}"
   export LDFLAGS="${LDFLAGS/,-z,relro,-z,now/}"
-
-
-#    --enable-archs=i386,x86_64 \
 
   if [ -z "${WINE_BUILD_32:-}" ]; then
     I386=
@@ -497,6 +511,7 @@ build() {
     --with-sdl \
     --with-vulkan \
 		--enable-win64 \
+		--enable-wayland \
 		--with-mingw \
 		--disable-tests
   fi
@@ -603,11 +618,11 @@ package_wine-wayland() {
   cd $pkgdir/usr/lib/wine/x86_64-unix/
   strip -s *
 
-  x86_64-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/x86_64-windows/*.dll
+  x86_64-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/x86_64-windows/*
 
   if [ -z "${WINE_BUILD_32:-}" ]; then
     #msg2 "Not building wine 32"
-    cp $pkgdir/usr/bin/wine64 $pkgdir/usr/bin/wine
+    cp $pkgdir/usr/bin/wine $pkgdir/usr/bin/wine64
   else
     cp $pkgdir/usr/bin/wine $pkgdir/usr/bin/wine64
     i686-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/i386-windows/*.dll
@@ -642,7 +657,11 @@ package_wine-wayland() {
   rm -rf $pkgdir/usr/lib/wine/x86_64-windows/ddraw.dll
 
   # Useless for games
-  rm -rf $pkgdir/usr/lib/wine/x86_64-windows/winspool.drv
+  rm -rf $pkgdir/usr/bin/widl
+  rm -rf $pkgdir/usr/bin/wrc
+  rm -rf $pkgdir/usr/bin/winemaker
+  rm -rf $pkgdir/usr/bin/winebuild
+  rm -rf $pkgdir/usr/bin/winegcc
 
   #misc nls
   rm  $pkgdir/usr/share/wine/nls/c_949.nls

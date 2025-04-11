@@ -1,0 +1,11 @@
+--- a/dlls/win32u/vulkan.c
++++ b/dlls/win32u/vulkan.c
+@@ -397,7 +397,7 @@
+
+ static BOOL extents_equals( const VkExtent2D *extents, const RECT *rect )
+ {
+-    return extents->width == rect->right - rect->left && extents->height == rect->bottom - rect->top;
++    return TRUE;
+ }
+
+ static VkResult win32u_vkAcquireNextImage2KHR( VkDevice client_device, const VkAcquireNextImageInfoKHR *acquire_info,

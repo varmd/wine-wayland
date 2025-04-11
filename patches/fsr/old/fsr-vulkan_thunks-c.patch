@@ -1,0 +1,12 @@
+--- a/dlls/winevulkan/vulkan_thunks.c
++++ b/dlls/winevulkan/vulkan_thunks.c
+@@ -47095,7 +47095,7 @@
+     thunk64_vkGetShaderInfoAMD,
+     thunk64_vkGetShaderModuleCreateInfoIdentifierEXT,
+     thunk64_vkGetShaderModuleIdentifierEXT,
+-    thunk64_vkGetSwapchainImagesKHR,
++    fsr_vkGetSwapchainImagesKHR,
+     thunk64_vkGetValidationCacheDataEXT,
+     thunk64_vkInitializePerformanceApiINTEL,
+     thunk64_vkInvalidateMappedMemoryRanges,
+

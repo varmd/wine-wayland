@@ -21,7 +21,6 @@ ${options.gdi ? '' : 'WINE_VK_VULKAN_ONLY=1' }
 ${options.fullscreen ? 'WINE_VK_ALWAYS_FULLSCREEN=1' : '' }
 ${options.fullscreen_grab ? 'WINE_VK_FULLSCREEN_GRAB_CURSOR=1' : '' }
 ${options.custom_cursors ? 'WINE_VK_USE_CUSTOM_CURSORS=1' : '' }
-${options.winefsync ? 'WINEFSYNC=1' : 'WINEFSYNC=0' }
 
 ${options.fsr ? 'WINE_VK_USE_FSR=1' : '' }
 
@@ -128,18 +127,6 @@ const DocForm = (obj) => `
                 <div class="custom-checkbox">
                   <input type="checkbox" name="gdi" id="checkbox-4" value="1" ${ obj.options.gdi ? 'checked="checked"' : '' }>
                   <label for="checkbox-4">Enable GDI (error popups, launchers) - may break some games</label>
-                </div>
-              </div>
-
-              <div class="form-group">
-                <div class="custom-radio">
-                  <input type="radio" name="winesync" id="winefsync" value="winefsync" ${ obj.options.winefsync && !obj.options.winenosync ? 'checked="checked"' : '' } >
-                  <label for="winefsync">FSYNC</label>
-                </div>
-
-                <div class="custom-radio">
-                  <input type="radio" name="winesync" id="winenosync" ${ !obj.options.winefsync && obj.options.winenosync ? 'checked="checked"' : '' } value="winenosync">
-                  <label for="winenosync">Disable FSYNC</label>
                 </div>
               </div>
 
@@ -456,8 +443,6 @@ function load_docs(){
         mangohud_config: "",
         gdi: 0,
         dxvk_hud: 0,
-        winefsync: 1,
-        winenosync: 0,
         width: 1920,
         height: 1080,
         cursor_size: 32,
@@ -501,8 +486,6 @@ function load_docs(){
           mangohud: el.mangohud.checked,
           mangohud_config: el.mangohud_config.value,
           gdi: el.gdi.checked,
-          winefsync: el.winesync.value == "winefsync" ? '1' : 0,
-          winenosync: el.winesync.value == "winenosync" ? '1' : 0,
           width: el.width.value,
           height: el.height.value,
           cursor_size: el.cursor_size.value,

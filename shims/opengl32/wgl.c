@@ -234,7 +234,7 @@ int WINAPI wglGetLayerPaletteEntries(HDC hdc,
 				     int iLayerPlane,
 				     int iStart,
 				     int cEntries,
-				     const COLORREF *pcr) {
+				     COLORREF *pcr) {
 
 
   return 0;

@@ -51,22 +51,8 @@ unsigned int force_refresh = 0;
 
 char *process_name = NULL;
 
-/**********************************************************************
- *           WAYLANDDRV_wine_get_vulkan_driver
- */
-static const struct vulkan_funcs * WAYLANDDRV_wine_get_vulkan_driver( UINT version )
-{
-    return get_vulkan_driver( version );
-}
-
 static const struct user_driver_funcs waylanddrv_funcs =
 {
-
-//    .dc_funcs.pCreateCompatibleDC = WAYLANDDRV_CreateCompatibleDC,  /* pCreateDC */
-//    .dc_funcs.pCreateDC = WAYLANDDRV_CreateDC,  /* pCreateDC */
-//    .dc_funcs.pDeleteDC = WAYLANDDRV_DeleteDC,  /* pDeleteDC */
-
-
 
 //    .dc_funcs.priority = GDI_PRIORITY_GRAPHICS_DRV,
 
@@ -78,8 +64,6 @@ static const struct user_driver_funcs waylanddrv_funcs =
     //.pCreateWindow = WAYLANDDRV_CreateWindow,
     //.pDestroyCursorIcon = WAYLANDDRV_DestroyCursorIcon,
     .pDestroyWindow = WAYLANDDRV_DestroyWindow,
-
-    .pGetCurrentDisplaySettings = WAYLANDDRV_GetCurrentDisplaySettings,
     .pUpdateDisplayDevices = WAYLANDDRV_UpdateDisplayDevices,
 
     .pGetCursorPos = WAYLANDDRV_GetCursorPos,
@@ -91,18 +75,19 @@ static const struct user_driver_funcs waylanddrv_funcs =
     //.pSetCapture = WAYLANDDRV_SetCapture,
     .pSetCursor = WAYLANDDRV_SetCursor,
     //.pSetCursorPos = WAYLANDDRV_SetCursorPos,
-    //.pSetFocus = WAYLANDDRV_SetFocus,
 
-
-    //.pSetWindowText = WAYLANDDRV_SetWindowText,
     .pShowWindow = WAYLANDDRV_ShowWindow,
     .pSysCommand = WAYLANDDRV_SysCommand,
     .pToUnicodeEx = WAYLANDDRV_ToUnicodeEx,
     .pVkKeyScanEx = WAYLANDDRV_VkKeyScanEx,
     //.pWindowMessage = WAYLANDDRV_WindowMessage,
+
+    .pCreateWindowSurface = WAYLANDDRV_CreateWindowSurface,
+    //TODO
     .pWindowPosChanged = WAYLANDDRV_WindowPosChanged,
     .pWindowPosChanging = WAYLANDDRV_WindowPosChanging,
-    .pwine_get_vulkan_driver = WAYLANDDRV_wine_get_vulkan_driver,   /* wine_get_vulkan_driver */
+
+    .pVulkanInit = WAYLANDDRV_VulkanInit
 
 };
 

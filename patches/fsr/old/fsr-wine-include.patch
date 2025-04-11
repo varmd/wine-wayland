@@ -1,0 +1,11 @@
+--- a/include/wine/vulkan_driver.h
+--- b/include/wine/vulkan_driver.h
+@@ -44,6 +47,8 @@
+ /* interface between win32u and the user drivers */
+ struct vulkan_driver_funcs
+ {
++
++    VkBool32 (*query_fsr)(VkSurfaceKHR surface, VkExtent2D *real_sz, VkExtent2D *user_sz, VkRect2D *dst_blit, VkFilter *filter, BOOL *fsr, float *sharpness);
+     VkResult (*p_vulkan_surface_create)(HWND, VkInstance, VkSurfaceKHR *, void **);
+     void (*p_vulkan_surface_destroy)(HWND, void *);
+     void (*p_vulkan_surface_detach)(HWND, void *);

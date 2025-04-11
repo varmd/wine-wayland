@@ -1,12 +1,11 @@
 --- a/dlls/winevulkan/vulkan_private.h
 +++ b/dlls/winevulkan/vulkan_private.h
-@@ -63,6 +63,56 @@
-     struct VkQueue_T* queues;
-     uint32_t queue_count;
+@@ -78,6 +78,54 @@
 
+     uint32_t queue_count;
+-    struct wine_queue queues[];
 +    VkQueueFamilyProperties *queue_props;
-+
-+    struct wine_vk_mapping mapping;
++    struct wine_queue queues[];
 +};
 +
 +struct fs_hack_image
@@ -54,6 +53,7 @@
 +    struct fs_comp_pipeline fsr_easu_pipeline;
 +    struct fs_comp_pipeline fsr_rcas_pipeline;
 +
-     struct wine_vk_mapping mapping;
- };
++};
+-};
 
+ C_ASSERT(sizeof(struct wine_device) == offsetof(struct wine_device, queues[0]));

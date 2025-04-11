@@ -45,9 +45,6 @@
 
 #include "waylanddrv.h"
 
-#define VK_NO_PROTOTYPES
-#define WINE_VK_HOST
-
 //latest version is 5
 #define WINE_WAYLAND_SEAT_VERSION 5
 
@@ -64,6 +61,23 @@ WINE_DEFAULT_DEBUG_CHANNEL(waylanddrv);
 #ifdef _WIN64
   #define HAS_FSR 1
 #endif
+
+#define VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR 1000006000;
+
+typedef struct VkWaylandSurfaceCreateInfoKHR {
+    VkStructureType                   sType;
+    const void*                       pNext;
+    VkWaylandSurfaceCreateFlagsKHR flags;
+    struct wl_display*                display;
+    struct wl_surface*                surface;
+} VkWaylandSurfaceCreateInfoKHR;
+
+
+
+static VkResult (*pvkCreateWaylandSurfaceKHR)(VkInstance, const VkWaylandSurfaceCreateInfoKHR *, const VkAllocationCallbacks *, VkSurfaceKHR *);
+static VkBool32 (*pvkGetPhysicalDeviceWaylandPresentationSupportKHR)(VkPhysicalDevice, uint32_t, struct wl_display *);
+
+static struct wl_surface_win_data *wl_surface_data_context[32768] = {0};
 
 struct wl_compositor *wayland_compositor = NULL;
 unsigned int global_wayland_confine = 0;
@@ -146,301 +160,58 @@ struct wayland_window {
 	int width;
 };
 
-struct wayland_window *vulkan_window = NULL;
+//GDI win data
 
+struct hwnd_data
+{
+    HWND           hwnd;           /* hwnd that this private data belongs to */
+    HWND           parent;         /* parent hwnd for child windows */
+    RECT           window_rect;    /* USER window rectangle relative to parent */
+
+    RECT           client_rect;    /* client area relative to parent */
+    struct wayland_window *window;         /* native window wrapper that forwards calls to the desktop process */
+    struct window_surface *surface;
+
+    struct wl_subsurface  *wayland_subsurface;
+    struct wl_surface     *wayland_surface;
+    void                  *shm_data;
+    struct wl_shm_pool    *wl_pool;
+    struct wl_buffer      *buffer;
+    int                   gdi_fd;
+    int                   surface_changed;
+    int                   size_changed;
+    int                   window_width;
+    int                   window_height;
+    int                   buffer_busy;
+    int                   size;
+};
+
+static struct hwnd_data *win_data_context[32768];
+
+struct wayland_window *vulkan_window = NULL;
 struct wayland_window *gdi_window = NULL;
 
 struct wl_surface_win_data
 {
-    HWND           hwnd;           /* hwnd that this private data belongs to */
-    struct wl_subsurface  *wayland_subsurface;
-    struct wl_surface     *wayland_surface;
+    HWND           hwnd;      /* hwnd that this private data belongs to */
+    struct wl_subsurface      *wayland_subsurface;
+    struct wl_surface         *wayland_surface;
     struct wayland_window     *wayland_window;
 };
 
 int is_buffer_busy = 0;
 UINT desktop_tid = 0;
 
-
-VkInstance *global_vk_instance = NULL;
-
-
-
 #define ZWP_RELATIVE_POINTER_MANAGER_V1_VERSION 1
 
-
-static const struct vulkan_funcs vulkan_funcs;
 //Wayland
 
 /*
   Examples
   https://github.com/SaschaWillems/Vulkan/blob/b4fb49504e714ecbd4485dfe98514a47b4e9c2cc/external/vulkan/vulkan_wayland.h
 */
+
 #include "keycodes-inc.c"
-
-/***********************************************************************
- *           WAYLAND_ToUnicodeEx
- */
-INT WAYLANDDRV_ToUnicodeEx( UINT virt, UINT scan, const BYTE *state,
-                               LPWSTR buf, int size, UINT flags, HKL hkl )
-{
-
-
-
-    WCHAR buffer[2];
-    BOOL shift = state[VK_SHIFT] & 0x80;
-    BOOL ctrl = state[VK_CONTROL] & 0x80;
-    BOOL numlock = state[VK_NUMLOCK] & 0x01;
-
-    buffer[0] = buffer[1] = 0;
-
-    if (scan & 0x8000) return 0;  /* key up */
-
-    /* FIXME: hardcoded layout */
-
-    if (!ctrl)
-    {
-        switch (virt)
-        {
-        case VK_BACK:       buffer[0] = '\b'; break;
-        case VK_OEM_1:      buffer[0] = shift ? ':' : ';'; break;
-        case VK_OEM_2:      buffer[0] = shift ? '?' : '/'; break;
-        case VK_OEM_3:      buffer[0] = shift ? '~' : '`'; break;
-        case VK_OEM_4:      buffer[0] = shift ? '{' : '['; break;
-        case VK_OEM_5:      buffer[0] = shift ? '|' : '\\'; break;
-        case VK_OEM_6:      buffer[0] = shift ? '}' : ']'; break;
-        case VK_OEM_7:      buffer[0] = shift ? '"' : '\''; break;
-        case VK_OEM_COMMA:  buffer[0] = shift ? '<' : ','; break;
-        case VK_OEM_MINUS:  buffer[0] = shift ? '_' : '-'; break;
-        case VK_OEM_PERIOD: buffer[0] = shift ? '>' : '.'; break;
-        case VK_OEM_PLUS:   buffer[0] = shift ? '+' : '='; break;
-        case VK_RETURN:     buffer[0] = '\r'; break;
-        case VK_SPACE:      buffer[0] = ' '; break;
-        case VK_TAB:        buffer[0] = '\t'; break;
-        case VK_MULTIPLY:   buffer[0] = '*'; break;
-        case VK_ADD:        buffer[0] = '+'; break;
-        case VK_SUBTRACT:   buffer[0] = '-'; break;
-        case VK_DIVIDE:     buffer[0] = '/'; break;
-        default:
-            if (virt >= '0' && virt <= '9')
-            {
-                buffer[0] = shift ? ")!@#$%^&*("[virt - '0'] : virt;
-                break;
-            }
-            if (virt >= 'A' && virt <= 'Z')
-            {
-                buffer[0] =  shift || (state[VK_CAPITAL] & 0x01) ? virt : virt + 'a' - 'A';
-                break;
-            }
-            if (virt >= VK_NUMPAD0 && virt <= VK_NUMPAD9 && numlock && !shift)
-            {
-                buffer[0] = '0' + virt - VK_NUMPAD0;
-                break;
-            }
-            if (virt == VK_DECIMAL && numlock && !shift)
-            {
-                buffer[0] = '.';
-                break;
-            }
-            break;
-        }
-    }
-    else /* Control codes */
-    {
-        if (virt >= 'A' && virt <= 'Z')
-            buffer[0] = virt - 'A' + 1;
-        else
-        {
-            switch (virt)
-            {
-            case VK_OEM_4:
-                buffer[0] = 0x1b;
-                break;
-            case VK_OEM_5:
-                buffer[0] = 0x1c;
-                break;
-            case VK_OEM_6:
-                buffer[0] = 0x1d;
-                break;
-            case VK_SUBTRACT:
-                buffer[0] = 0x1e;
-                break;
-            }
-        }
-    }
-
-    lstrcpynW( buf, buffer, size );
-    //TRACE( "returning %d / %s\n", strlenW( buffer ), debugstr_wn(buf, strlenW( buffer )));
-    return lstrlenW( buffer );
-}
-
-
-/***********************************************************************
- *           WAYLAND_MapVirtualKeyEx
- */
-UINT WAYLANDDRV_MapVirtualKeyEx( UINT code, UINT maptype, HKL hkl )
-{
-    UINT ret = 0;
-    const char *s;
-    char key;
-
-    //TRACE( "code=%d %x, maptype=%d, hkl %p \n", code, code, maptype, hkl );
-
-    switch (maptype)
-    {
-    case MAPVK_VK_TO_VSC_EX:
-    case MAPVK_VK_TO_VSC:
-        /* vkey to scancode */
-        switch (code)
-        {
-        //case VK_LSHIFT:
-        //case VK_RSHIFT:
-        //case VK_SHIFT:
-        //    code = VK_SHIFT;
-        //    break;
-        case VK_CONTROL:
-            code = VK_CONTROL;
-            break;
-        case VK_MENU:
-            code = VK_LMENU;
-            break;
-        }
-        if (code < ( sizeof(vkey_to_scancode) / sizeof(vkey_to_scancode[0]) ) ) ret = vkey_to_scancode[code];
-        break;
-    case MAPVK_VSC_TO_VK:
-    case MAPVK_VSC_TO_VK_EX:
-        /* scancode to vkey */
-        ret = scancode_to_vkey( code );
-        if (maptype == MAPVK_VSC_TO_VK)
-            switch (ret)
-            {
-            //case VK_LSHIFT:
-            //case VK_RSHIFT:
-            //case VK_SHIFT:
-            //    ret = VK_SHIFT; break;
-            case VK_LCONTROL:
-            case VK_RCONTROL:
-                ret = VK_CONTROL; break;
-            case VK_LMENU:
-            case VK_RMENU:
-                ret = VK_MENU; break;
-            }
-        break;
-    case MAPVK_VK_TO_CHAR:
-
-        if ((code >= 0x30 && code <= 0x39) || (code >= 0x41 && code <= 0x5a))
-        {
-            key = code;
-            if (code >= 0x41)
-                key += 0x20;
-            ret = toupper(key);
-            //TRACE( "returning char code of %d \n", ret );
-        } else {
-          s = vkey_to_name( code );
-          if (s && (strlen( s ) == 1))
-              ret = s[0];
-          else
-              ret = 0;
-        }
-
-        break;
-    default:
-        FIXME( "Unknown maptype %d\n", maptype );
-        break;
-    }
-    //TRACE( "returning 0x%04x   %x %d \n", ret, ret, ret );
-    return ret;
-}
-
-
-/***********************************************************************
- *           WAYLAND_GetKeyboardLayout
- */
-HKL WAYLANDDRV_GetKeyboardLayout( DWORD thread_id )
-{
-    return (HKL)MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
-
-}
-
-/***********************************************************************
- *           WAYLAND_VkKeyScanEx
- */
-SHORT WAYLANDDRV_VkKeyScanEx( WCHAR ch, HKL hkl )
-{
-    //TRACE("%s \n", debugstr_w(ch));
-
-    SHORT ret = -1;
-    if (ch < sizeof(char_vkey_map) / sizeof(char_vkey_map[0])) ret = char_vkey_map[ch];
-    return ret;
-}
-
-
-/***********************************************************************
- *           WAYLAND_GetKeyNameText
- */
-INT WAYLANDDRV_GetKeyNameText( LONG lparam, LPWSTR buffer, INT size )
-{
-    int scancode, vkey;
-    const char *name;
-    char key[2];
-    DWORD len;
-
-    scancode = (lparam >> 16) & 0x1FF;
-    vkey = scancode_to_vkey( scancode );
-
-
-    TRACE( "scancode is %d %d\n", scancode, vkey);
-
-    if (lparam & (1 << 25))
-    {
-        /* Caller doesn't care about distinctions between left and
-           right keys. */
-        switch (vkey)
-        {
-        case VK_LSHIFT:
-        case VK_RSHIFT:
-            vkey = VK_SHIFT; break;
-        case VK_LCONTROL:
-        case VK_RCONTROL:
-            vkey = VK_CONTROL; break;
-        case VK_LMENU:
-        case VK_RMENU:
-            vkey = VK_MENU; break;
-        }
-    }
-
-    if (scancode & 0x100) vkey |= 0x100;
-
-    if ((vkey >= 0x30 && vkey <= 0x39) || (vkey >= 0x41 && vkey <= 0x5a))
-    {
-        key[0] = vkey;
-        if (vkey >= 0x41)
-            key[0] += 0x20;
-        key[1] = 0;
-        name = key;
-    }
-    else
-    {
-        name = vkey_to_name( vkey );
-    }
-
-    RtlUTF8ToUnicodeN( buffer, size * sizeof(WCHAR), &len, name, strlen( name ) + 1 );
-    len /= sizeof(WCHAR);
-    if (len) len--;
-
-    if (!len)
-    {
-        char name[16];
-        len = sprintf( name, "Key 0x%02x", vkey );
-        len = min( len + 1, size );
-        ascii_to_unicode( buffer, name, len );
-        if (len) buffer[--len] = 0;
-    }
-
-//    TRACE( "lparam 0x%08x -> %s\n", lparam, debugstr_w( buffer ));
-    return len;
-}
-
 
 /***********************************************************************
  *		GetCursorPos (WAYLANDDRV.@)
@@ -465,137 +236,9 @@ BOOL WAYLANDDRV_GetCursorPos(LPPOINT pos)
     //TRACE( "Global pointer at %d \n", pos->x, pos->y );
 
     return TRUE;
-
-
 }
 
 //End Wayland keyboard arrays and funcs
-
-#define VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR 1000006000;
-
-typedef struct VkWaylandSurfaceCreateInfoKHR {
-    VkStructureType                   sType;
-    const void*                       pNext;
-    VkWaylandSurfaceCreateFlagsKHR flags;
-    struct wl_display*                display;
-    struct wl_surface*                surface;
-} VkWaylandSurfaceCreateInfoKHR;
-
-
-static VkResult (*pvkCreateInstance)(const VkInstanceCreateInfo *, const VkAllocationCallbacks *, VkInstance *);
-static VkResult (*pvkCreateSwapchainKHR)(VkDevice, const VkSwapchainCreateInfoKHR *, const VkAllocationCallbacks *, VkSwapchainKHR *);
-static VkResult (*pvkCreateWaylandSurfaceKHR)(VkInstance, const VkWaylandSurfaceCreateInfoKHR *, const VkAllocationCallbacks *, VkSurfaceKHR *);
-
-static void (*pvkDestroyInstance)(VkInstance, const VkAllocationCallbacks *);
-static void (*pvkDestroySurfaceKHR)(VkInstance, VkSurfaceKHR, const VkAllocationCallbacks *);
-static void (*pvkDestroySwapchainKHR)(VkDevice, VkSwapchainKHR, const VkAllocationCallbacks *);
-
-static VkResult (*pvkEnumerateInstanceExtensionProperties)(const char *, uint32_t *, VkExtensionProperties *);
-
-static void * (*pvkGetDeviceProcAddr)(VkDevice, const char *);
-static void * (*pvkGetInstanceProcAddr)(VkInstance, const char *);
-
-
-
-static VkBool32 (*pvkGetPhysicalDeviceWaylandPresentationSupportKHR)(VkPhysicalDevice, uint32_t, struct wl_display *);
-static VkResult (*pvkGetSwapchainImagesKHR)(VkDevice, VkSwapchainKHR, uint32_t *, VkImage *);
-static VkResult (*pvkQueuePresentKHR)(VkQueue, const VkPresentInfoKHR *);
-
-static void *vulkan_handle;
-
-static void wine_vk_init(void)
-{
-
-    vulkan_handle = dlopen(SONAME_LIBVULKAN, RTLD_NOW);
-
-    if (!vulkan_handle)
-    {
-        ERR("Failed to load vulkan library\n");
-        return;
-    }
-
-#define LOAD_FUNCPTR(f) if (!(p##f = dlsym(vulkan_handle, #f))) goto fail;
-#define LOAD_OPTIONAL_FUNCPTR(f) p##f = dlsym(vulkan_handle, #f);
-    LOAD_FUNCPTR(vkCreateInstance);
-    LOAD_FUNCPTR(vkCreateSwapchainKHR);
-    LOAD_FUNCPTR(vkCreateWaylandSurfaceKHR);
-    LOAD_FUNCPTR(vkDestroyInstance);
-    LOAD_FUNCPTR(vkDestroySurfaceKHR);
-    LOAD_FUNCPTR(vkDestroySwapchainKHR);
-    LOAD_FUNCPTR(vkEnumerateInstanceExtensionProperties);
-    LOAD_FUNCPTR(vkGetDeviceProcAddr);
-    LOAD_FUNCPTR(vkGetInstanceProcAddr);
-
-
-    LOAD_FUNCPTR(vkGetPhysicalDeviceWaylandPresentationSupportKHR);
-    LOAD_FUNCPTR(vkGetSwapchainImagesKHR);
-    LOAD_FUNCPTR(vkQueuePresentKHR);
-
-#undef LOAD_FUNCPTR
-#undef LOAD_OPTIONAL_FUNCPTR
-
-    return;
-
-fail:
-    TRACE("VULKAN closed \n");
-    dlclose(vulkan_handle);
-    vulkan_handle = NULL;
-    return;
-}
-
-
-
-static struct wl_surface_win_data *wl_surface_data_context[32768] = {0};
-
-static inline int context_wl_idx( struct wl_surface *wl_surface  )
-{
-    return LOWORD( wl_surface ) >> 1;
-}
-
-static struct wl_surface_win_data *alloc_wl_win_data( struct wl_surface *surface, HWND hwnd, struct wayland_window *window )
-{
-    struct wl_surface_win_data *data;
-
-    if ((data = calloc(1, sizeof(*data) ) ))
-    {
-        TRACE("Surface %d \n", context_wl_idx( surface ));
-
-        data->hwnd = hwnd;
-        //data->wayland_subsurface = surface;
-        data->wayland_surface = surface;
-        data->wayland_window = window;
-        wl_surface_data_context[context_wl_idx(surface)] = data;
-
-    }
-    return data;
-}
-
-
-/***********************************************************************
- *           free_win_data
- */
-static void free_wl_win_data( struct wl_surface_win_data *data )
-{
-    wl_surface_data_context[context_wl_idx( data->wayland_surface )] = NULL;
-    //LeaveCriticalSection( &win_data_section );
-    free( data );
-}
-
-/***********************************************************************
- *           get_wl_win_data
- *
- * Lock and return the data structure associated with a window.
- */
-static struct wl_surface_win_data *get_wl_win_data( struct wl_surface *surface )
-{
-    struct wl_surface_win_data *data;
-
-    if (!surface) return NULL;
-    if ((data = wl_surface_data_context[context_wl_idx(surface)])) {
-      return data;
-    }
-    return NULL;
-}
 
 //Cursors and cursor cache
 struct cursor_cache
@@ -626,76 +269,22 @@ static void alloc_cursor_cache( HCURSOR handle )
 
 //End Cursor cache
 
-//GDI win data
-
-struct gdi_win_data
-{
-    HWND           hwnd;           /* hwnd that this private data belongs to */
-    HWND           parent;         /* parent hwnd for child windows */
-    RECT           window_rect;    /* USER window rectangle relative to parent */
-    RECT           whole_rect;     /* X window rectangle for the whole window relative to parent */
-    RECT           client_rect;    /* client area relative to parent */
-    struct wayland_window *window;         /* native window wrapper that forwards calls to the desktop process */
-    struct window_surface *surface;
-
-    struct wl_subsurface  *wayland_subsurface;
-    struct wl_surface     *wayland_surface;
-    void                  *shm_data;
-    struct wl_shm_pool    *wl_pool;
-    struct wl_buffer      *buffer;
-    int                   gdi_fd;
-    int                   surface_changed;
-    int                   size_changed;
-    int                   window_width;
-    int                   window_height;
-    int                   buffer_busy;
-    int                   size;
-};
-
-static struct gdi_win_data *win_data_context[32768];
-
-static void set_surface_region( struct window_surface *window_surface, HRGN win_region );
-
-struct gdi_window_surface
-{
-    struct window_surface header;
-    HWND                  hwnd;
-    struct wayland_window *window;
-
-    struct wl_subsurface  *wayland_subsurface;
-    struct wl_surface     *wayland_surface;
-    void                  *shm_data;
-    struct wl_shm_pool    *wl_pool;
-    int                   gdi_fd;
-    RECT                  bounds;
-    RGNDATA              *region_data;
-    HRGN                  region;
-    BYTE                  alpha;
-    COLORREF              color_key;
-    void                 *bits;
-    CRITICAL_SECTION      crit;
-    BITMAPINFO            info;   /* variable size, must be last */
-
-};
-
 // listeners
-static struct gdi_win_data *get_win_data( HWND hwnd );
-
+static struct hwnd_data *get_hwnd_data( HWND hwnd );
 
 static void buffer_release(void *data, struct wl_buffer *buffer) {
 
   HWND hwnd = data;
-  struct gdi_win_data *hwnd_data;
+  struct hwnd_data *hwnd_data;
 
   if ( hwnd != NULL) {
-    hwnd_data = get_win_data( hwnd );
+    hwnd_data = get_hwnd_data( hwnd );
     if(hwnd_data)
       hwnd_data->buffer_busy = 0;
   }
 
 
   is_buffer_busy = 0;
-  //wl_buffer_destroy(buffer);
 }
 
 static const struct wl_buffer_listener buffer_listener = {
@@ -708,18 +297,6 @@ void wayland_pointer_enter_cb(void *data,
 {
 
   HWND temp;
-
-  #if 0
-  struct wl_surface_win_data *hwnd_data;
-
-  TRACE("Surface %p \n", surface );
-  TRACE("Surface %d \n", context_wl_idx( surface ));
-
-  if ( hwnd_data = get_wl_win_data( surface )) {
-    TRACE("Data found \n");
-    TRACE("Current hwnd is %p and surface %p %p \n", hwnd_data->hwnd, hwnd_data->wayland_subsurface, surface);
-  }
-  #endif
 
   wayland_serial_id = serial;
 
@@ -777,18 +354,12 @@ void wayland_pointer_motion_cb_vulkan(void *data,
   //It takes some time before correct rect is returned
   if(global_vulkan_rect_flag < 3) {
     global_vulkan_rect_flag++;
-    NtUserGetWindowRect(global_vulkan_hwnd, &global_vulkan_rect);
+    NtUserGetWindowRect(global_vulkan_hwnd, &global_vulkan_rect, 96);
+    NtUserSetWindowPos( global_vulkan_hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_NOSENDCHANGING);
   }
 
-  //SetWindowPos crashes Unity if used elsewhere
-  if(global_vulkan_rect.left != 0 || global_vulkan_rect.top != 0) {
-    NtUserSetWindowPos( global_vulkan_hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_NOSENDCHANGING);
-    NtUserGetWindowRect(global_vulkan_hwnd, &global_vulkan_rect);
-  }
 
   if(global_fsr) {
-
-    //RECT title_rect;
 
     client_point.x = global_vulkan_rect.left;
     client_point.y = global_vulkan_rect.top;
@@ -805,16 +376,16 @@ void wayland_pointer_motion_cb_vulkan(void *data,
     global_input.mi.dx = point.x;
     global_input.mi.dy = point.y;
 
-    #if 0
+#if 0
     TRACE("Motion (x y - x y %d %d %d %d) %s %s  \n",
       wl_fixed_to_int(sx),
       wl_fixed_to_int(sy),
       global_input.mi.dx,
       global_input.mi.dy,
-      wine_dbgstr_rect( &global_vulkan_rect ),
-      wine_dbgstr_rect( &title_rect )
+      wine_dbgstr_rect( &global_vulkan_rect )
     );
-    #endif
+#endif
+
 
   } else {
     global_input.mi.dx = global_input.mi.dx + global_vulkan_rect.left;
@@ -885,7 +456,7 @@ void wayland_pointer_motion_cb(void *data,
   hwnd = global_update_hwnd;
 
 
-  NtUserGetWindowRect(hwnd, &rect);
+  NtUserGetWindowRect(hwnd, &rect, 96);
 
   global_input.mi.dx = global_input.mi.dx + rect.left;
   global_input.mi.dy = global_input.mi.dy + rect.top;
@@ -932,7 +503,6 @@ void wayland_pointer_button_cb_vulkan(void *data,
 {
 
   HWND hwnd;
-
 
   INPUT input;
   input.type = INPUT_MOUSE;
@@ -1089,7 +659,7 @@ void wayland_pointer_button_cb(void *data,
 
   hwnd = global_update_hwnd;
 
-  NtUserGetWindowRect(global_update_hwnd, &rect);
+  NtUserGetWindowRect(global_update_hwnd, &rect, 96);
 
   TRACE("Click x y %d %d %s \n", input.mi.dx, input.mi.dy, wine_dbgstr_rect( &rect ));
 
@@ -1174,7 +744,7 @@ relative_pointer_handle_motion(void *data, struct zwp_relative_pointer_v1 *point
 			       wl_fixed_t dx_unaccel,
 			       wl_fixed_t dy_unaccel)
 {
-
+#if 0
     INPUT input;
 
     input.type = INPUT_MOUSE;
@@ -1185,6 +755,11 @@ relative_pointer_handle_motion(void *data, struct zwp_relative_pointer_v1 *point
     input.mi.dwExtraInfo = 0;
 
     input.mi.dwFlags     = MOUSEEVENTF_MOVE;
+
+    input.mi.dx = wl_fixed_to_double(dx);
+    input.mi.dy = wl_fixed_to_double(dy);
+
+#endif
 
     //Slows mouse
     #if 0
@@ -1201,10 +776,24 @@ relative_pointer_handle_motion(void *data, struct zwp_relative_pointer_v1 *point
       input.mi.dy = wl_fixed_to_double(dy);
     }
     #endif
-    input.mi.dx = wl_fixed_to_double(dx);
-    input.mi.dy = wl_fixed_to_double(dy);
 
-    __wine_send_input( global_vulkan_hwnd, &input, NULL );
+
+    SERVER_START_REQ( send_hardware_message )
+    {
+          req->win        = wine_server_user_handle( global_vulkan_hwnd );
+          req->flags      = 0;
+
+          req->input.type = INPUT_MOUSE;
+          req->input.mouse.x     = wl_fixed_to_double(dx);
+          req->input.mouse.y     = wl_fixed_to_double(dy);
+          req->input.mouse.data  = 0;
+          req->input.mouse.flags = MOUSEEVENTF_MOVE;
+          req->input.mouse.time  = 0;
+          req->input.mouse.info  = 0;
+
+          wine_server_call( req );
+    }
+    SERVER_END_REQ;
 }
 
 static const struct zwp_relative_pointer_v1_listener relative_pointer_listener = {
@@ -1261,7 +850,6 @@ void wayland_keyboard_leave_cb(void *data,
 }
 
 
-
 //https://stackoverflow.com/questions/8161741/handling-keyboard-input-in-win32-wm-char-or-wm-keydown-wm-keyup
 //https://stackoverflow.com/questions/44897991/wm-keydown-repeat-count
 void wayland_keyboard_key_cb (void *data, struct wl_keyboard *keyboard,
@@ -1303,7 +891,7 @@ void wayland_keyboard_key_cb (void *data, struct wl_keyboard *keyboard,
     input.ki.dwFlags |= KEYEVENTF_KEYUP;
   }
 
-  __wine_send_input( hwnd, &input, NULL );
+  NtUserSendHardwareInput( hwnd, 0, &input, 0 );
 
   if(state != WL_KEYBOARD_KEY_STATE_RELEASED) {
     return;
@@ -1427,7 +1015,6 @@ void wayland_keyboard_repeat_info(void* data, struct wl_keyboard *wl_keyboard, i
 {
 }
 
-
 static void seat_handle_name(void *data, struct wl_seat *wl_seat,
 		 const char *name)
 {
@@ -1466,7 +1053,14 @@ static void seat_caps_cb(void *data, struct wl_seat *seat, enum wl_seat_capabili
 	char *env_no_clip_cursor;
 	char *env_use_custom_cursors;
 	char *env_use_fsr;
-
+  static const struct wl_keyboard_listener keyboard_listener = {
+        wayland_keyboard_keymap_cb,
+        wayland_keyboard_enter_cb,
+        wayland_keyboard_leave_cb,
+        wayland_keyboard_key_cb,
+				wayland_keyboard_modifiers_cb,
+				wayland_keyboard_repeat_info,
+  };
 
   if ((caps & WL_SEAT_CAPABILITY_POINTER) && !wayland_pointer)
 	{
@@ -1527,14 +1121,7 @@ static void seat_caps_cb(void *data, struct wl_seat *seat, enum wl_seat_capabili
 	if ((caps & WL_SEAT_CAPABILITY_KEYBOARD) && !wayland_keyboard)
 	{
 		wayland_keyboard = wl_seat_get_keyboard(seat);
-		static const struct wl_keyboard_listener keyboard_listener =
-		{   wayland_keyboard_keymap_cb,
-        wayland_keyboard_enter_cb,
-        wayland_keyboard_leave_cb,
-        wayland_keyboard_key_cb,
-				wayland_keyboard_modifiers_cb,
-				wayland_keyboard_repeat_info,
-				};
+
 
 		wl_keyboard_add_listener(wayland_keyboard, &keyboard_listener, NULL);
 	}
@@ -1620,6 +1207,7 @@ static void registry_add_object (void *data, struct wl_registry *registry, uint3
   const char *cursor_theme;
   const char *cursor_size_str;
   int cursor_size = 32;
+  static const struct wl_seat_listener seat_listener = { seat_caps_cb, seat_handle_name };
 
 	if (!strcmp(wl_interface,"wl_compositor")) {
 		wayland_compositor = wl_registry_bind (registry, name, &wl_compositor_interface, 4);
@@ -1638,10 +1226,7 @@ static void registry_add_object (void *data, struct wl_registry *registry, uint3
   else if (!strcmp(wl_interface, "wl_seat"))
 	{
 		wayland_seat = (struct wl_seat *) wl_registry_bind(registry, name, &wl_seat_interface, WINE_WAYLAND_SEAT_VERSION);
-
-		static const struct wl_seat_listener seat_listener =
-		{ seat_caps_cb, seat_handle_name };
-		wl_seat_add_listener(wayland_seat, &seat_listener, data);
+    wl_seat_add_listener(wayland_seat, &seat_listener, data);
 	} else if (strcmp(wl_interface, "zwp_pointer_constraints_v1") == 0) {
       pointer_constraints = wl_registry_bind(registry, name,
                          &zwp_pointer_constraints_v1_interface,
@@ -1678,13 +1263,10 @@ static void registry_add_object (void *data, struct wl_registry *registry, uint3
 	}
 }
 
-static void registry_remove_object (void *data, struct wl_registry *registry, uint32_t name) {
-
+static void registry_remove_object (void *data, struct wl_registry *registry, uint32_t name)
+{
 }
 static struct wl_registry_listener registry_listener = {&registry_add_object, &registry_remove_object};
-
-
-
 
 static void
 handle_xdg_surface_configure(void *data, struct xdg_surface *surface,
@@ -1827,8 +1409,6 @@ static struct wayland_window *create_wayland_window (HWND hwnd, int32_t width, i
     wl_display_dispatch(wayland_display);
   }
 
-  alloc_wl_win_data(window->surface, hwnd, window);
-
   TRACE("Created wayland window %p \n", window);
 
   return window;
@@ -1836,10 +1416,6 @@ static struct wayland_window *create_wayland_window (HWND hwnd, int32_t width, i
 }
 
 static void delete_wayland_window (struct wayland_window *window) {
-
-  struct wl_surface_win_data *data;
-  data = get_wl_win_data(window->surface);
-  free_wl_win_data(data);
 
   TRACE("Deleting wayland window %p \n", window);
 
@@ -1850,7 +1426,6 @@ static void delete_wayland_window (struct wayland_window *window) {
 
 	wl_surface_destroy (window->surface);
   wl_display_dispatch(wayland_display);
-
 
   window = NULL;
   desktop_tid = 0;
@@ -1882,7 +1457,7 @@ static void draw_gdi_wayland_window (struct wayland_window *window) {
     env_width = getenv( "WINE_VK_WAYLAND_WIDTH" );
     env_height = getenv( "WINE_VK_WAYLAND_HEIGHT" );
 
-    NtUserGetWindowRect(window->pointer_to_hwnd, &rect);
+    NtUserGetWindowRect(window->pointer_to_hwnd, &rect, 96);
 
     if(env_width) {
       screen_width = atoi(env_width);
@@ -1914,9 +1489,6 @@ static void draw_gdi_wayland_window (struct wayland_window *window) {
     if(!global_shm_data) {
 
       void *shm_data = mmap(NULL, global_gdi_size, PROT_READ | PROT_WRITE, MAP_SHARED, global_gdi_fd, 0);
-
-
-
       if (shm_data == MAP_FAILED) {
         fprintf(stderr, "mmap failed: %m\n");
         close(global_gdi_fd);
@@ -1929,24 +1501,17 @@ static void draw_gdi_wayland_window (struct wayland_window *window) {
       TRACE( "creating wl_shm_data \n" );
     }
 
-
-
-
-
-
     if(!global_wl_pool) {
       TRACE( "creating wl_pool \n" );
       global_wl_pool = wl_shm_create_pool(global_shm, global_gdi_fd, global_gdi_size);
     }
 
-
     is_buffer_busy = 1;
 
-    buffer = wl_shm_pool_create_buffer(global_wl_pool, 0, screen_width, screen_height, stride, WL_SHM_FORMAT_ARGB8888);
+    buffer = wl_shm_pool_create_buffer(global_wl_pool, 0, screen_width, screen_height, stride,
+     WL_SHM_FORMAT_ARGB8888);
     wl_buffer_add_listener(buffer, &buffer_listener, NULL);
     wl_surface_attach(window->surface, buffer, 0, 0);
-
-
 
     region = wl_compositor_create_region(wayland_compositor);
     wl_region_add(region, 0, 0, 1, 1);
@@ -1956,9 +1521,6 @@ static void draw_gdi_wayland_window (struct wayland_window *window) {
     wl_surface_commit(window->surface);
 
 }
-
-
-
 
 /***********************************************************************
  *		ClipCursor (WAYLANDDRV.@)
@@ -2038,14 +1600,8 @@ BOOL WAYLANDDRV_ClipCursor( const RECT *clip, BOOL reset )
 
       }
     }
-
-
     return TRUE;
-
-
 }
-
-
 
 static uint32_t *get_bitmap_argb( HDC hdc, HBITMAP color, HBITMAP mask, unsigned int *width, unsigned int *height )
 {
@@ -2327,7 +1883,6 @@ static void set_custom_cursor( HCURSOR handle ) {
 
 }
 
-
 void WAYLANDDRV_SetCursor( HWND hwnd, HCURSOR handle )
 {
 
@@ -2421,70 +1976,67 @@ static inline int context_idx( HWND hwnd  )
     return LOWORD( hwnd ) >> 1;
 }
 
-static struct gdi_window_surface *get_gdi_surface( struct window_surface *surface )
+/***********************************************************************
+ *           alloc_hwnd_data
+ */
+static struct hwnd_data *alloc_hwnd_data( HWND hwnd )
 {
-    return (struct gdi_window_surface *)surface;
-}
+    struct hwnd_data *hwnd_data;
 
-
-
-/* store the palette or color mask data in the bitmap info structure */
-static void set_color_info( BITMAPINFO *info, BOOL has_alpha )
-{
-    //DWORD *colors = (DWORD *)info->bmiColors;
-
-    info->bmiHeader.biSize = sizeof(info->bmiHeader);
-    info->bmiHeader.biClrUsed = 0;
-    info->bmiHeader.biBitCount = 32;
-    if (has_alpha)
+    if ((hwnd_data = calloc(1, sizeof(*hwnd_data))))
     {
-        info->bmiHeader.biCompression = BI_RGB;
-        return;
+        hwnd_data->hwnd = hwnd;
+        hwnd_data->window = gdi_window;
+        win_data_context[context_idx(hwnd)] = hwnd_data;
     }
-    /*
-
-    info->bmiHeader.biCompression = BI_BITFIELDS;
-    colors[0] = 0xff0000;
-    colors[1] = 0x00ff00;
-    colors[2] = 0x0000ff;
-    */
+    return hwnd_data;
 }
 
 
 /***********************************************************************
- *           alloc_gdi_win_data
+ *           free_hwnd_data
  */
-static struct gdi_win_data *alloc_gdi_win_data( HWND hwnd )
-{
-    struct gdi_win_data *data;
-
-    if ((data = calloc(1, sizeof(*data))))
-    {
-        data->hwnd = hwnd;
-        data->window = gdi_window;
-        win_data_context[context_idx(hwnd)] = data;
-    }
-    return data;
-}
-
-
-/***********************************************************************
- *           free_win_data
- */
-static void free_win_data( struct gdi_win_data *data )
+static void free_hwnd_data( struct hwnd_data *data )
 {
     win_data_context[context_idx( data->hwnd )] = NULL;
     free( data );
 }
+/***********************************************************************
+ *           free_hwnd_data
+ */
+static void hwnd_data_clear_wl_data( struct hwnd_data *hwnd_data )
+{
+    wl_subsurface_destroy(hwnd_data->wayland_subsurface);
+    wl_surface_destroy(hwnd_data->wayland_surface);
+    wl_shm_pool_destroy(hwnd_data->wl_pool);
+    if(hwnd_data->gdi_fd)
+       close(hwnd_data->gdi_fd);
+
+    if(hwnd_data->shm_data && hwnd_data->size) {
+      munmap(hwnd_data->shm_data, hwnd_data->size);
+    }
+    if(hwnd_data->buffer) {
+      wl_buffer_destroy(hwnd_data->buffer);
+    }
+    hwnd_data->wayland_subsurface = NULL;
+    hwnd_data->wayland_surface = NULL;
+    hwnd_data->shm_data = NULL;
+    hwnd_data->wl_pool = NULL;
+    hwnd_data->buffer = NULL;
+    hwnd_data->gdi_fd = 0;
+    hwnd_data->buffer_busy = 0;
+    hwnd_data->surface_changed = 1;
+    hwnd_data->size_changed = 1;
+}
 
 /***********************************************************************
- *           get_win_data
+ *           get_hwnd_data
  *
  * Lock and return the data structure associated with a window.
  */
-static struct gdi_win_data *get_win_data( HWND hwnd )
+static struct hwnd_data *get_hwnd_data( HWND hwnd )
 {
-    struct gdi_win_data *data;
+    struct hwnd_data *data;
 
     if (!hwnd) return NULL;
     if ((data = win_data_context[context_idx(hwnd)]) && data->hwnd == hwnd) {
@@ -2492,78 +2044,26 @@ static struct gdi_win_data *get_win_data( HWND hwnd )
     }
     return NULL;
 }
-
 /***********************************************************************
- *           gdi_surface_lock
+ *           gdi_surface_set_clip
  */
-static void gdi_surface_lock( struct window_surface *window_surface )
+static void gdi_surface_set_clip(struct window_surface *window_surface,
+                                            const RECT *rects, UINT count)
 {
 
 }
-
-/***********************************************************************
- *           gdi_surface_unlock
- */
-static void gdi_surface_unlock( struct window_surface *window_surface )
-{
-
-}
-
-/***********************************************************************
- *           gdi_surface_get_bitmap_info
- */
-static void *gdi_surface_get_bitmap_info( struct window_surface *window_surface, BITMAPINFO *info )
-{
-    struct gdi_window_surface *surface = get_gdi_surface( window_surface );
-
-    memcpy( info, &surface->info, get_dib_info_size( &surface->info, DIB_RGB_COLORS ));
-    return surface->bits;
-}
-
-/***********************************************************************
- *           gdi_surface_get_bounds
- */
-static RECT *gdi_surface_get_bounds( struct window_surface *window_surface )
-{
-    struct gdi_window_surface *surface = get_gdi_surface( window_surface );
-
-    return &surface->bounds;
-}
-
-/***********************************************************************
- *           gdi_surface_set_region
- */
-static void gdi_surface_set_region( struct window_surface *window_surface, HRGN region )
-{
-    struct gdi_window_surface *surface = get_gdi_surface( window_surface );
-
-
-    if (!region)
-    {
-        if (surface->region) NtGdiDeleteObjectApp( surface->region );
-        surface->region = 0;
-    }
-    else
-    {
-        if (!surface->region) surface->region = NtGdiCreateRectRgn( 0, 0, 0, 0 );
-        NtGdiCombineRgn( surface->region, region, 0, RGN_COPY );
-    }
-
-    set_surface_region( &surface->header, (HRGN)1 );
-}
-
-
-
 /***********************************************************************
  *           gdi_surface_flush
  */
 //Basic GDI windows support - mostly not working
 //https://github.com/wayland-project/weston/blob/3957863667c15bc5f1984ddc6c5967a323f41e7a/clients/simple-shm.c
 //https://github.com/ricardomv/cairo-wayland/blob/master/src/shm.c
-static void gdi_surface_flush( struct window_surface *window_surface )
+static BOOL gdi_surface_flush( struct window_surface *window_surface, const RECT *rect, const RECT *dirty,
+  const BITMAPINFO *color_info, const void *color_bits,
+  BOOL shape_changed, const BITMAPINFO *shape_info,
+  const void *shape_bits
+ )
 {
-
-    //TRACE( "GDI flush %p \n", window_surface);
 
     int x, y, width;
     uint32_t *src_pixels;
@@ -2571,94 +2071,92 @@ static void gdi_surface_flush( struct window_surface *window_surface )
 
     HWND owner;
     RECT client_rect;
-
     int HEIGHT = 0;
     int WIDTH = 0;
-
-    RECT rect;
-    BOOL needs_flush;
+    RECT drect;
 
     LONG l,t;
-
-    struct gdi_window_surface *surface = get_gdi_surface( window_surface );
 
     int stride = 0;
     int size = 0;
 
-    struct gdi_win_data *hwnd_data;
+    struct hwnd_data *hwnd_data;
 
     char sprint_buffer[200];
 
+    WCHAR class_buff[64];
+
+    UNICODE_STRING class_name = { .Buffer = class_buff, .MaximumLength = sizeof(class_buff) };
+
+    if(!window_surface) {
+      TRACE("No surface found \n" );
+      return TRUE;
+    }
+
+    if(window_surface->hwnd == global_vulkan_hwnd) {
+      TRACE("Global Vulkan hwnd is %p \n", window_surface->hwnd);
+      window_surface_release( &*window_surface );
+      return TRUE;
+    }
+
     if(global_is_vulkan) {
-      return;
+      return TRUE;
     }
 
     if(!wayland_display) {
-      return;
+      return TRUE;
     }
 
+    TRACE("flush on %s %s \n",
+      wine_dbgstr_rect( &*rect ),
+      wine_dbgstr_rect( &*dirty )
 
-    surface = get_gdi_surface( window_surface );
+      );
+
+    if (!(hwnd_data = get_hwnd_data( window_surface->hwnd )))
+      return TRUE;
 
 
-    if(!surface) {
-      TRACE("No surface found \n" );
-      return;
+    if( NtUserGetClassName(window_surface->hwnd, FALSE, &class_name )) {
+
+      TRACE( "Flushing %p %s \n",
+        window_surface->hwnd, debugstr_w(class_name.Buffer)
+      );
     }
 
+    drect.left   = dirty->left;
+    drect.top    = dirty->top;
+    drect.right  = dirty->right;
+    drect.bottom = dirty->bottom;
 
-    if(surface->hwnd == global_vulkan_hwnd) {
-      TRACE("Global Vulkan hwnd is %p \n", surface->hwnd);
-      window_surface_release( &*window_surface );
-      return;
-    }
+    owner = NtUserGetWindowRelative( window_surface->hwnd, GW_OWNER );
 
+    NtUserGetWindowRect(window_surface->hwnd, &client_rect, 96);
 
-    if(!surface->hwnd) {
-      return;
-    }
-
-    if (!(hwnd_data = get_win_data( surface->hwnd )))
-      return;
-
-    //without global_update_hwnd gray screen on startup
-    if(hwnd_data->buffer_busy && global_update_hwnd) {
-      return;
-    }
-
-    owner = NtUserGetWindowRelative( surface->hwnd, GW_OWNER );
-
-    NtUserGetWindowRect(surface->hwnd, &client_rect);
-
-    WIDTH = client_rect.right - client_rect.left;
+    WIDTH =  client_rect.right - client_rect.left;
     HEIGHT = client_rect.bottom - client_rect.top;
     stride = WIDTH * 4; // 4 bytes per pixel
     size = stride * HEIGHT;
 
-    SetRect( &rect, 0, 0, surface->header.rect.right - surface->header.rect.left,
-             surface->header.rect.bottom - surface->header.rect.top );
 
-
-
+//TODO
+#if 0
     //Checks and reduces rect to changed areas
-    needs_flush = intersect_rect( &rect, &rect, &surface->bounds );
+    needs_flush = intersect_rect( &drect, &drect, rect );
     reset_bounds( &surface->bounds );
 
     //(hwnd_data->window_width == WIDTH && hwnd_data->window_height == HEIGHT)
     if (!needs_flush && hwnd_data->surface_changed < 1) {
-      return;
+      return TRUE;
     }
-
-    intersect_rect( &rect, &rect, &surface->header.rect );
+#endif
 
     if(hwnd_data->window_width && (hwnd_data->window_width != WIDTH || hwnd_data->window_height != HEIGHT)) {
       hwnd_data->size_changed = 1;
       hwnd_data->window_width = WIDTH;
       hwnd_data->window_height = HEIGHT;
-      TRACE( "Size changed %p \n", surface->hwnd);
+      TRACE( "Size changed %p \n", window_surface->hwnd);
     }
-
-
 
     //TODO proper cleanup
     if(hwnd_data->size_changed > 0) {
@@ -2679,11 +2177,11 @@ static void gdi_surface_flush( struct window_surface *window_surface )
       hwnd_data->wl_pool = NULL;
       hwnd_data->buffer = NULL;
     }
+
     hwnd_data->size = size;
 
-
     if(!hwnd_data->gdi_fd) {
-      sprintf(sprint_buffer, "wine-shared-%p", surface->hwnd);
+      sprintf(sprint_buffer, "wine-shared-%p", window_surface->hwnd);
 
       TRACE( "creating gdi fd %s \n", sprint_buffer);
 
@@ -2696,14 +2194,11 @@ static void gdi_surface_flush( struct window_surface *window_surface )
       posix_fallocate(hwnd_data->gdi_fd, 0, size);
     }
 
-
     //MAP_SHARED
 
     if(!hwnd_data->shm_data) {
 
       hwnd_data->shm_data = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, hwnd_data->gdi_fd, 0);
-
-
 
       if (hwnd_data->shm_data == MAP_FAILED) {
         fprintf(stderr, "mmap failed: %m\n");
@@ -2717,7 +2212,6 @@ static void gdi_surface_flush( struct window_surface *window_surface )
 
     //TRACE("Client Rect rect %s %d %d %p \n", wine_dbgstr_rect( &client_rect ), WIDTH, HEIGHT, surface->hwnd);
 
-
     if(!hwnd_data->wl_pool) {
       TRACE( "creating wl_pool \n" );
       hwnd_data->wl_pool = wl_shm_create_pool(global_shm, hwnd_data->gdi_fd, size);
@@ -2726,11 +2220,10 @@ static void gdi_surface_flush( struct window_surface *window_surface )
       TRACE( "creating buffer \n" );
       hwnd_data->buffer = wl_shm_pool_create_buffer(hwnd_data->wl_pool, 0, WIDTH, HEIGHT, stride, WL_SHM_FORMAT_ARGB8888);
 
-      wl_buffer_add_listener(hwnd_data->buffer, &buffer_listener, surface->hwnd);
+      wl_buffer_add_listener(hwnd_data->buffer, &buffer_listener, window_surface->hwnd);
     }
 
     hwnd_data->buffer_busy= 1;
-
 
     if(!hwnd_data->wayland_subsurface) {
 
@@ -2738,18 +2231,21 @@ static void gdi_surface_flush( struct window_surface *window_surface )
       hwnd_data->window_height = HEIGHT;
 
       hwnd_data->wayland_surface = wl_compositor_create_surface(wayland_compositor);
-      hwnd_data->wayland_subsurface = wl_subcompositor_get_subsurface(wayland_subcompositor, hwnd_data->wayland_surface, gdi_window->surface);
+      hwnd_data->wayland_subsurface = wl_subcompositor_get_subsurface(wayland_subcompositor,
+        hwnd_data->wayland_surface, gdi_window->surface);
 
-      TRACE( "creating wl_subsurface %p %p for hwnd %p \n", hwnd_data->wayland_subsurface, hwnd_data->wayland_surface, surface->hwnd );
+      TRACE( "creating wl_subsurface %p %p for hwnd %p \n", hwnd_data->wayland_subsurface,
+       hwnd_data->wayland_surface, window_surface->hwnd );
+
+      TRACE( "rect x y hwnd %d %d %p \n", client_rect.left, client_rect.top, window_surface->hwnd );
 
       wl_subsurface_set_position(hwnd_data->wayland_subsurface, client_rect.left, client_rect.top);
       wl_subsurface_set_desync(hwnd_data->wayland_subsurface);
 
-
       //if window is owned
       if(owner) {
-        struct gdi_win_data *owner_hwnd_data;
-        owner_hwnd_data = get_win_data( owner );
+        struct hwnd_data *owner_hwnd_data;
+        owner_hwnd_data = get_hwnd_data( owner );
 
         if (owner_hwnd_data && owner_hwnd_data->wayland_surface)
           wl_subsurface_place_above(hwnd_data->wayland_subsurface, owner_hwnd_data->wayland_surface);
@@ -2757,20 +2253,19 @@ static void gdi_surface_flush( struct window_surface *window_surface )
           wl_subsurface_place_above(hwnd_data->wayland_subsurface, gdi_window->surface);
       }
 
-      //alloc_wl_win_data(hwnd_data->wayland_subsurface, surface->hwnd);
-
-      wl_surface_set_user_data(hwnd_data->wayland_surface, surface->hwnd);
-
+      wl_surface_set_user_data(hwnd_data->wayland_surface, window_surface->hwnd);
       wl_surface_attach(hwnd_data->wayland_surface, hwnd_data->buffer, 0, 0);
+
+      hwnd_data->surface_changed = 1;
+
     } else {
 
-
       wl_surface_attach(hwnd_data->wayland_surface, hwnd_data->buffer, 0, 0);
-
 
       if(hwnd_data->surface_changed) {
 
         wl_subsurface_set_position(hwnd_data->wayland_subsurface, client_rect.left, client_rect.top);
+        wl_subsurface_set_desync(hwnd_data->wayland_subsurface);
 
         //Dynamic move is currently broken
         if(!global_gdi_lb_hold) {
@@ -2778,51 +2273,64 @@ static void gdi_surface_flush( struct window_surface *window_surface )
           global_gdi_position_changing = 1;
           TRACE("relative mouse move on \n");
         }
-        wl_surface_commit(gdi_window->surface);
 
         //global_gdi_position_changed = 1;
-        //wl_surface_damage(hwnd_data->wayland_surface, 0, 0, WIDTH, HEIGHT);
-        //wl_surface_commit(hwnd_data->wayland_surface);
       }
 
     }
 
-    src_pixels = (unsigned int *)surface->bits + (rect.top - surface->header.rect.top) * surface->info.bmiHeader.biWidth + (rect.left - surface->header.rect.left);
+
+    src_pixels = (unsigned int *)color_bits +
+      (drect.top - rect->top) * color_info->bmiHeader.biWidth
+      + (drect.left - rect->left);
 
     dest_pixels = (unsigned int *)hwnd_data->shm_data;
 
-
-
-    l = rect.left;
-    t = rect.top;
-
+    l = drect.left;
+    t = drect.top;
 
     if(l != 0 || t != 0 ) {
-
-      dest_pixels = (unsigned int *)hwnd_data->shm_data + (rect.top) * WIDTH + rect.left;
-
+      dest_pixels = (unsigned int *)hwnd_data->shm_data + (drect.top) * WIDTH + drect.left;
     }
 
+    TRACE(" 11  flush on %s %s %s \n",
+      wine_dbgstr_rect( &client_rect ),
+      wine_dbgstr_rect( &*rect ),
+      wine_dbgstr_rect( &drect )
 
-    width = min( rect.right - rect.left, stride );
+      );
 
+    width = min( drect.right - drect.left, stride );
 
     //for (y = rect.top; y < min( HEIGHT, rect.bottom); y++)
-    for (y = rect.top; y < min( HEIGHT, rect.bottom); y++)
+    for (y = drect.top; y < min( HEIGHT, drect.bottom); y++)
+//    for (y = drect.top; y < min( rect->bottom, drect.bottom); y++)
     {
         for (x = 0; x < width; x++) {
+//          dest_pixels[x] = 0xFF000000;
           dest_pixels[x] = src_pixels[x] | 0xFF000000;
         }
 
-        src_pixels += surface->info.bmiHeader.biWidth;
+        src_pixels += color_info->bmiHeader.biWidth;
         dest_pixels += WIDTH;
+//        dest_pixels += rect->right;
     }
-    hwnd_data->surface_changed = 0;
-    hwnd_data->size_changed = 0;
+
+
 
     wl_surface_damage(hwnd_data->wayland_surface, 0, 0, WIDTH, HEIGHT);
     wl_surface_commit(hwnd_data->wayland_surface);
+    if(hwnd_data->surface_changed)
+      wl_surface_commit(gdi_window->surface);
 
+    hwnd_data->surface_changed = 0;
+    hwnd_data->size_changed = 0;
+
+    TRACE( "Flushed %p %s \n",
+      window_surface->hwnd, debugstr_w(class_name.Buffer)
+    );
+
+    return TRUE;
 
 }
 
@@ -2832,82 +2340,30 @@ static void gdi_surface_flush( struct window_surface *window_surface )
  */
 static void gdi_surface_destroy( struct window_surface *window_surface )
 {
-    struct gdi_window_surface *surface = get_gdi_surface( window_surface );
-    struct gdi_win_data *hwnd_data;
+    struct hwnd_data *hwnd_data;
 
-    hwnd_data = get_win_data( surface->hwnd );
+    hwnd_data = get_hwnd_data( window_surface->hwnd );
 
     if (hwnd_data) {
-      //hwnd_data->surface_changed = 1;
+      hwnd_data->surface_changed = 1;
+      TRACE("wl subsurface removing %p \n", window_surface->hwnd);
+      hwnd_data_clear_wl_data(hwnd_data);
+      free_hwnd_data(hwnd_data);
     }
 
-    TRACE( "Freeing wine surface - %p bits %p %p \n", surface, surface->bits, surface->hwnd );
+    TRACE( "Freeing wine surface - %p %p \n", window_surface, window_surface->hwnd );
 
-    free( surface->region_data );
-    if (surface->region) NtGdiDeleteObjectApp( surface->region );
+    window_surface_unlock( window_surface );
 
-    free( surface->bits );
-    free( surface );
 }
+
 
 static const struct window_surface_funcs gdi_surface_funcs =
 {
-    gdi_surface_lock,
-    gdi_surface_unlock,
-    gdi_surface_get_bitmap_info,
-    gdi_surface_get_bounds,
-    gdi_surface_set_region,
+    gdi_surface_set_clip,
     gdi_surface_flush,
     gdi_surface_destroy
 };
-
-
-/***********************************************************************
- *           set_surface_region
- */
-static void set_surface_region( struct window_surface *window_surface, HRGN win_region )
-{
-    struct gdi_window_surface *surface = get_gdi_surface( window_surface );
-    struct gdi_win_data *win_data;
-    HRGN region = win_region;
-    RGNDATA *data = NULL;
-    UINT size;
-    int offset_x, offset_y;
-
-    if (window_surface->funcs != &gdi_surface_funcs) return;  /* we may get the null surface */
-
-    if (!(win_data = get_win_data( surface->hwnd ))) return;
-    offset_x = win_data->window_rect.left - win_data->whole_rect.left;
-    offset_y = win_data->window_rect.top - win_data->whole_rect.top;
-
-
-    if (win_region == (HRGN)1)  /* hack: win_region == 1 means retrieve region from server */
-    {
-        region = NtGdiCreateRectRgn( 0, 0, win_data->window_rect.right - win_data->window_rect.left,
-                                win_data->window_rect.bottom - win_data->window_rect.top );
-        if (NtUserGetWindowRgnEx( surface->hwnd, region, 0 ) == ERROR && !surface->region) goto done;
-    }
-
-    NtGdiOffsetRgn( region, offset_x, offset_y );
-    if (surface->region) NtGdiCombineRgn( region, region, surface->region, RGN_AND );
-
-    if (!(size = NtGdiGetRegionData( region, 0, NULL ))) goto done;
-    if (!(data = calloc( 1, size )) ) goto done;
-
-    if (!NtGdiGetRegionData( region, size, data ))
-    {
-        free( data );
-        data = NULL;
-    }
-
-done:
-    window_surface->funcs->lock( window_surface );
-    free( surface->region_data );
-    surface->region_data = data;
-    *window_surface->funcs->get_bounds( window_surface ) = surface->header.rect;
-    window_surface->funcs->unlock( window_surface );
-    if (region != win_region) NtGdiDeleteObjectApp( region );
-}
 
 /***********************************************************************
  *           create_surface
@@ -2915,45 +2371,26 @@ done:
 static struct window_surface *create_surface( HWND hwnd, const RECT *rect,
                                               BYTE alpha, COLORREF color_key, BOOL src_alpha )
 {
-    struct gdi_window_surface *surface;
+//    struct gdi_window_surface *surface;
+    struct window_surface *window_surface = NULL;
     int width = rect->right - rect->left, height = rect->bottom - rect->top;
+    char buffer[FIELD_OFFSET( BITMAPINFO, bmiColors[256] )];
+    BITMAPINFO *info = (BITMAPINFO *)buffer;
 
-    surface = calloc( 1, FIELD_OFFSET( struct gdi_window_surface, info.bmiColors[3] ));
-    if (!surface) return NULL;
-    set_color_info( &surface->info, 1 );
-//    set_color_info( &surface->info, src_alpha );
-    surface->info.bmiHeader.biWidth       = width;
-    surface->info.bmiHeader.biHeight      = -height; /* top-down */
-    surface->info.bmiHeader.biPlanes      = 1;
-    surface->info.bmiHeader.biSizeImage   = get_dib_image_size( &surface->info );
+    memset( info, 0, sizeof(*info) );
+    info->bmiHeader.biSize        = sizeof(info->bmiHeader);
+    info->bmiHeader.biWidth       = width;
+    info->bmiHeader.biHeight      = -height; /* top-down */
+    info->bmiHeader.biPlanes      = 1;
+    info->bmiHeader.biBitCount    = 32;
+    info->bmiHeader.biSizeImage   = get_dib_image_size(info);
+    info->bmiHeader.biCompression = BI_RGB;
+
+    window_surface = window_surface_create (sizeof(*window_surface), &gdi_surface_funcs, hwnd, rect, info, 0);
+
+    return window_surface;
 
 
-    surface->header.funcs = &gdi_surface_funcs;
-    surface->header.rect  = *rect;
-    surface->header.ref   = 1;
-    surface->hwnd         = hwnd;
-    surface->window       = gdi_window;
-    surface->wayland_subsurface       = NULL;
-    surface->wayland_surface       = NULL;
-    surface->shm_data       = NULL;
-    surface->wl_pool       = NULL;
-    surface->gdi_fd       = 0;
-    surface->alpha        = alpha;
-
-    set_surface_region( &surface->header, (HRGN)1 );
-    reset_bounds( &surface->bounds );
-
-    if (!(surface->bits = malloc( surface->info.bmiHeader.biSizeImage )))
-        goto failed;
-
-    TRACE( "created %p hwnd %p %s bits %p-%p\n", surface, hwnd, wine_dbgstr_rect(rect),
-           surface->bits, (char *)surface->bits + surface->info.bmiHeader.biSizeImage );
-
-    return &surface->header;
-
-failed:
-    gdi_surface_destroy( &surface->header );
-    return NULL;
 }
 
 //Windows functions
@@ -2963,7 +2400,7 @@ failed:
  *
  * Create an gdi data structure for an existing window.
  */
-static int do_create_gdi_data( HWND hwnd, const RECT *window_rect, const RECT *client_rect )
+static int need_hwnd_data( HWND hwnd )
 {
 
     HWND parent;
@@ -2981,68 +2418,51 @@ static int do_create_gdi_data( HWND hwnd, const RECT *window_rect, const RECT *c
 
 }
 
-static struct gdi_win_data *create_gdi_data( HWND hwnd, const RECT *window_rect,
-                                                 const RECT *client_rect )
+static struct hwnd_data *create_hwnd_data( HWND hwnd, const RECT *window_client_rect )
 {
-    struct gdi_win_data *data;
+    struct hwnd_data *hwnd_data;
     HWND parent;
 
     if (!(parent = NtUserGetAncestor( hwnd, GA_PARENT ))) return NULL;  /* desktop or HWND_MESSAGE */
 
-    if (!(data = alloc_gdi_win_data( hwnd ))) return NULL;
+    if (!(hwnd_data = alloc_hwnd_data( hwnd ))) return NULL;
 
-    data->parent = (parent == NtUserGetDesktopWindow()) ? 0 : parent;
-    data->whole_rect = data->window_rect = *window_rect;
-    data->client_rect = *client_rect;
-    data->wayland_subsurface = NULL;
-    data->wayland_surface = NULL;
-    data->window_width = 0;
-    data->window_height = 0;
-    data->size = 0;
-    data->shm_data = NULL;
-    data->wl_pool = NULL;
-    data->buffer = NULL;
-    data->gdi_fd = 0;
-    data->buffer_busy = 0;
-    data->surface_changed = 0;
-    data->size_changed = 0;
+    hwnd_data->parent = (parent == NtUserGetDesktopWindow()) ? 0 : parent;
+    hwnd_data->window_rect = *window_client_rect;
+    hwnd_data->client_rect = *window_client_rect;
+    hwnd_data->wayland_subsurface = NULL;
+    hwnd_data->wayland_surface = NULL;
+    hwnd_data->window_width = 0;
+    hwnd_data->window_height = 0;
+    hwnd_data->size = 0;
+    hwnd_data->shm_data = NULL;
+    hwnd_data->wl_pool = NULL;
+    hwnd_data->buffer = NULL;
+    hwnd_data->gdi_fd = 0;
+    hwnd_data->buffer_busy = 0;
+    hwnd_data->surface_changed = 0;
+    hwnd_data->size_changed = 0;
 
-    TRACE( "created gdi_win_data for %p hwnd /n", hwnd);
+    TRACE( "created hwnd_data for %p hwnd /n", hwnd);
 
-    return data;
+    return hwnd_data;
 }
-
-
-static inline BOOL get_surface_rect( const RECT *visible_rect, RECT *surface_rect )
-{
-    RECT virtual_screen_rect = get_virtual_screen_rect();
-
-    if (!intersect_rect( surface_rect, visible_rect, &virtual_screen_rect )) return FALSE;
-    OffsetRect( surface_rect, -visible_rect->left, -visible_rect->top );
-    surface_rect->left &= ~31;
-    surface_rect->top  &= ~31;
-    surface_rect->right  = max( surface_rect->left + 32, (surface_rect->right + 31) & ~31 );
-    surface_rect->bottom = max( surface_rect->top + 32, (surface_rect->bottom + 31) & ~31 );
-    return TRUE;
-}
-
 
 /***********************************************************************
- *		WindowPosChanging   (WAYLANDDRV.@)
+ *		CreateWindowSurface   (WAYLANDDRV.@)
  */
-BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
-                                     const RECT *window_rect, const RECT *client_rect, RECT *visible_rect,
-                                     struct window_surface **surface )
-{
+BOOL WAYLANDDRV_CreateWindowSurface( HWND hwnd, BOOL layered, const RECT *surface_rect,
+    struct window_surface **surface ) {
 
   int count = 0;
-  struct gdi_win_data *data;
+//  struct window_surface *previous;
+  struct hwnd_data *data;
   COLORREF key;
   HWND parent;
-  int do_create_surface = 0;
-  int HEIGHT = 0;
+
   int WIDTH = 0;
-  RECT window_client_rect, rect;
+  int HEIGHT = 0;
+  RECT window_client_rect;
   WCHAR title_name[1024] = { L'\0' };
   WCHAR class_buff[64];
 
@@ -3052,6 +2472,7 @@ BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
   static const WCHAR tray_class[] = {'S','h','e','l','l','_','T','r','a','y','W','n','d', 0};
 
   static const WCHAR update_class[] = {'r','u','n','d','l','l','3','2', 0};
+  static const WCHAR combo_class[] = {'C','o','m','b','o','L','B','o','x', 0};
   static const WCHAR ole_class[] = {'O','l','e','M','a','i','n','T','h','r','e','a','d','W','n','d','C','l','a','s','s', 0};
   static const WCHAR msg_class[] = {'M','e','s','s','a','g','e', 0};
   static const WCHAR ime_class[] = {'I','M','E', 0};
@@ -3087,13 +2508,18 @@ BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
     //For FSR
     NtUserSetWindowLongPtr(global_vulkan_hwnd, GWL_EXSTYLE, WS_EX_APPWINDOW | WS_EX_TOPMOST, 0);
     NtUserSetWindowLongPtr(global_vulkan_hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE, 0);
-    //For caching global_vulkan_hwnd rect
-    global_vulkan_rect_flag = 0;
-    NtUserGetWindowRect(global_vulkan_hwnd, &global_vulkan_rect);
     return TRUE;
   }
 
-  if(is_vulkan_only) {
+  //Wayland display may not be ready yet, test for FSR variable here as well
+  if(getenv( "WINE_VK_USE_FSR" )) {
+    global_fsr = 1;
+    global_fsr_set = 1;
+    global_is_always_fullscreen = 1; //enable fullscreen for FSR
+  }
+
+  //Remove borders for some games that refuse to do elsewhere
+  if(global_fsr || is_vulkan_only) {
     return TRUE;
   }
 
@@ -3101,13 +2527,15 @@ BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
     return TRUE;
   }
 
-
-
   parent = NtUserGetAncestor(hwnd, GA_PARENT);
 
   if( !parent || parent != NtUserGetDesktopWindow()) {
     return TRUE;
   }
+
+//  if ((previous = *surface) && previous->funcs == &gdi_surface_funcs)
+//    return TRUE;
+//  if (previous) window_surface_release( previous );
 
   if( NtUserGetClassName(hwnd, FALSE, &class_name )) {
 
@@ -3155,28 +2583,15 @@ BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
     if(!wcsicmp(class_name.Buffer, flstudio_hwnd_class)) {
       return TRUE;
     }
+    if(!wcsicmp(class_name.Buffer, combo_class)) {
+      //return TRUE;
+    }
 
-    TRACE( "Changing %p %s \n",
+    TRACE( "Creating %p %s \n",
       hwnd, debugstr_w(class_name.Buffer)
     );
 
     //Upscale
-
-    //Wayland display may not be ready yet, test for FSR variable here as well
-    if(getenv( "WINE_VK_USE_FSR" )) {
-      global_fsr = 1;
-      global_fsr_set = 1;
-      global_is_always_fullscreen = 1; //enable fullscreen for FSR
-    }
-
-    //Remove borders for some games that refuse to do elsewhere
-    if(global_fsr) {
-      TRACE( "Removing window decorations %p %s \n",
-        hwnd, debugstr_w(class_name.Buffer)
-      );
-      NtUserSetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_APPWINDOW | WS_EX_TOPMOST, 0);
-      NtUserSetWindowLongPtr(hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE, 0);
-    }
 
     if(!wcsicmp(class_name.Buffer, sdl_class)) {
       return TRUE;
@@ -3197,29 +2612,18 @@ BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
   }
 
   //Get window width/height
-  NtUserGetWindowRect(hwnd, &window_client_rect);
+  NtUserGetWindowRect(hwnd, &window_client_rect, 96);
 
   NtUserInternalGetWindowText(hwnd, title_name, 1024);
-  TRACE( "Changing %p %s Window title %d / %s %s rect \n",
+  TRACE( "Creating %p %s Window title %d / %s %s rect \n",
     hwnd, debugstr_w(class_name.Buffer), lstrlenW( title_name ),
     debugstr_wn(title_name, lstrlenW( title_name )),
     wine_dbgstr_rect( &window_client_rect )
   );
 
 
-  do_create_surface = do_create_gdi_data( hwnd, window_rect, client_rect );
-
-  if (!do_create_surface) {
-    return TRUE;
-  }
-
-  if (!(swp_flags & SWP_SHOWWINDOW) && !(NtUserGetWindowLongW( hwnd, GWL_STYLE ) & WS_VISIBLE)) {
-    return TRUE;
-  }
-
-
-  if (swp_flags & SWP_HIDEWINDOW) {
-    TRACE("Window Should be hidden %s \n", debugstr_wn(title_name, lstrlenW( title_name )));
+  if (!need_hwnd_data( hwnd) ) {
+    TRACE("Window Should be not be created 1 \n");
     return TRUE;
   }
 
@@ -3234,12 +2638,9 @@ BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
   if(HEIGHT < 1)
     HEIGHT = 900;
 
-   //TRACE("WXH is %d %d for %p \n", WIDTH, HEIGHT, hwnd);
-
   if(wayland_display && !gdi_window) {
     TRACE("Creating wayland window %s %p \n", debugstr_w(class_name.Buffer), hwnd);
     gdi_window = create_wayland_window (hwnd, WIDTH, HEIGHT);
-
 
     while (!count) {
       sleep(0.1);
@@ -3252,65 +2653,30 @@ BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, HWND insert_after, UINT swp_flags,
     draw_gdi_wayland_window (gdi_window);
   }
 
-  data = get_win_data( hwnd );
+  data = get_hwnd_data( hwnd );
   if(!data) {
-    data = create_gdi_data( hwnd, window_rect, client_rect );
-  } else {
-
-    if (*surface) {
-//      TRACE("Surface exists \n", WIDTH, HEIGHT);
-//      gdi_surface_destroy( *surface );
-      window_surface_release( *surface );
-      *surface = NULL;
-    }
-
+    data = create_hwnd_data( hwnd, &window_client_rect );
   }
 
-    if(!data) {
-      TRACE("NO DATA \n");
-      return TRUE;
-    } else {
+  if(!data) {
+    TRACE("NO DATA \n");
+    return TRUE;
+  }
 
-      if (data->surface)
-      {
-
-        /* existing surface is good enough */
-        window_surface_add_ref( data->surface );
-        if (*surface) window_surface_release( *surface );
-        *surface = data->surface;
-        return TRUE;
-
-      }
-
-      rect = get_virtual_screen_rect();
-
-
-      if ( (!parent || parent == NtUserGetDesktopWindow()) ) {
-
-        if (*surface) {
-          window_surface_release( *surface );
-        }
-        *surface = NULL;
-        *surface = create_surface( data->hwnd, &rect, 255, key, FALSE );
-
-      }
-
-
-
-    }
-
+  *surface = create_surface( data->hwnd, surface_rect, 255, key, FALSE );
   return TRUE;
 }
+
 
 /***********************************************************************
  *           ShowWindow   (WAYLANDDRV.@)
  */
 UINT WAYLANDDRV_ShowWindow( HWND hwnd, INT cmd, RECT *rect, UINT swp )
 {
-//  WCHAR title_name[1024] = { L'\0' };
-  struct gdi_win_data *hwnd_data;
+
+  struct hwnd_data *hwnd_data;
 //  WCHAR class_name[64];
-  struct gdi_win_data *data;
+  struct hwnd_data *data;
 
   if(global_is_vulkan) {
     return swp;
@@ -3318,42 +2684,20 @@ UINT WAYLANDDRV_ShowWindow( HWND hwnd, INT cmd, RECT *rect, UINT swp )
 
   TRACE( "Show Window \n");
 
-  data = get_win_data( hwnd );
+  data = get_hwnd_data( hwnd );
   if(!data) {
     return swp;
   }
 
-//  if(RealGetWindowClassW(hwnd, class_name, ARRAY_SIZE(class_name))) {
-//    NtUserInternalGetWindowText(hwnd, title_name, 1024);
-//    TRACE( "Show/hide window %p %s title %s \n", hwnd, debugstr_w(class_name), debugstr_wn(title_name, strlenW( title_name )));
-//  }
-
-
   if(!cmd || cmd & SW_HIDE) {
     TRACE("Hiding window %d %p %p \n", cmd, hwnd, global_update_hwnd);
 
-    hwnd_data = get_win_data( hwnd );
+    hwnd_data = get_hwnd_data( hwnd );
     if (hwnd_data && hwnd_data->wayland_surface ) {
 
       TRACE("Hiding window %d %p clearing wayland surfaces \n", cmd, hwnd);
 
-      wl_subsurface_destroy(hwnd_data->wayland_subsurface);
-      wl_surface_destroy(hwnd_data->wayland_surface);
-      hwnd_data->wayland_subsurface = NULL;
-      hwnd_data->wayland_surface = NULL;
-
-      wl_shm_pool_destroy(hwnd_data->wl_pool);
-
-      if(hwnd_data->gdi_fd)
-         close(hwnd_data->gdi_fd);
-
-      if(hwnd_data->shm_data && hwnd_data->size) {
-        TRACE("Clearing shm_data for %p \n", hwnd);
-        munmap(hwnd_data->shm_data, hwnd_data->size);
-      }
-      if(hwnd_data->buffer) {
-        wl_buffer_destroy(hwnd_data->buffer);
-      }
+      hwnd_data_clear_wl_data(hwnd_data);
 
       if(hwnd_data->surface) {
         //gdi_surface_destroy( hwnd_data->surface );
@@ -3361,11 +2705,7 @@ UINT WAYLANDDRV_ShowWindow( HWND hwnd, INT cmd, RECT *rect, UINT swp )
         hwnd_data->surface = NULL;
       }
 
-      hwnd_data->wl_pool = NULL;
-      hwnd_data->buffer = NULL;
-      hwnd_data->size = 0;
-      hwnd_data->gdi_fd = 0;
-      free_win_data(hwnd_data);
+      free_hwnd_data(hwnd_data);
     }
 
 
@@ -3375,71 +2715,76 @@ UINT WAYLANDDRV_ShowWindow( HWND hwnd, INT cmd, RECT *rect, UINT swp )
 
 }
 
+BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, UINT swp_flags, BOOL shaped, const struct window_rects *rects ) {
+
+	static char *env_is_vulkan;
+	static char *env_use_fsr;
+	static int env_done = -1;
+
+  if (env_done == -1) {
+    env_is_vulkan = getenv( "WINE_VK_VULKAN_ONLY" );
+    //Upscale
+    env_use_fsr = getenv( "WINE_VK_USE_FSR" );
+    env_done = 1;
+  }
+
+  if(env_is_vulkan || env_use_fsr) {
+    NtUserSetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_APPWINDOW | WS_EX_TOPMOST, 0);
+    NtUserSetWindowLongPtr(hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE, 0);
+  }
+
+  if(hwnd == global_vulkan_hwnd) {
+    return FALSE;
+  }
+
+
+  return TRUE;
+}
+
 /***********************************************************************
  *           WindowPosChanged
  */
-void WAYLANDDRV_WindowPosChanged( HWND hwnd, HWND insert_after, UINT swp_flags,
-                                    const RECT *window_rect, const RECT *client_rect,
-                                    const RECT *visible_rect, const RECT *valid_rects,
-                                    struct window_surface *surface )
-{
-  struct gdi_win_data *hwnd_data;
-  RECT rect;
-  int height = 0;
-  int width = 0;
-  struct wl_region *region;
 
-  hwnd_data = get_win_data( hwnd );
+void WAYLANDDRV_WindowPosChanged(   HWND hwnd,
+                                    HWND insert_after,
+                                    HWND owner_hint,
+                                    UINT swp_flags,
+                                    BOOL fullscreen,
+                                    const struct window_rects *new_rects,
+                                    struct window_surface *window_surface )
+{
+  struct hwnd_data *hwnd_data;
+
+  hwnd_data = get_hwnd_data( hwnd );
   if(!hwnd_data) {
     return;
   }
 
-  NtUserGetWindowRect(hwnd, &rect);
-  width = rect.right - rect.left;
-  height = rect.bottom - rect.top;
-
-
-  region = wl_compositor_create_region(wayland_compositor);
-  wl_region_add(region, rect.left, rect.top, width, height);
-//  wl_surface_set_input_region(data->wayland_surface, region);
-
-  TRACE("Adding surface for hwnd %p %d %d / rect %s \n", hwnd, rect.left, rect.top,
-        wine_dbgstr_rect( &rect )
-  );
-
-  if (surface)
-    window_surface_add_ref( surface );
-
-  if (hwnd_data->surface) {
-      window_surface_release( hwnd_data->surface );
+  if ( (!window_surface && hwnd_data->surface) || (swp_flags & (SWP_HIDEWINDOW)) )  {
+    TRACE("wl subsurface removing \n");
+    hwnd_data_clear_wl_data(hwnd_data);
   }
-  hwnd_data->surface = surface;
 
-  if (swp_flags & SWP_HIDEWINDOW) {
-    TRACE("Window Should be hidden %p \n", hwnd);
-    WAYLANDDRV_ShowWindow( hwnd, 0, NULL, 0 );
-    return;
-  }
-  if(hwnd_data->wayland_surface) {
-    hwnd_data->surface_changed = 1;
-  }
 
 }
 
 /***********************************************************************
  *           SysCommand
  */
-LRESULT WAYLANDDRV_SysCommand(HWND hwnd, WPARAM wparam, LPARAM lparam)
+LRESULT WAYLANDDRV_SysCommand(HWND hwnd, WPARAM wparam, LPARAM lparam, const POINT *pos)
 {
 
-  struct gdi_win_data *hwnd_data;
+
   WPARAM command = wparam & 0xfff0;
 
-  hwnd_data = get_win_data( hwnd );
+#if 0
+  struct hwnd_data *hwnd_data;
+  hwnd_data = get_hwnd_data( hwnd );
 
   if(!hwnd_data) {
     return -1;
   }
+#endif
 
   if (command == SC_MOVE)
   {
@@ -3485,7 +2830,7 @@ void WAYLANDDRV_DestroyWindow( HWND hwnd )
   UNICODE_STRING class_name = { .Buffer = class_buff,
     .MaximumLength = sizeof(class_buff)
   };
-  struct gdi_win_data *hwnd_data;
+  struct hwnd_data *hwnd_data;
 
   if( NtUserGetClassName(hwnd, FALSE, &class_name )) {
     NtUserInternalGetWindowText(hwnd, title_name, 1024);
@@ -3493,10 +2838,7 @@ void WAYLANDDRV_DestroyWindow( HWND hwnd )
       hwnd, debugstr_w(class_name.Buffer), lstrlenW( title_name ),
       debugstr_wn(title_name, lstrlenW( title_name ))
     );
-    TRACE("Destroying window 1 \n");
   }
-
-
 
   if(global_is_vulkan) {
     if(hwnd == global_vulkan_hwnd) {
@@ -3524,38 +2866,13 @@ void WAYLANDDRV_DestroyWindow( HWND hwnd )
 
     //Clean subsurface windows data
 
-    hwnd_data = get_win_data( hwnd );
-
+    hwnd_data = get_hwnd_data( hwnd );
 
     if (hwnd_data && hwnd_data->wayland_surface ) {
 
-
-
       TRACE("destroying hwnd_data %p for %p \n", hwnd_data, hwnd);
 
-      wl_subsurface_destroy(hwnd_data->wayland_subsurface);
-      TRACE("hwnd_data %p for %p \n", hwnd_data, hwnd);
-      wl_surface_destroy(hwnd_data->wayland_surface);
-      wl_shm_pool_destroy(hwnd_data->wl_pool);
-
-      if(hwnd_data->gdi_fd)
-         close(hwnd_data->gdi_fd);
-
-      if(hwnd_data->shm_data && hwnd_data->size) {
-        TRACE("Clearing shm_data for %p \n", hwnd);
-        munmap(hwnd_data->shm_data, hwnd_data->size);
-      }
-      if(hwnd_data->buffer) {
-        wl_buffer_destroy(hwnd_data->buffer);
-      }
-
-
-      hwnd_data->wayland_subsurface = NULL;
-      hwnd_data->wayland_surface = NULL;
-      hwnd_data->wl_pool = NULL;
-      hwnd_data->buffer = NULL;
-      hwnd_data->size = 0;
-      hwnd_data->gdi_fd = 0;
+      hwnd_data_clear_wl_data(hwnd_data);
 
       if(hwnd_data->surface != NULL) {
         TRACE("Attempt clear surface %p for %p \n", hwnd_data->surface, hwnd);
@@ -3564,7 +2881,7 @@ void WAYLANDDRV_DestroyWindow( HWND hwnd )
         hwnd_data->surface = NULL;
       }
 
-      free_win_data(hwnd_data);
+      free_hwnd_data(hwnd_data);
     }
 
     return;
@@ -3574,13 +2891,11 @@ void WAYLANDDRV_DestroyWindow( HWND hwnd )
 //Win32 loop callback
 BOOL WAYLANDDRV_ProcessEvents( DWORD mask )
 {
-//    unsigned int count = 0;
     if (wayland_display && desktop_tid && GetCurrentThreadId() == desktop_tid && !global_wait_for_configure)
     {
 
         while (wl_display_prepare_read(wayland_display) != 0) {
           wl_display_dispatch_pending(wayland_display);
-//          count++;
         }
 
         wl_display_flush(wayland_display);
@@ -3589,165 +2904,20 @@ BOOL WAYLANDDRV_ProcessEvents( DWORD mask )
 
         return FALSE;
     }
-
-
     return FALSE;
-
 }
 
 
 //Windows functions
 
-
-/* Helper function for converting between win32 and X11 compatible VkInstanceCreateInfo.
- * Caller is responsible for allocation and cleanup of 'dst'.
- */
-static VkResult wine_vk_instance_convert_create_info(const VkInstanceCreateInfo *src,
-        VkInstanceCreateInfo *dst)
-{
-    unsigned int i;
-    const char **enabled_extensions = NULL;
-
-    dst->sType = src->sType;
-    dst->flags = src->flags;
-    dst->pApplicationInfo = src->pApplicationInfo;
-    dst->pNext = src->pNext;
-    dst->enabledLayerCount = 0;
-    dst->ppEnabledLayerNames = NULL;
-    dst->enabledExtensionCount = 0;
-    dst->ppEnabledExtensionNames = NULL;
-
-    if (src->enabledExtensionCount > 0)
-    {
-        enabled_extensions = calloc(src->enabledExtensionCount, sizeof(*src->ppEnabledExtensionNames));
-        if (!enabled_extensions)
-        {
-            ERR("Failed to allocate memory for enabled extensions\n");
-            return VK_ERROR_OUT_OF_HOST_MEMORY;
-        }
-
-        for (i = 0; i < src->enabledExtensionCount; i++)
-        {
-            if (!strcmp(src->ppEnabledExtensionNames[i], "VK_KHR_win32_surface"))
-            {
-
-                enabled_extensions[i] = "VK_KHR_wayland_surface";
-
-            }
-            else
-            {
-                enabled_extensions[i] = src->ppEnabledExtensionNames[i];
-            }
-        }
-        dst->ppEnabledExtensionNames = enabled_extensions;
-        dst->enabledExtensionCount = src->enabledExtensionCount;
-    }
-
-    return VK_SUCCESS;
-}
-
-static VkSurfaceKHR WAYLANDDRV_wine_get_host_surface(VkSurfaceKHR surface)
-{
-   return surface;
-}
-
-static VkResult WAYLANDDRV_vkCreateInstance(const VkInstanceCreateInfo *create_info,
-        const VkAllocationCallbacks *allocator, VkInstance *instance)
-{
-    VkInstanceCreateInfo create_info_host;
-    VkResult res;
-
-    /* Perform a second pass on converting VkInstanceCreateInfo. Winevulkan
-     * performed a first pass in which it handles everything except for WSI
-     * functionality such as VK_KHR_win32_surface. Handle this now.
-     */
-    res = wine_vk_instance_convert_create_info(create_info, &create_info_host);
-    if (res != VK_SUCCESS)
-    {
-        ERR("Failed to convert instance create info, res=%d\n", res);
-        return res;
-    }
-
-    res = pvkCreateInstance(&create_info_host, NULL /* allocator */, instance);
-
-    if(res == VK_SUCCESS) {
-      global_vk_instance = instance;
-      TRACE("Create global_vk_instance create_info %p, allocator %p, instance %p\n", create_info, allocator, instance);
-    }
-
-    free((void *)create_info_host.ppEnabledExtensionNames);
-    return res;
-}
-
-static VkResult WAYLANDDRV_vkCreateSwapchainKHR(VkDevice device,
-        const VkSwapchainCreateInfoKHR *create_info,
-        const VkAllocationCallbacks *allocator, VkSwapchainKHR *swapchain)
-{
-    RECT window_rect;
-
-    global_vulkan_rect_flag = 0;
-
-    //FSR
-    //TRACE("%p %p %p %p\n", device, create_info, allocator, swapchain);
-
-    TRACE("Vulkan swapchain rect %d %d \n",
-        create_info->imageExtent.width,
-        create_info->imageExtent.height
-      );
-
-    if(global_vulkan_hwnd && global_fsr && !fsr_matches_real_mode(
-      create_info->imageExtent.width, create_info->imageExtent.height
-      ) ) {
-      NtUserGetClientRect(global_vulkan_hwnd, &window_rect);
-      TRACE("FSR Vulkan hwnd rect %d %d \n",
-        create_info->imageExtent.width,
-        create_info->imageExtent.height
-      );
-      fsr_set_current_mode(create_info->imageExtent.width, create_info->imageExtent.height);
-    }
-
-
-    TRACE("Vulkan vkCreateSwapchainKHR done %d %d \n",
-        create_info->imageExtent.width,
-        create_info->imageExtent.height
-      );
-
-
-    if (allocator)
-        FIXME("Support for allocation callbacks not implemented yet\n");
-
-    return pvkCreateSwapchainKHR(device, create_info, NULL /* allocator */, swapchain);
-}
-
-
-
-/***************************************************************************
- *	get_basename
- *
- * Return the base name of a file name (i.e. remove the path components).
- */
-//TODO
-#if 0
-static const WCHAR *get_basename( const WCHAR *name )
-{
-    const WCHAR *ptr;
-
-    if (name[0] && name[1] == ':') name += 2;  /* strip drive specification */
-    if ((ptr = strrchrW( name, '\\' ))) name = ptr + 1;
-    if ((ptr = strrchrW( name, '/' ))) name = ptr + 1;
-    return name;
-}
-#endif
-
-
-
-static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
-        const VkWin32SurfaceCreateInfoKHR *create_info,
-        const VkAllocationCallbacks *allocator, VkSurfaceKHR *surface)
+static VkResult WAYLANDDRV_vulkan_surface_create(HWND hwnd,
+        const struct vulkan_instance *instance,
+        VkSurfaceKHR *surface,
+        void **private
+        )
 {
     VkResult res;
     VkWaylandSurfaceCreateInfoKHR create_info_host;
-
 
     int no_flag = 1;
     int count = 0;
@@ -3757,6 +2927,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
     char *env_width = NULL;
     char *env_height = NULL;
     WCHAR class_buff[64];
+
     UNICODE_STRING class_name = { .Buffer = class_buff, .MaximumLength = sizeof(class_buff) };
     //Hack
     //Do not create vulkan windows for Paradox detect
@@ -3764,9 +2935,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
 
     TRACE("Vulkan hwnd %d  \n", no_flag);
 
-
-
-    if( NtUserGetClassName(create_info->hwnd, FALSE, &class_name )) {
+    if( NtUserGetClassName(hwnd, FALSE, &class_name )) {
 
         if(!wcsicmp(class_name.Buffer, pdx_class)) {
           no_flag = 0;
@@ -3801,7 +2970,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
 
       TRACE("hwnd hxw %d %d \n", screen_width, screen_height);
 
-      global_vulkan_hwnd = create_info->hwnd;
+      global_vulkan_hwnd = hwnd;
 
       NtUserSetActiveWindow( global_vulkan_hwnd );
       NtUserSetForegroundWindow( global_vulkan_hwnd );
@@ -3810,7 +2979,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
 
       if(global_fsr) {
 
-        NtUserGetClientRect(global_vulkan_hwnd, &window_rect);
+        NtUserGetClientRect(global_vulkan_hwnd, &window_rect, 96);
         NtUserSetWindowLongPtr(global_vulkan_hwnd, GWL_EXSTYLE, WS_EX_APPWINDOW | WS_EX_TOPMOST, 0);
         NtUserSetWindowLongPtr(global_vulkan_hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE, 0);
 
@@ -3818,6 +2987,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
         TRACE("Vulkan hwnd set to borderless %s \n",  wine_dbgstr_rect( &window_rect ));
 
         fsr_set_current_mode(window_rect.right, window_rect.bottom);
+
       }
 
       SERVER_START_REQ( set_focus_window )
@@ -3826,26 +2996,26 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
       }
       SERVER_END_REQ;
 
-      TRACE("New global vulkan hwnd is %p \n", create_info->hwnd);
+      TRACE("New global vulkan hwnd is %p \n", hwnd);
 
     } else {
-      TRACE("Not visible for %p %p %p %p\n", instance, create_info, allocator, surface);
+      TRACE("Not visible for %p %p\n", instance, surface);
     }
 
 
 
-    //TRACE("%p %p %p %p\n", instance, create_info->hwnd, allocator, surface);
-    TRACE("Creating vulkan Window %p %s \n", create_info->hwnd, debugstr_w(class_name.Buffer));
+    //TRACE("%p %p %p %p\n", instance, allocator, surface);
+    TRACE("Creating vulkan Window %p %s \n", hwnd, debugstr_w(class_name.Buffer));
 
     /* TODO: support child window rendering. */
-    if (NtUserGetAncestor(create_info->hwnd, GA_PARENT) != NtUserGetDesktopWindow())
+    if (NtUserGetAncestor(hwnd, GA_PARENT) != NtUserGetDesktopWindow())
     {
         TRACE("Application requires child window rendering, which is not implemented yet!\n");
         //return VK_ERROR_INCOMPATIBLE_DRIVER;
     }
 
   global_is_vulkan = 1;
-	vulkan_window = create_wayland_window (create_info->hwnd, screen_width, screen_height);
+	vulkan_window = create_wayland_window (hwnd, screen_width, screen_height);
 
   while (!count) {
     sleep(0.5);
@@ -3864,7 +3034,7 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
     create_info_host.flags = 0;
     create_info_host.display = wayland_display;
     create_info_host.surface = vulkan_window->surface;
-    res = pvkCreateWaylandSurfaceKHR(instance, &create_info_host, NULL /* allocator */, surface);
+    res = pvkCreateWaylandSurfaceKHR(instance->host.instance, &create_info_host, NULL /* allocator */, surface);
 
     if (res != VK_SUCCESS)
     {
@@ -3873,7 +3043,9 @@ static VkResult WAYLANDDRV_vkCreateWin32SurfaceKHR(VkInstance instance,
         goto err;
     }
 
-    TRACE("Created vulkan Window for %p  %s \n", create_info->hwnd, debugstr_w(class_name.Buffer));
+    *private = vulkan_window;
+
+    TRACE("Created vulkan Window for %p  %s \n", hwnd, debugstr_w(class_name.Buffer));
 
     return VK_SUCCESS;
 
@@ -3881,93 +3053,18 @@ err:
     return res;
 }
 
-static void WAYLANDDRV_vkDestroyInstance(VkInstance instance, const VkAllocationCallbacks *allocator)
+static void WAYLANDDRV_vulkan_surface_destroy(HWND hwnd, void *private)
 {
-    TRACE("%p %p\n", instance, allocator);
-
-    //if(instance != VK_NULL_HANDLE)
-    //  pvkDestroyInstance(instance, NULL /* allocator */);
-
-    if(instance != VK_NULL_HANDLE && instance && global_vk_instance != NULL && &instance == global_vk_instance) {
-      TRACE("=vkDestroyInstance 2 \n");
-      TRACE("%p %p\n", instance, global_vk_instance);
-      pvkDestroyInstance(instance, NULL /* allocator */);
-    }
-
-    TRACE("vkDestroyInstance 2 \n");
-
-//    if(instance != VK_NULL_HANDLE)
-//      pvkDestroyInstance(instance, NULL /* allocator */);
-
-    TRACE("vkDestroyInstance 1 \n");
-}
-
-static void WAYLANDDRV_vkDestroySurfaceKHR(VkInstance instance, VkSurfaceKHR surface,
-        const VkAllocationCallbacks *allocator)
-{
-    //TRACE("%p 0x%s %p\n", instance, wine_dbgstr_longlong(surface), allocator);
-
-    if (allocator)
-        FIXME("Support for allocation callbacks not implemented yet\n");
-
-    /* vkDestroySurfaceKHR must handle VK_NULL_HANDLE (0) for surface. */
-    if (surface)
-    {
-        pvkDestroySurfaceKHR(instance, surface, NULL /* allocator */);
-    }
-}
-
-static void WAYLANDDRV_vkDestroySwapchainKHR(VkDevice device, VkSwapchainKHR swapchain,
-         const VkAllocationCallbacks *allocator)
-{
-    TRACE("%p, 0x%s %p\n", device, wine_dbgstr_longlong(swapchain), allocator);
-
-    if(swapchain != VK_NULL_HANDLE)
-      pvkDestroySwapchainKHR(device, swapchain, NULL /* allocator */);
-}
-
-static VkResult WAYLANDDRV_vkEnumerateInstanceExtensionProperties(const char *layer_name,
-        uint32_t *count, VkExtensionProperties* properties)
-{
-    unsigned int i;
-    VkResult res;
-
-    /* This shouldn't get called with layer_name set, the ICD loader prevents it. */
-    if (layer_name)
-    {
-        ERR("Layer enumeration not supported from ICD.\n");
-        return VK_ERROR_LAYER_NOT_PRESENT;
-    }
-
-    /* We will return the same number of instance extensions reported by the host back to
-     * winevulkan. Along the way we may replace xlib extensions with their win32 equivalents.
-     * Winevulkan will perform more detailed filtering as it knows whether it has thunks
-     * for a particular extension.
-     */
-    res = pvkEnumerateInstanceExtensionProperties(layer_name, count, properties);
-    if (!properties || res < 0)
-        return res;
-
-    for (i = 0; i < *count; i++)
-    {
-        /* For now the only x11 extension we need to fixup. Long-term we may need an array. */
-
-        if (!strcmp(properties[i].extensionName, "VK_KHR_wayland_surface"))
-
-        {
-            //TRACE("Substituting VK_KHR_xlib_surface for VK_KHR_win32_surface\n");
-
-            snprintf(properties[i].extensionName, sizeof(properties[i].extensionName),
-                    VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
-            properties[i].specVersion = VK_KHR_WIN32_SURFACE_SPEC_VERSION;
-        }
-    }
-
-    TRACE("Returning %u extensions.\n", *count);
-    return res;
+    struct wayland_window *vulkan_window = private;
+    delete_wayland_window(vulkan_window);
+    vulkan_window = NULL;
 }
 
 
+static const char* WAYLANDDRV_wine_get_host_surface_extension(void)
+{
+    return "VK_KHR_wayland_surface";
+}
 
 
 
@@ -3977,34 +3074,12 @@ static VkBool32 WAYLANDDRV_vkGetPhysicalDeviceWin32PresentationSupportKHR(VkPhys
     return pvkGetPhysicalDeviceWaylandPresentationSupportKHR(phys_dev, index, wayland_display);
 }
 
-static VkResult WAYLANDDRV_vkGetSwapchainImagesKHR(VkDevice device,
-        VkSwapchainKHR swapchain, uint32_t *count, VkImage *images)
-{
-    //TRACE("%p, 0x%s %p %p\n", device, wine_dbgstr_longlong(swapchain), count, images);
-    return pvkGetSwapchainImagesKHR(device, swapchain, count, images);
-}
+#if 0
 
-static VkResult WAYLANDDRV_vkQueuePresentKHR(VkQueue queue, const VkPresentInfoKHR *present_info)
-{
-    //TRACE("%p, %p\n", queue, present_info);
-    return pvkQueuePresentKHR(queue, present_info);
-}
+static VkBool32 WAYLANDDRV_query_fsr(VkSurfaceKHR surface,
 
-#ifdef HAS_FSR
-
-
-static VkBool32 WAYLANDDRV_query_fsr(VkSurfaceKHR surface, VkExtent2D *real_sz,
-  VkExtent2D *user_sz, VkRect2D *dst_blit,
-  VkFilter *filter, BOOL *fsr, float *sharpness)
-{
-
-  RECT window_rect;
-  char *env_width, *env_height;
-  int screen_width = 0, screen_height = 0;
 
   TRACE("Test for FSR %d \n", global_fsr);
-
-  global_vulkan_rect_flag = 0;
 
   env_width = getenv( "WINE_VK_WAYLAND_WIDTH" );
   env_height = getenv( "WINE_VK_WAYLAND_HEIGHT" );
@@ -4030,12 +3105,10 @@ static VkBool32 WAYLANDDRV_query_fsr(VkSurfaceKHR surface, VkExtent2D *real_sz,
 
   fsr_set_real_mode(screen_width, screen_height);
 
-  NtUserGetClientRect(global_vulkan_hwnd, &window_rect);
+  NtUserGetClientRect(global_vulkan_hwnd, &window_rect, 96);
 
   if(window_rect.right == 0)
     return VK_FALSE;
-
-
 
   //real res equals user res
   if(window_rect.right == screen_width && window_rect.bottom == screen_height &&
@@ -4055,11 +3128,9 @@ static VkBool32 WAYLANDDRV_query_fsr(VkSurfaceKHR surface, VkExtent2D *real_sz,
     real_sz->height = screen_height;
   }
 
-  if(user_sz){
-
+  if(user_sz) {
       user_sz->width = window_rect.right;
       user_sz->height = window_rect.bottom;
-
   }
 
   if(dst_blit){
@@ -4069,77 +3140,106 @@ static VkBool32 WAYLANDDRV_query_fsr(VkSurfaceKHR surface, VkExtent2D *real_sz,
     dst_blit->extent.height = screen_height;
   }
 
-  if(filter)
-    *filter = VK_FILTER_NEAREST;
-
-  if(sharpness)
-    *sharpness = (float) 2 / 10.0f;
+//    *sharpness = (float) 2 / 10.0f;
 
 
-  return VK_TRUE;
-}
 #endif
 
-static void *WAYLANDDRV_vkGetDeviceProcAddr(VkDevice device, const char *name)
+static void WAYLANDDRV_vulkan_surface_detach(HWND hwnd, void *private)
 {
-    void *proc_addr;
-
-    //TRACE("%p, %s\n", device, debugstr_a(name));
-
-    if ((proc_addr = get_vulkan_driver_device_proc_addr(&vulkan_funcs, name)))
-        return proc_addr;
-
-    return pvkGetDeviceProcAddr(device, name);
 }
 
-
-static void *WAYLANDDRV_vkGetInstanceProcAddr(VkInstance instance, const char *name)
+static void WAYLANDDRV_vulkan_surface_update(HWND hwnd, void *private)
 {
-    void *proc_addr;
 
-    //TRACE("%p, %s\n", instance, debugstr_a(name));
+  RECT window_rect;
+  char *env_width, *env_height;
+  int screen_width = 0, screen_height = 0;
 
-    if ((proc_addr = get_vulkan_driver_instance_proc_addr(&vulkan_funcs, instance, name) ))
-        return proc_addr;
+  TRACE("Test for FSR %d \n", global_fsr);
 
-    return pvkGetInstanceProcAddr(instance, name);
+  global_vulkan_rect_flag = 0;
+
+  env_width = getenv( "WINE_VK_WAYLAND_WIDTH" );
+  env_height = getenv( "WINE_VK_WAYLAND_HEIGHT" );
+
+  if(!global_fsr && !global_fsr_set)
+    return;
+
+  if(!global_vulkan_hwnd)
+    return;
+
+  //For caching global_vulkan_hwnd rect
+  global_vulkan_rect_flag = 0;
+  NtUserGetWindowRect(global_vulkan_hwnd, &global_vulkan_rect, 96);
+
+  //TODO move to function
+  if(global_output_width > 0 && global_output_height > 0) {
+    screen_width = global_output_width;
+    screen_height = global_output_height;
+  }
+
+  if(env_width) {
+    screen_width = atoi(env_width);
+  }
+  if(env_height) {
+    screen_height = atoi(env_height);
+  }
+
+  fsr_set_real_mode(screen_width, screen_height);
+
+  NtUserGetClientRect(global_vulkan_hwnd, &window_rect, 96);
+
+  if(window_rect.right == 0)
+    return;
+
+
+
+  fsr_set_current_mode(window_rect.right, window_rect.bottom);
+
+  //real res equals user res
+  if(window_rect.right == screen_width && window_rect.bottom == screen_height &&
+  fsr_matches_current_mode(window_rect.right, window_rect.bottom)  ) {
+    TRACE("Disabling FSR \n");
+    global_fsr = 0;
+    return;
+  } else {
+    global_fsr = 1;
+  }
 }
 
-
-static const struct vulkan_funcs vulkan_funcs =
+static void WAYLANDDRV_vulkan_surface_presented(HWND hwnd, void *private, VkResult result)
 {
 
-    .p_vkCreateInstance = WAYLANDDRV_vkCreateInstance,
-    .p_vkCreateSwapchainKHR = WAYLANDDRV_vkCreateSwapchainKHR,
-    .p_vkCreateWin32SurfaceKHR = WAYLANDDRV_vkCreateWin32SurfaceKHR,
+}
 
-    .p_vkDestroyInstance = WAYLANDDRV_vkDestroyInstance,
-    .p_vkDestroySurfaceKHR = WAYLANDDRV_vkDestroySurfaceKHR,
-    .p_vkDestroySwapchainKHR = WAYLANDDRV_vkDestroySwapchainKHR,
-    .p_vkEnumerateInstanceExtensionProperties = WAYLANDDRV_vkEnumerateInstanceExtensionProperties,
+static const struct vulkan_driver_funcs vulkan_driver_funcs =
+{
 
-    .p_vkGetDeviceProcAddr = WAYLANDDRV_vkGetDeviceProcAddr,
-    .p_vkGetInstanceProcAddr = WAYLANDDRV_vkGetInstanceProcAddr,
-
-
+    .p_vulkan_surface_create = WAYLANDDRV_vulkan_surface_create,
+    .p_vulkan_surface_destroy = WAYLANDDRV_vulkan_surface_destroy,
+    .p_get_host_surface_extension = WAYLANDDRV_wine_get_host_surface_extension,
     .p_vkGetPhysicalDeviceWin32PresentationSupportKHR = WAYLANDDRV_vkGetPhysicalDeviceWin32PresentationSupportKHR,
+    .p_vulkan_surface_detach = WAYLANDDRV_vulkan_surface_detach,
+    .p_vulkan_surface_presented = WAYLANDDRV_vulkan_surface_presented,
+    .p_vulkan_surface_update = WAYLANDDRV_vulkan_surface_update,
 
-    .p_vkGetSwapchainImagesKHR = WAYLANDDRV_vkGetSwapchainImagesKHR,
-    .p_vkQueuePresentKHR = WAYLANDDRV_vkQueuePresentKHR,
-    .p_wine_get_host_surface = WAYLANDDRV_wine_get_host_surface,
-    #ifdef HAS_FSR
-    .query_fsr = WAYLANDDRV_query_fsr
-    #endif
 };
 
-const struct vulkan_funcs *get_vulkan_driver(UINT version)
+
+UINT WAYLANDDRV_VulkanInit(UINT version, void *vulkan_handle, const struct vulkan_driver_funcs **driver_funcs)
 {
 
-    static pthread_once_t init_once = PTHREAD_ONCE_INIT;
 
-    pthread_once(&init_once, wine_vk_init);
-    if (vulkan_handle)
-        return &vulkan_funcs;
 
-    return NULL;
+#define LOAD_FUNCPTR(f) if (!(p##f = dlsym(vulkan_handle, #f))) return -1;
+
+    LOAD_FUNCPTR(vkCreateWaylandSurfaceKHR);
+    LOAD_FUNCPTR(vkGetPhysicalDeviceWaylandPresentationSupportKHR);
+
+#undef LOAD_FUNCPTR
+
+    *driver_funcs = &vulkan_driver_funcs;
+
+    return VK_TRUE;
 }
