@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
     - name: Makepkg Build and Check
       id: makepkg
       uses: edlanglois/pkgbuild-action@v1
@@ -25,16 +25,6 @@ jobs:
         echo "Package: 0 - ${{ steps.makepkg.outputs.pkgfile0 }}"
         echo "Package: 1 - ${{ steps.makepkg.outputs.pkgfile1 }}"
         echo "Package: 2 - ${{ steps.makepkg.outputs.pkgfile2 }}"
-    - name: Upload Package Archive
-      uses: actions/upload-artifact@v1
-      with:
-        name: ${{ steps.makepkg.outputs.pkgfile0 }}
-        path: ${{ steps.makepkg.outputs.pkgfile0 }}
-    - name: Upload Package Archive
-      uses: actions/upload-artifact@v1
-      with:
-        name: ${{ steps.makepkg.outputs.pkgfile1 }}
-        path: ${{ steps.makepkg.outputs.pkgfile1 }}
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
