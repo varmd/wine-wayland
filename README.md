@@ -68,7 +68,7 @@ From command line (or using file manager) create a wrapper folder for the game f
     mkdir -p ~/.local/share/wineland/your-game
     mv YourGameFolder ~/.local/share/wineland/your-game/
 
-"your-game" above should be lowercase, no spaces tag. For example, for Subnautica it would be subnautica. Then go to your launcher, click on the blue joystick icon. In the browser tab, click Edit below the card for your-game. Enter name for your game, YourGameFolder/game.exe for exe path. And -EpicPortal for game options (for EGS games). Set mangohud, fsync and other options as needed. See below screenshot for example of options for Subnautica.
+"your-game" above should be lowercase, no spaces tag. For example, for Subnautica it would be subnautica. Then go to your launcher, click on the blue joystick icon. In the browser tab, click Edit below the card for your-game. Enter name for your game, YourGameFolder/game.exe for exe path. And -EpicPortal for game options (for EGS games). Set mangohud and other options as needed. See below screenshot for example of options for Subnautica.
 
 ![screenshot](https://raw.githubusercontent.com/varmd/wine-wayland/master/wineland/wineland-screenshot-2.png "Screenshot")
 
@@ -116,7 +116,6 @@ Then in the terminal run sh start-your-game.sh
 * Use `export WINE_VK_FULLSCREEN_GRAB_CURSOR=1` to automatically enable cursor grab in fullscreen.
 * Use `export WINE_VK_ALWAYS_FULLSCREEN=1` to automatically set game to fullscreen without using F11.
 * Use `export WINE_VK_USE_FSR=1` to enable FSR.
-* Use `export WINEFSYNC=1` to enable FSYNC for better performance in most games.
 
 ## Keyboard shortcuts
 
