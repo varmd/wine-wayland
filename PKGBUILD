@@ -112,6 +112,7 @@ build_sdl2() {
       -DVIDEO_OPENGLES=OFF \
       -DX11_SHARED=OFF \
       -DRPATH=OFF \
+      -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
       -DCLOCK_GETTIME=ON
 
   CPUS=$(getconf _NPROCESSORS_ONLN)
