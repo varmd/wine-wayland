@@ -116,7 +116,7 @@
 @ stdcall EnumPrinterDataA(long long ptr long ptr ptr ptr long ptr)
 @ stdcall EnumPrinterDataExA(long str ptr long ptr ptr)
 @ stdcall EnumPrinterDataExW(long wstr ptr long ptr ptr)
-@ stdcall EnumPrinterDataW(long long ptr long ptr ptr ptr long ptr) 
+@ stdcall EnumPrinterDataW(long long ptr long ptr ptr ptr long ptr)
 @ stdcall EnumPrinterDriversA(str str long ptr long ptr ptr)
 @ stdcall EnumPrinterDriversW(wstr wstr long ptr long ptr ptr)
 @ stdcall EnumPrintersA(long ptr long ptr long ptr ptr)

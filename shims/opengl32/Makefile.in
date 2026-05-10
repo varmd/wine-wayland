@@ -14,4 +14,7 @@ SOURCES = \
 	unix_wgl.c \
 	wgl.c
 
-RC_SRCS = version.rc
+VER_FILEDESCRIPTION_STR = "Wine OpenGL Client"
+VER_PRODUCTVERSION      = 5,1,2600,2082
+# CATIA needs 'Microsoft' in both CompanyName _and_ LegalCopyright
+VER_LEGALCOPYRIGHT_STR  = "Copyright (c) 1993-2026 the Wine project. Not Microsoft"

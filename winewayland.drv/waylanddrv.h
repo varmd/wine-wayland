@@ -56,6 +56,11 @@
 //Wayland keyboard arrays
 //https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
 
+extern struct wl_display *wayland_display;
+extern struct wl_event_queue *wl_event_queue;
+extern struct wl_display *wayland_display_proxy;
+extern int wayland_display_ready;
+
 //End Wayland
 
 #define MAX_DASHLEN 16
@@ -80,7 +85,6 @@ extern BOOL WAYLANDDRV_WindowPosChanging( HWND hwnd, UINT swp_flags, BOOL shaped
 extern void WAYLANDDRV_WindowPosChanged(HWND hwnd, HWND insert_after,
                                           HWND owner_hint,
                                           UINT swp_flags,
-                                          BOOL fullscreen,
                                           const struct window_rects *new_rects,
                                           struct window_surface *surface);
 
@@ -99,6 +103,7 @@ extern INT WAYLANDDRV_GetKeyNameText(LONG lparam, LPWSTR buffer, INT size);
 
 extern NTSTATUS WAYLANDDRV_ProcessEvents( DWORD mask );
 
+extern void read_events_thread(void *arg);
 
 
 /* Externs for 6.22 */
@@ -110,6 +115,8 @@ extern BOOL fsr_matches_real_mode(int w, int h);
 extern BOOL fsr_matches_current_mode(int w, int h);
 extern void fsr_real_to_user(POINT *pos);
 extern void fsr_user_to_real(POINT *pos);
+extern int fsr_get_width();
+extern int fsr_get_height();
 
 static inline void reset_bounds( RECT *bounds )
 {
@@ -129,9 +136,6 @@ static inline void add_bounds_rect( RECT *bounds, const RECT *rect )
 #define xstrdup(s) (fail_on_null(strdup(s), 0, __FILE__, __LINE__))
 
 extern const struct vulkan_funcs *get_vulkan_driver(UINT);
-
-extern unsigned int screen_bpp;
-extern unsigned int force_refresh;
 
 extern HMODULE waylanddrv_module;
 extern char *process_name;

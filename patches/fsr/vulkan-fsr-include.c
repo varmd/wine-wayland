@@ -1,45 +1,5 @@
 #include <math.h>
 
-#if 0
-
-static VkBool32 fsr_get(int get_real_extent,
-  int set_user_extent,
-  VkExtent2D *real_extent,
-  VkExtent2D *user_extent,
-  VkRect2D *dst_blit)
-{
-
-   static int screen_width = 1920;
-   static int screen_height = 1080;
-
-   static int window_width = 1920;
-   static int window_height = 1080;
-
-   if(set_user_extent) {
-     window_width = user_extent->width;
-     window_height = user_extent->height;
-     screen_width = real_extent->width;
-     screen_height = real_extent->height;
-   }
-
-   if(get_real_extent){
-    real_extent->width = screen_width;
-    real_extent->height = screen_height;
-
-    dst_blit->offset.x = 0;
-    dst_blit->offset.y = 0;
-    dst_blit->extent.width = screen_width;
-    dst_blit->extent.height = screen_height;
-
-    user_extent->width = window_width;
-    user_extent->height = window_height;
-  }
-
-  return VK_TRUE;
-};
-
-#endif
-
 struct fsr_hack_image
 {
     uint32_t cmd_queue_idx;
@@ -62,6 +22,7 @@ struct fs_comp_pipeline
 struct VkFSRObject
 {
     VkSwapchainKHR *swapchain_handle; /* native swapchain */
+    struct vulkan_swapchain *vulkan_swapchain;
 
     /* fs hack data below */
     BOOL fsr_enabled;
@@ -73,7 +34,7 @@ struct VkFSRObject
     VkDeviceMemory user_image_memory, fsr_image_memory;
     uint32_t n_images;
     struct fsr_hack_image *fsr_hack_images; /* struct fsr_hack_image[n_images] */
-    VkFilter fs_hack_filter;
+    VkFilter fsr_hack_filter;
     VkSampler sampler;
     VkDescriptorPool descriptor_pool;
     VkDescriptorSetLayout descriptor_set_layout;
@@ -81,9 +42,10 @@ struct VkFSRObject
     BOOL fsr;
     float sharpness;
     VkQueueFamilyProperties *queue_props;
-    struct wine_device *wine_device;
+    struct vulkan_device *vulkan_device;
     VkSwapchainCreateInfoKHR create_info_host;
     VkResult res;
+
 
     struct fs_comp_pipeline blit_pipeline;
     struct fs_comp_pipeline fsr_easu_pipeline;
@@ -91,19 +53,11 @@ struct VkFSRObject
 
 };
 
-static inline struct wine_queue *wine_queue_from_handle(VkQueue handle)
-{
-    return (struct wine_queue *)(uintptr_t)handle->obj.unix_handle;
-}
-
-
-
 struct wine_surface
 {
     struct vulkan_surface obj;
     VkSurfaceKHR driver_surface;
     HWND hwnd;
-
     struct rb_entry window_entry;
 
 };
@@ -113,8 +67,6 @@ struct wine_swapchain
     struct wine_surface *surface;  /* parent */
     VkSwapchainKHR host_swapchain;
     VkExtent2D extents;
-
-
 };
 
 static inline struct wine_swapchain *wine_swapchain_from_handle(VkSwapchainKHR handle)
@@ -123,7 +75,7 @@ static inline struct wine_swapchain *wine_swapchain_from_handle(VkSwapchainKHR h
 }
 
 
-static struct VkFSRObject *fsr_objects[5] = {0};
+static struct VkFSRObject *fsr_objects[6] = {0};
 static int fsr_object_count_max = 5;
 
 typedef struct VkSwapchainCreateInfoKHR32
@@ -868,7 +820,7 @@ static void destroy_pipeline(struct vulkan_device *vulkan_device, struct fs_comp
     pipeline->pipeline_layout = VK_NULL_HANDLE;
 }
 
-static VkResult create_pipeline(struct wine_device *device, struct VkFSRObject *swapchain,
+static VkResult create_pipeline(struct vulkan_device *vulkan_device, struct VkFSRObject *swapchain,
     const uint32_t *code, uint32_t code_size, uint32_t push_size, struct fs_comp_pipeline *pipeline)
 {
     VkComputePipelineCreateInfo pipelineInfo = {0};
@@ -891,7 +843,8 @@ static VkResult create_pipeline(struct wine_device *device, struct VkFSRObject *
     pipelineLayoutInfo.pushConstantRangeCount = 1;
     pipelineLayoutInfo.pPushConstantRanges = &pushConstants;
 
-    res = device->obj.p_vkCreatePipelineLayout(device->obj.host.device, &pipelineLayoutInfo, NULL, &pipeline->pipeline_layout);
+    res = vulkan_device->p_vkCreatePipelineLayout(
+      vulkan_device->host.device, &pipelineLayoutInfo, NULL, &pipeline->pipeline_layout);
     if(res != VK_SUCCESS)
     {
         ERR("vkCreatePipelineLayout: %d\n", res);
@@ -902,7 +855,7 @@ static VkResult create_pipeline(struct wine_device *device, struct VkFSRObject *
     shaderInfo.codeSize = code_size;
     shaderInfo.pCode = code;
 
-    res = device->obj.p_vkCreateShaderModule(device->obj.host.device, &shaderInfo, NULL, &shaderModule);
+    res = vulkan_device->p_vkCreateShaderModule(vulkan_device->host.device, &shaderInfo, NULL, &shaderModule);
     if(res != VK_SUCCESS)
     {
         ERR("vkCreateShaderModule: %d\n", res);
@@ -918,22 +871,23 @@ static VkResult create_pipeline(struct wine_device *device, struct VkFSRObject *
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
     pipelineInfo.basePipelineIndex = -1;
 
-    res = device->obj.p_vkCreateComputePipelines(device->obj.host.device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pipeline->pipeline);
+    res = vulkan_device->p_vkCreateComputePipelines(vulkan_device
+    ->host.device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pipeline->pipeline);
     if(res == VK_SUCCESS)
         goto out;
 
     ERR("vkCreateComputePipelines: %d\n", res);
 
 fail:
-    destroy_pipeline(&device->obj, pipeline);
+    destroy_pipeline(vulkan_device, pipeline);
 
 out:
-    device->obj.p_vkDestroyShaderModule(device->obj.host.device, shaderModule, NULL);
+    vulkan_device->p_vkDestroyShaderModule(vulkan_device->host.device, shaderModule, NULL);
 
     return res;
 }
 
-static VkResult create_descriptor_set(struct wine_device *device, struct VkFSRObject *swapchain, struct fsr_hack_image *hack)
+static VkResult create_descriptor_set(struct vulkan_device *vulkan_device, struct VkFSRObject *swapchain, struct fsr_hack_image *hack)
 {
     VkResult res;
     VkDescriptorSetAllocateInfo descriptorAllocInfo = {0};
@@ -945,7 +899,7 @@ static VkResult create_descriptor_set(struct wine_device *device, struct VkFSROb
     descriptorAllocInfo.descriptorSetCount = 1;
     descriptorAllocInfo.pSetLayouts = &swapchain->descriptor_set_layout;
 
-    res = device->obj.p_vkAllocateDescriptorSets(device->obj.host.device, &descriptorAllocInfo, &hack->descriptor_set);
+    res = vulkan_device->p_vkAllocateDescriptorSets(vulkan_device->host.device, &descriptorAllocInfo, &hack->descriptor_set);
     if (res != VK_SUCCESS)
     {
         ERR("vkAllocateDescriptorSets: %d\n", res);
@@ -976,9 +930,9 @@ static VkResult create_descriptor_set(struct wine_device *device, struct VkFSROb
     descriptorWrites[1].descriptorCount = 1;
     descriptorWrites[1].pImageInfo = &realDescriptorImageInfo;
 
-    device->obj.p_vkUpdateDescriptorSets(device->obj.host.device, 2, descriptorWrites, 0, NULL);
+    vulkan_device->p_vkUpdateDescriptorSets(vulkan_device->host.device, 2, descriptorWrites, 0, NULL);
 
-    res = device->obj.p_vkAllocateDescriptorSets(device->obj.host.device, &descriptorAllocInfo, &hack->fsr_set);
+    res = vulkan_device->p_vkAllocateDescriptorSets(vulkan_device->host.device, &descriptorAllocInfo, &hack->fsr_set);
     if (res != VK_SUCCESS)
     {
         ERR("vkAllocateDescriptorSets: %d\n", res);
@@ -992,7 +946,7 @@ static VkResult create_descriptor_set(struct wine_device *device, struct VkFSROb
     descriptorWrites[0].dstSet = hack->fsr_set;
     descriptorWrites[1].dstSet = hack->fsr_set;
 
-    device->obj.p_vkUpdateDescriptorSets(device->obj.host.device, 2, descriptorWrites, 0, NULL);
+    vulkan_device->p_vkUpdateDescriptorSets(vulkan_device->host.device, 2, descriptorWrites, 0, NULL);
 
 
     return VK_SUCCESS;
@@ -1016,7 +970,7 @@ static BOOL is_srgb(VkFormat format)
     return format != srgb_to_unorm(format);
 }
 
-static VkResult init_compute_state(struct wine_device *device, struct VkFSRObject *fsr_object, VkDevice client_device)
+static VkResult init_compute_state(struct vulkan_device *vulkan_device, struct VkFSRObject *fsr_object, VkDevice client_device)
 {
     VkResult res;
     VkSamplerCreateInfo samplerInfo = {0};
@@ -1030,14 +984,14 @@ static VkResult init_compute_state(struct wine_device *device, struct VkFSRObjec
     VkMemoryAllocateInfo allocInfo = {0};
     VkPhysicalDeviceMemoryProperties memProperties;
     VkImageViewCreateInfo viewInfo = {0};
-    struct vulkan_instance *instance = device->obj.physical_device->instance;
-    struct vulkan_device *vulkan_device = vulkan_device_from_handle(client_device);
+    struct vulkan_instance *instance = vulkan_device->physical_device->instance;
+
 
     uint32_t fsr_memory_type = -1, i;
 
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter = fsr_object->fs_hack_filter;
-    samplerInfo.minFilter = fsr_object->fs_hack_filter;
+    samplerInfo.magFilter = fsr_object->fsr_hack_filter;
+    samplerInfo.minFilter = fsr_object->fsr_hack_filter;
     samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -1052,7 +1006,7 @@ static VkResult init_compute_state(struct wine_device *device, struct VkFSRObjec
     samplerInfo.minLod = 0.0f;
     samplerInfo.maxLod = 0.0f;
 
-    res = device->obj.p_vkCreateSampler(device->obj.host.device, &samplerInfo, NULL, &fsr_object->sampler);
+    res = vulkan_device->p_vkCreateSampler(vulkan_device->host.device, &samplerInfo, NULL, &fsr_object->sampler);
     if (res != VK_SUCCESS)
     {
         WARN("vkCreateSampler failed, res=%d\n", res);
@@ -1077,7 +1031,7 @@ static VkResult init_compute_state(struct wine_device *device, struct VkFSRObjec
     poolInfo.maxSets *= 2;
 
 
-    res = device->obj.p_vkCreateDescriptorPool(device->obj.host.device, &poolInfo, NULL, &fsr_object->descriptor_pool);
+    res = vulkan_device->p_vkCreateDescriptorPool(vulkan_device->host.device, &poolInfo, NULL, &fsr_object->descriptor_pool);
     if (res != VK_SUCCESS)
     {
         ERR("vkCreateDescriptorPool: %d\n", res);
@@ -1104,7 +1058,7 @@ static VkResult init_compute_state(struct wine_device *device, struct VkFSRObjec
 
 
 
-    res = device->obj.p_vkCreateDescriptorSetLayout(device->obj.host.device, &descriptorLayoutInfo, NULL, &fsr_object->descriptor_set_layout);
+    res = vulkan_device->p_vkCreateDescriptorSetLayout(vulkan_device->host.device, &descriptorLayoutInfo, NULL, &fsr_object->descriptor_set_layout);
     if (res != VK_SUCCESS)
     {
         ERR("vkCreateDescriptorSetLayout: %d\n", res);
@@ -1119,10 +1073,10 @@ static VkResult init_compute_state(struct wine_device *device, struct VkFSRObjec
     {
 
 
-        res = create_pipeline(device, fsr_object, fsr_easu_comp_spv, sizeof(fsr_easu_comp_spv), 16 * sizeof(uint32_t) /* 4 * uvec4 */, &fsr_object->fsr_easu_pipeline);
+        res = create_pipeline(vulkan_device, fsr_object, fsr_easu_comp_spv, sizeof(fsr_easu_comp_spv), 16 * sizeof(uint32_t) /* 4 * uvec4 */, &fsr_object->fsr_easu_pipeline);
         if (res != VK_SUCCESS)
             goto fail;
-        res = create_pipeline(device, fsr_object, fsr_rcas_comp_spv, sizeof(fsr_rcas_comp_spv), 8 * sizeof(uint32_t) /* uvec4 + ivec4 */, &fsr_object->fsr_rcas_pipeline);
+        res = create_pipeline(vulkan_device, fsr_object, fsr_rcas_comp_spv, sizeof(fsr_rcas_comp_spv), 8 * sizeof(uint32_t) /* uvec4 + ivec4 */, &fsr_object->fsr_rcas_pipeline);
         if (res != VK_SUCCESS)
             goto fail;
 
@@ -1146,14 +1100,14 @@ static VkResult init_compute_state(struct wine_device *device, struct VkFSRObjec
             imageInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
             imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
             imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-            res = device->obj.p_vkCreateImage(device->obj.host.device, &imageInfo, NULL, &hack->fsr_image);
+            res = vulkan_device->p_vkCreateImage(vulkan_device->host.device, &imageInfo, NULL, &hack->fsr_image);
             if (res != VK_SUCCESS)
             {
                 ERR("vkCreateImage failed: %d\n", res);
                 goto fail;
             }
 
-            device->obj.p_vkGetImageMemoryRequirements(device->obj.host.device, hack->fsr_image, &fsrMemReq);
+            vulkan_device->p_vkGetImageMemoryRequirements(vulkan_device->host.device, hack->fsr_image, &fsrMemReq);
 
             offs = fsrMemTotal % fsrMemReq.alignment;
             if(offs)
@@ -1165,7 +1119,7 @@ static VkResult init_compute_state(struct wine_device *device, struct VkFSRObjec
 
 
         /* allocate backing memory */
-        instance->p_vkGetPhysicalDeviceMemoryProperties(device->obj.physical_device->host.physical_device, &memProperties);
+        instance->p_vkGetPhysicalDeviceMemoryProperties(vulkan_device->physical_device->host.physical_device, &memProperties);
 
         for (i = 0; i < memProperties.memoryTypeCount; i++)
         {
@@ -1192,13 +1146,12 @@ static VkResult init_compute_state(struct wine_device *device, struct VkFSRObjec
         allocInfo.allocationSize = fsrMemTotal;
         allocInfo.memoryTypeIndex = fsr_memory_type;
 
-        res = device->obj.p_vkAllocateMemory(device->obj.host.device, &allocInfo, NULL, &fsr_object->fsr_image_memory);
+        res = vulkan_device->p_vkAllocateMemory(vulkan_device->host.device, &allocInfo, NULL, &fsr_object->fsr_image_memory);
         if (res != VK_SUCCESS)
         {
             ERR("vkAllocateMemory: %d\n", res);
             goto fail;
         }
-
 
 
         /* bind backing memory and create imageviews */
@@ -1207,7 +1160,7 @@ static VkResult init_compute_state(struct wine_device *device, struct VkFSRObjec
         {
             struct fsr_hack_image *hack = &fsr_object->fsr_hack_images[i];
 
-            device->obj.p_vkGetImageMemoryRequirements(device->obj.host.device, hack->fsr_image, &fsrMemReq);
+            vulkan_device->p_vkGetImageMemoryRequirements(vulkan_device->host.device, hack->fsr_image, &fsrMemReq);
 
             offs = fsrMemTotal % fsrMemReq.alignment;
             if(offs)
@@ -1238,7 +1191,7 @@ static VkResult init_compute_state(struct wine_device *device, struct VkFSRObjec
             viewInfo.subresourceRange.baseArrayLayer = 0;
             viewInfo.subresourceRange.layerCount = 1;
 
-            res = device->obj.p_vkCreateImageView(device->obj.host.device, &viewInfo, NULL, &hack->fsr_view);
+            res = vulkan_device->p_vkCreateImageView(vulkan_device->host.device, &viewInfo, NULL, &hack->fsr_view);
             if(res != VK_SUCCESS)
             {
                 ERR("vkCreateImageView(blit): %d\n", res);
@@ -1261,13 +1214,13 @@ static VkResult init_compute_state(struct wine_device *device, struct VkFSRObjec
         viewInfo.subresourceRange.baseArrayLayer = 0;
         viewInfo.subresourceRange.layerCount = 1;
 
-        res = device->obj.p_vkCreateImageView(device->obj.host.device, &viewInfo, NULL, &hack->swapchain_view);
+        res = vulkan_device->p_vkCreateImageView(vulkan_device->host.device, &viewInfo, NULL, &hack->swapchain_view);
         if(res != VK_SUCCESS){
             ERR("vkCreateImageView(blit): %d\n", res);
             goto fail;
         }
 
-        res = create_descriptor_set(device, fsr_object, hack);
+        res = create_descriptor_set(vulkan_device, fsr_object, hack);
         if(res != VK_SUCCESS)
             goto fail;
     }
@@ -1281,30 +1234,30 @@ fail:
     for(i = 0; i < fsr_object->n_images; ++i){
         struct fsr_hack_image *hack = &fsr_object->fsr_hack_images[i];
 
-        device->obj.p_vkDestroyImageView(device->obj.host.device, hack->fsr_view, NULL);
+        vulkan_device->p_vkDestroyImageView(vulkan_device->host.device, hack->fsr_view, NULL);
         hack->fsr_view = VK_NULL_HANDLE;
 
-        device->obj.p_vkDestroyImageView(device->obj.host.device, hack->swapchain_view, NULL);
+        vulkan_device->p_vkDestroyImageView(vulkan_device->host.device, hack->swapchain_view, NULL);
         hack->swapchain_view = VK_NULL_HANDLE;
 
-        device->obj.p_vkDestroyImage(device->obj.host.device, hack->fsr_image, NULL);
+        vulkan_device->p_vkDestroyImage(vulkan_device->host.device, hack->fsr_image, NULL);
         hack->fsr_image = VK_NULL_HANDLE;
     }
 
 
-    destroy_pipeline(&device->obj, &fsr_object->fsr_easu_pipeline);
-    destroy_pipeline(&device->obj, &fsr_object->fsr_rcas_pipeline);
+    destroy_pipeline(vulkan_device, &fsr_object->fsr_easu_pipeline);
+    destroy_pipeline(vulkan_device, &fsr_object->fsr_rcas_pipeline);
 
-    device->obj.p_vkDestroyDescriptorSetLayout(device->obj.host.device, fsr_object->descriptor_set_layout, NULL);
+    vulkan_device->p_vkDestroyDescriptorSetLayout(vulkan_device->host.device, fsr_object->descriptor_set_layout, NULL);
     fsr_object->descriptor_set_layout = VK_NULL_HANDLE;
 
-    device->obj.p_vkDestroyDescriptorPool(device->obj.host.device, fsr_object->descriptor_pool, NULL);
+    vulkan_device->p_vkDestroyDescriptorPool(vulkan_device->host.device, fsr_object->descriptor_pool, NULL);
     fsr_object->descriptor_pool = VK_NULL_HANDLE;
 
-    device->obj.p_vkFreeMemory(device->obj.host.device, fsr_object->fsr_image_memory, NULL);
+    vulkan_device->p_vkFreeMemory(vulkan_device->host.device, fsr_object->fsr_image_memory, NULL);
     fsr_object->fsr_image_memory = VK_NULL_HANDLE;
 
-    device->obj.p_vkDestroySampler(device->obj.host.device, fsr_object->sampler, NULL);
+    vulkan_device->p_vkDestroySampler(vulkan_device->host.device, fsr_object->sampler, NULL);
     fsr_object->sampler = VK_NULL_HANDLE;
 
     return res;
@@ -1326,7 +1279,7 @@ static void destroy_fsr_image(struct vulkan_device *vulkan_device, struct VkFSRO
     vulkan_device->p_vkDestroySemaphore(vulkan_device->host.device, hack->blit_finished, NULL);
 }
 
-static VkResult init_fsr_images(struct wine_device *device, struct VkFSRObject *fsr_object, VkSwapchainCreateInfoKHR *createinfo)
+static VkResult init_fsr_images(struct vulkan_device *vulkan_device, struct VkFSRObject *fsr_object, VkSwapchainCreateInfoKHR *createinfo)
 {
     VkResult res;
     VkImage *real_images = NULL;
@@ -1341,12 +1294,9 @@ static VkResult init_fsr_images(struct wine_device *device, struct VkFSRObject *
 
     uint32_t count, i = 0, user_memory_type = -1;
 
-    res = device->obj.p_vkGetSwapchainImagesKHR(device->obj.host.device,
+    res = vulkan_device->p_vkGetSwapchainImagesKHR(vulkan_device->host.device,
        //TODO
-//      wine_swapchain_from_handle(fsr_object->swapchain_handle)->host_swapchain,
-//      vulkan_swapchain_from_handle(*fsr_object->swapchain_handle)->host.swapchain,
       vulkan_swapchain_from_handle(*fsr_object->swapchain_handle)->host.swapchain,
-//      *fsr_object->swapchain_handle,
       &count, NULL);
     if(res != VK_SUCCESS)
     {
@@ -1354,17 +1304,16 @@ static VkResult init_fsr_images(struct wine_device *device, struct VkFSRObject *
         return res;
     }
 
-    TRACE("0 Count is %d %d \n", count, (int)device->queue_count);
+    TRACE("0 Count is %d %d \n", count, (int)vulkan_device->queue_count);
 
     real_images = malloc(count * sizeof(VkImage));
-    fsr_object->cmd_pools = calloc(1, sizeof(VkCommandPool) * device->queue_count);
+    fsr_object->cmd_pools = calloc(1, sizeof(VkCommandPool) * vulkan_device->queue_count);
 
     fsr_object->fsr_hack_images = calloc(1, sizeof(struct fsr_hack_image) * count);
     if(!real_images || !fsr_object->cmd_pools || !fsr_object->fsr_hack_images)
         goto fail;
 
-    res = device->obj.p_vkGetSwapchainImagesKHR(device->obj.host.device,
-//      wine_swapchain_from_handle(fsr_object->swapchain_handle)->host_swapchain,
+    res = vulkan_device->p_vkGetSwapchainImagesKHR(vulkan_device->host.device,
       vulkan_swapchain_from_handle(*fsr_object->swapchain_handle)->host.swapchain,
 //      *fsr_object->swapchain_handle,
       &count, real_images);
@@ -1385,7 +1334,7 @@ static VkResult init_fsr_images(struct wine_device *device, struct VkFSRObject *
         hack->swapchain_image = real_images[i];
 
         semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-        res = device->obj.p_vkCreateSemaphore(device->obj.host.device, &semaphoreInfo, NULL, &hack->blit_finished);
+        res = vulkan_device->p_vkCreateSemaphore(vulkan_device->host.device, &semaphoreInfo, NULL, &hack->blit_finished);
         if(res != VK_SUCCESS)
         {
             WARN("vkCreateSemaphore failed, res=%d\n", res);
@@ -1414,15 +1363,13 @@ static VkResult init_fsr_images(struct wine_device *device, struct VkFSRObject *
         if (createinfo->flags & VK_SWAPCHAIN_CREATE_MUTABLE_FORMAT_BIT_KHR)
             imageInfo.flags = VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT | VK_IMAGE_CREATE_EXTENDED_USAGE_BIT;
 
-        res = device->obj.p_vkCreateImage(device->obj.host.device, &imageInfo, NULL, &hack->user_image);
+        res = vulkan_device->p_vkCreateImage(vulkan_device->host.device, &imageInfo, NULL, &hack->user_image);
         if(res != VK_SUCCESS){
             ERR("vkCreateImage failed: %d\n", res);
             goto fail;
         }
 
-
-
-        device->obj.p_vkGetImageMemoryRequirements(device->obj.host.device, hack->user_image, &userMemReq);
+        vulkan_device->p_vkGetImageMemoryRequirements(vulkan_device->host.device, hack->user_image, &userMemReq);
 
         offs = userMemTotal % userMemReq.alignment;
         if(offs)
@@ -1436,7 +1383,8 @@ static VkResult init_fsr_images(struct wine_device *device, struct VkFSRObject *
 
 
     /* allocate backing memory */
-    device->obj.physical_device->instance->p_vkGetPhysicalDeviceMemoryProperties(device->obj.physical_device->host.physical_device, &memProperties);
+    vulkan_device->physical_device->instance->p_vkGetPhysicalDeviceMemoryProperties(vulkan_device->physical_device->host.physical_device,
+      &memProperties);
 
       for (i = 0; i < memProperties.memoryTypeCount; i++){
         if((memProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) == VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT){
@@ -1459,24 +1407,26 @@ static VkResult init_fsr_images(struct wine_device *device, struct VkFSRObject *
     allocInfo.allocationSize = userMemTotal;
     allocInfo.memoryTypeIndex = user_memory_type;
 
-    res = device->obj.p_vkAllocateMemory(device->obj.host.device, &allocInfo, NULL, &fsr_object->user_image_memory);
+    res = vulkan_device->p_vkAllocateMemory(vulkan_device->host.device, &allocInfo, NULL,
+      &fsr_object->user_image_memory);
     if(res != VK_SUCCESS){
         ERR("vkAllocateMemory: %d\n", res);
         goto fail;
     }
 
 
-
     /* bind backing memory and create imageviews */
     userMemTotal = 0;
     for(i = 0; i < count; ++i){
-        device->obj.p_vkGetImageMemoryRequirements(device->obj.host.device, fsr_object->fsr_hack_images[i].user_image, &userMemReq);
+        vulkan_device->p_vkGetImageMemoryRequirements(vulkan_device->host.device, fsr_object->fsr_hack_images[i].user_image,
+          &userMemReq);
 
         offs = userMemTotal % userMemReq.alignment;
         if(offs)
             userMemTotal += userMemReq.alignment - offs;
 
-        res = device->obj.p_vkBindImageMemory(device->obj.host.device, fsr_object->fsr_hack_images[i].user_image, fsr_object->user_image_memory, userMemTotal);
+        res = vulkan_device->p_vkBindImageMemory(vulkan_device->host.device, fsr_object->fsr_hack_images[i].user_image,
+          fsr_object->user_image_memory, userMemTotal);
         if(res != VK_SUCCESS){
             ERR("vkBindImageMemory: %d\n", res);
             goto fail;
@@ -1494,7 +1444,8 @@ static VkResult init_fsr_images(struct wine_device *device, struct VkFSRObject *
         viewInfo.subresourceRange.baseArrayLayer = 0;
         viewInfo.subresourceRange.layerCount = 1;
 
-        res = device->obj.p_vkCreateImageView(device->obj.host.device, &viewInfo, NULL, &fsr_object->fsr_hack_images[i].user_view);
+        res = vulkan_device->p_vkCreateImageView(vulkan_device->host.device, &viewInfo, NULL,
+          &fsr_object->fsr_hack_images[i].user_view);
         if(res != VK_SUCCESS){
             ERR("vkCreateImageView(user): %d\n", res);
             goto fail;
@@ -1509,7 +1460,7 @@ static VkResult init_fsr_images(struct wine_device *device, struct VkFSRObject *
 
 fail:
     for(i = 0; i < fsr_object->n_images; ++i)
-        destroy_fsr_image(&device->obj, fsr_object, &fsr_object->fsr_hack_images[i]);
+        destroy_fsr_image(vulkan_device, fsr_object, &fsr_object->fsr_hack_images[i]);
     free(real_images);
     free(fsr_object->cmd_pools);
     free(fsr_object->fsr_hack_images);
@@ -1523,26 +1474,22 @@ void fsr_destroy_object(VkDevice client_device, VkSwapchainKHR swapchain_handle)
     struct VkFSRObject *fsr_object = NULL;
     uint32_t ii;
     struct vulkan_device *vulkan_device = vulkan_device_from_handle(client_device);
-    struct wine_device *wine_device = wine_device_from_handle(client_device);
+
+    TRACE("vkDestroySwapchainKHR 0 \n");
+
+
     struct vulkan_swapchain *vulkan_swapchain = vulkan_swapchain_from_handle( swapchain_handle );
 
-//    struct wine_swapchain *swapchain = vulkan_swapchain_from_handle(swapchain_handle)->host.swapchain;
-//    struct vulkan_instance *instance = vulkan_device->physical_device->instance;
-
-//    if (allocator) FIXME("Support for allocation callbacks not implemented yet\n");
-  //  if (!swapchain) return;
 
     TRACE("vkDestroySwapchainKHR 0 %p \n", &swapchain_handle);
 
     while(fsr_objects[i] != NULL && i < fsr_object_count_max) {
-//      TRACE("== vkDestroySwapchainKHR 1 %p %p %p \n", fsr_objects[i]->swapchain_handle,
-//      vulkan_swapchain_from_handle(*fsr_objects[i]->swapchain_handle )->host.swapchain,
-//      vulkan_swapchain->host.swapchain
-//      );
+
       if(fsr_objects[i] &&
-        vulkan_swapchain_from_handle(*fsr_objects[i]->swapchain_handle )->host.swapchain
-        == vulkan_swapchain->host.swapchain) {
+        fsr_objects[i]->vulkan_swapchain->host.swapchain == vulkan_swapchain->host.swapchain
+        ) {
         TRACE("Found swapchain to delete \n");
+        printf("Found swapchain to delete %p \n", fsr_objects[i]->vulkan_swapchain->host.swapchain);
         fsr_object = fsr_objects[i];
         break;
       }
@@ -1558,7 +1505,7 @@ void fsr_destroy_object(VkDevice client_device, VkSwapchainKHR swapchain_handle)
             destroy_fsr_image(vulkan_device, fsr_object, &fsr_object->fsr_hack_images[ii]);
 
 
-        for(ii = 0; ii < wine_device->queue_count; ++ii)
+        for(ii = 0; ii <vulkan_device->queue_count; ++ii)
             if(fsr_object->cmd_pools[ii])
                 vulkan_device->p_vkDestroyCommandPool(vulkan_device->host.device, fsr_object->cmd_pools[ii], NULL);
 
@@ -1604,8 +1551,8 @@ static VkResult fsr_swapchain_one(VkDevice client_device, const VkSwapchainCreat
                                    VkSwapchainKHR *swapchain_handle)
 {
 
-    struct wine_device *device = wine_device_from_handle(client_device);
-    struct vulkan_instance *instance = device->obj.physical_device->instance;
+    struct vulkan_device *vulkan_device = vulkan_device_from_handle(client_device);
+    struct vulkan_instance *instance = vulkan_device->physical_device->instance;
 
     VkResult res;
     struct VkFSRObject *fsr_object;
@@ -1624,30 +1571,31 @@ static VkResult fsr_swapchain_one(VkDevice client_device, const VkSwapchainCreat
     }
     fsr_object = fsr_objects[i];
     fsr_object->fsr_enabled = FALSE;
+
     fsr_object->create_info_host = *create_info;
+    fsr_object->vulkan_device = vulkan_device;
 
 
     //hack to get fsr values
     //fsr_object->res = vk_funcs->p_vkCreateSwapchainKHR(NULL, &fsr_object->create_info_host, NULL, swapchain_handle);
 
 
-    if(getenv( "WINE_VK_USE_FSR" ))
+    if(getenv( "WINE_VK_USE_FSR" ) != 0 && atoi(getenv( "WINE_VK_USE_FSR" )) > 0 )
     {
-    //&& create_info_host.imageExtent.width == user_sz.width &&
-       //     create_info_host.imageExtent.height == user_sz.height
+
 
         uint32_t count;
         VkSurfaceCapabilitiesKHR caps = {0};
         struct surface *surface = surface_from_handle( create_info->surface );
 
         instance->p_vkGetPhysicalDeviceQueueFamilyProperties(
-          device->obj.physical_device->host.physical_device, &count, NULL
+          vulkan_device->physical_device->host.physical_device, &count, NULL
         );
 
         fsr_object->queue_props = malloc(sizeof(VkQueueFamilyProperties) * count);
 
         instance->p_vkGetPhysicalDeviceQueueFamilyProperties(
-          device->obj.physical_device->host.physical_device, &count, fsr_object->queue_props
+          vulkan_device->physical_device->host.physical_device, &count, fsr_object->queue_props
         );
 
         NtUserGetClientRect(surface->hwnd, &hwnd_rect, 96);
@@ -1675,7 +1623,6 @@ static VkResult fsr_swapchain_one(VkDevice client_device, const VkSwapchainCreat
 
         fsr_object->create_info_host.imageExtent = fsr_object->real_extent;
         fsr_object->create_info_host.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
-        // XXX: check if supported by surface
 
         fsr_object->format = fsr_object->create_info_host.imageFormat;
         fsr_object->create_info_host.imageFormat = srgb_to_unorm(fsr_object->create_info_host.imageFormat);
@@ -1689,14 +1636,21 @@ static VkResult fsr_swapchain_one(VkDevice client_device, const VkSwapchainCreat
           fsr_object->fsr = TRUE;
         }
 
-        fsr_object->wine_device = device;
+        fsr_object->vulkan_device = vulkan_device;
         fsr_object->sharpness = (float) 2 / 10.0f;
 
         TRACE("create_info_host width %d \n", fsr_object->create_info_host.imageExtent.width);
 
     }
+
     res = vk_funcs->p_vkCreateSwapchainKHR(client_device, &fsr_object->create_info_host, NULL, swapchain_handle);
     fsr_object->swapchain_handle = swapchain_handle;
+    fsr_object->vulkan_swapchain = vulkan_swapchain_from_handle(*swapchain_handle);
+
+    printf("fsr_object create vulkan_swapchain %p \n", fsr_object->vulkan_swapchain->host.swapchain);
+    printf("fsr_object create swapchain handle %p \n", fsr_object->swapchain_handle);
+
+
 
     if(fsr_object->fsr_enabled) {
         fsr_object->user_extent = create_info->imageExtent;
@@ -1705,11 +1659,11 @@ static VkResult fsr_swapchain_one(VkDevice client_device, const VkSwapchainCreat
 
         TRACE("3 create fsr images %d %d \n", fsr_object->user_extent.width, fsr_object->user_extent.height);
 
-        res = init_fsr_images(device, fsr_object, &fsr_object->create_info_host);
+        res = init_fsr_images(vulkan_device, fsr_object, &fsr_object->create_info_host);
         if(res != VK_SUCCESS){
             TRACE("creating fs hack images failed: %d\n", res);
             ERR("creating fs hack images failed: %d\n", res);
-            device->obj.p_vkDestroySwapchainKHR(device->obj.host.device, *fsr_object->swapchain_handle, NULL);
+            vulkan_device->p_vkDestroySwapchainKHR(vulkan_device->host.device, *fsr_object->swapchain_handle, NULL);
 
             free(fsr_object);
 
@@ -1720,134 +1674,25 @@ static VkResult fsr_swapchain_one(VkDevice client_device, const VkSwapchainCreat
 
         /* FIXME: would be nice to do this on-demand, but games can use up all
          * memory so we fail to allocate later */
-        res = init_compute_state(device, fsr_object, client_device);
+        res = init_compute_state(vulkan_device, fsr_object, client_device);
         if(res != VK_SUCCESS){
           TRACE("creating blit images failed: %d\n", res);
-          fsr_destroy_object(device->obj.host.device, *fsr_object->swapchain_handle);
+          fsr_destroy_object(vulkan_device->host.device, *fsr_object->swapchain_handle);
           return VK_FALSE;
         }
 
         TRACE("5 create fsr images %d \n", fsr_object->user_extent.height);
-        //
     }
 
     return res;
 
-}
-
-
-VkResult fsr_vkCreateSwapchainKHR(VkDevice client_device, const VkSwapchainCreateInfoKHR *create_info,
-                                   const VkAllocationCallbacks *allocator, VkSwapchainKHR *swapchain_handle)
-{
-
-    VkResult res;
-
-
-#if 0
-
-
-
-
-
-    //&& create_info_host.imageExtent.width == user_sz.width &&
-       //     create_info_host.imageExtent.height == user_sz.height
-
-        uint32_t count;
-        VkSurfaceCapabilitiesKHR caps = {0};
-
-        device->obj.physical_device->instance->p_vkGetPhysicalDeviceQueueFamilyProperties(
-          device->obj.physical_device->host.physical_device, &count, NULL
-        );
-
-        fsr_object->queue_props = malloc(sizeof(VkQueueFamilyProperties) * count);
-
-        device->obj.physical_device->instance->p_vkGetPhysicalDeviceQueueFamilyProperties(
-          device->obj.physical_device->host.physical_device, &count, fsr_object->queue_props
-        );
-
-        fsr_object->surface_usage = caps.supportedUsageFlags;
- 
-
-        create_info_host.imageExtent = fsr_object->real_extent;
-        create_info_host.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
-        // XXX: check if supported by surface
-
-        fsr_object->format = create_info_host.imageFormat;
-
-        create_info_host.imageFormat = srgb_to_unorm(create_info_host.imageFormat);
-
-        fsr_object->fsr_enabled = TRUE;
-
-        fsr_object->wine_device = device;
-
-    }
-
-#if 0
-    if (surface)
-      create_info_host.surface = surface->driver_surface;
-    if (old_swapchain)
-      create_info_host.oldSwapchain = old_swapchain->host_swapchain;
-
-    if (!(object = calloc(1, sizeof(*object)))) return VK_ERROR_OUT_OF_HOST_MEMORY;
-    res = device->obj.p_vkCreateSwapchainKHR(device->obj.host.device, &create_info_host, NULL, &object->host_swapchain);
-    if (res != VK_SUCCESS)
-    {
-        free(object);
-        return res;
-    }
-#endif
-
-
-    fsr_object->swapchain_handle = swapchain_handle;
-
-    if(fsr_object->fsr_enabled) {
-        fsr_object->user_extent = create_info->imageExtent;
-
-        TRACE("3 create fsr images \n");
-
-        res = init_fsr_images(device, fsr_object, &create_info_host);
-        if(res != VK_SUCCESS){
-            TRACE("creating fs hack images failed: %d\n", res);
-            ERR("creating fs hack images failed: %d\n", res);
-            device->obj.p_vkDestroySwapchainKHR(device->obj.host.device, *fsr_object->swapchain_handle, NULL);
-
-            free(fsr_object);
-
-            return res;
-        }
-
-        res = init_compute_state(device, fsr_object);
-        if(res != VK_SUCCESS){
-          TRACE("creating blit images failed: %d\n", res);
-          fsr_vkDestroySwapchainKHR(device->obj.host.device, *fsr_object->swapchain_handle, NULL);
-          return res;
-        }
-        //
-    }
-
-#endif
-
-    return res;
 }
 
 
 NTSTATUS fsr_vkGetSwapchainImagesKHR(void *args)
 {
-#ifdef _WIN64
+
     struct vkGetSwapchainImagesKHR_params *params = args;
-#else
-
-    struct
-    {
-        VkDevice device;
-        VkSwapchainKHR DECLSPEC_ALIGN(8) swapchain;
-        uint32_t *pSwapchainImageCount;
-        VkImage *pSwapchainImages;
-        VkResult result;
-    } *params = args;
-
-#endif
-
     struct vulkan_device *device = vulkan_device_from_handle(params->device);
     struct vulkan_swapchain *vulkan_swapchain = vulkan_swapchain_from_handle(params->swapchain);
 
@@ -1855,32 +1700,22 @@ NTSTATUS fsr_vkGetSwapchainImagesKHR(void *args)
     uint32_t ii;
 
 
+    TRACE("fsr_vkGetSwapchainImagesKHR 1 \n");
+
     int i = 0;
 
 
     while(fsr_objects[i] != NULL && i < fsr_object_count_max) {
 
-      if(fsr_objects[i] &&
-        vulkan_swapchain_from_handle(*fsr_objects[i]->swapchain_handle )->host.swapchain
-        == vulkan_swapchain->host.swapchain) {
-        TRACE("Found swapchain to vkGetSwapchainImagesKHR \n");
-        fsr_object = fsr_objects[i];
-        break;
-      }
+        if(fsr_objects[i]->vulkan_swapchain->host.swapchain == vulkan_swapchain->host.swapchain) {
+          printf("Found swapchain to vkGetSwapchainImagesKHR \n");
+          fsr_object = fsr_objects[i];
+          break;
+       }
+
+
       i++;
     }
-
-/*
-
-    while(fsr_objects[i] != NULL && i < fsr_object_count_max) {
-      if(fsr_objects[i] && fsr_objects[i]->swapchain_handle == &params->swapchain) {
-        fsr_object = fsr_objects[i];
-        break;
-      }
-      i++;
-    }
-*/
-
 
 
     if(fsr_object != NULL)
@@ -1901,17 +1736,23 @@ NTSTATUS fsr_vkGetSwapchainImagesKHR(void *args)
 
     TRACE(" -3 wine_vkGetSwapchainImagesKHR \n");
 
-    params->result = device->p_vkGetSwapchainImagesKHR(device->host.device,
+        params->result = vulkan_device_from_handle(params->device)->p_vkGetSwapchainImagesKHR(
+          vulkan_device_from_handle(params->device)->host.device,
+          vulkan_swapchain_from_handle(params->swapchain)->host.swapchain,
+          params->pSwapchainImageCount,
+          params->pSwapchainImages
+        );
+
+#if 0
+    params->result = vulkan_device_from_handle(params->device)->p_vkGetSwapchainImagesKHR(
+      //fsr_object->vulkan_device->host.device,
+      vulkan_device_from_handle(params->device)->host.device,
       vulkan_swapchain->host.swapchain,
       params->pSwapchainImageCount,
-      params->pSwapchainImages);
+      params->pSwapchainImages
+    );
+  #endif
 
-/*
-    params->result = device->funcs.p_vkGetSwapchainImagesKHR(device->obj.host.device,
-      object->swapchain,
-      params->pSwapchainImageCount,
-      params->pSwapchainImages);
-*/
 
     TRACE(" 3 wine_vkGetSwapchainImagesKHR \n");
 
@@ -1919,7 +1760,7 @@ NTSTATUS fsr_vkGetSwapchainImagesKHR(void *args)
 
 }
 
-static VkCommandBuffer create_hack_cmd(struct wine_queue  *queue, struct VkFSRObject *fsr_object,
+static VkCommandBuffer create_hack_cmd(struct VkFSRObject *fsr_object,
   uint32_t queue_idx)
 {
     VkCommandBufferAllocateInfo allocInfo = {0};
@@ -1933,7 +1774,8 @@ static VkCommandBuffer create_hack_cmd(struct wine_queue  *queue, struct VkFSROb
         poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
         poolInfo.queueFamilyIndex = queue_idx;
 
-        result = queue->obj.device->p_vkCreateCommandPool(queue->obj.device->host.device, &poolInfo, NULL, &fsr_object->cmd_pools[queue_idx]);
+        result = fsr_object->vulkan_device->p_vkCreateCommandPool(fsr_object->vulkan_device->host.device, &poolInfo, NULL,
+          &fsr_object->cmd_pools[queue_idx]);
         if(result != VK_SUCCESS){
             ERR("vkCreateCommandPool failed, res=%d\n", result);
             return NULL;
@@ -1945,7 +1787,7 @@ static VkCommandBuffer create_hack_cmd(struct wine_queue  *queue, struct VkFSROb
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandBufferCount = 1;
 
-    result = queue->obj.device->p_vkAllocateCommandBuffers(queue->obj.device->host.device, &allocInfo, &cmd);
+    result = fsr_object->vulkan_device->p_vkAllocateCommandBuffers(fsr_object->vulkan_device->host.device, &allocInfo, &cmd);
     if(result != VK_SUCCESS){
         ERR("vkAllocateCommandBuffers failed, res=%d\n", result);
         return NULL;
@@ -2143,7 +1985,7 @@ static VkResult record_fsr_cmd(struct vulkan_device *vulkan_device,
             1, barriers
     );
 
-    TRACE("recording compute command 2 \n");
+
 
     result = vulkan_device->p_vkEndCommandBuffer(hack->cmd);
     if (result != VK_SUCCESS)
@@ -2152,8 +1994,12 @@ static VkResult record_fsr_cmd(struct vulkan_device *vulkan_device,
         return result;
     }
 
+    TRACE("recording compute command 3 \n");
+
     return VK_SUCCESS;
 }
+
+
 
 VkResult fsr_vkQueuePresentKHR(VkQueue client_queue, const VkPresentInfoKHR *pPresentInfo) {
 
@@ -2165,22 +2011,23 @@ VkResult fsr_vkQueuePresentKHR(VkQueue client_queue, const VkPresentInfoKHR *pPr
     VkSubmitInfo submitInfo = {0};
     VkSemaphore blit_sema;
     struct VkFSRObject *fsr_object = NULL;
-    uint32_t ii, n_hacks = 0;
-    uint32_t queue_idx;
-    struct wine_queue *queue = wine_queue_from_handle(client_queue);
+    uint32_t ii =0;
+    uint32_t n_hacks = 0;
+    uint32_t queue_idx = 0;
     int i = 0;
-
+    struct vulkan_swapchain *vulkan_swapchain = NULL;
+    struct vulkan_queue *vulkan_queue = vulkan_queue_from_handle(client_queue);
     our_presentInfo = *pPresentInfo;
+    vulkan_swapchain = vulkan_swapchain_from_handle( our_presentInfo.pSwapchains[ii] );
+
+
 
     for(ii = 0; ii < our_presentInfo.swapchainCount; ++ii){
-
         i = 0;
-
         while(fsr_objects[i] != NULL && i < fsr_object_count_max) {
 //          TRACE("FSR Object found %p %p i %d \n", &fsr_objects[i]->swapchain_handle, &our_presentInfo.pSwapchains[ii], i);
 
-          if(fsr_objects[i] && vulkan_swapchain_from_handle( *fsr_objects[i]->swapchain_handle )->host.swapchain
-          == vulkan_swapchain_from_handle( our_presentInfo.pSwapchains[ii] )->host.swapchain ) {
+          if(fsr_objects[i] && fsr_objects[i]->vulkan_swapchain->host.swapchain == vulkan_swapchain->host.swapchain ) {
 //            TRACE("FSR Object found %p %p \n", *fsr_objects[i]->swapchain_handle, &our_presentInfo.pSwapchains[ii]);
             fsr_object = fsr_objects[i];
             break;
@@ -2196,19 +2043,21 @@ VkResult fsr_vkQueuePresentKHR(VkQueue client_queue, const VkPresentInfoKHR *pPr
             struct fsr_hack_image *hack = &fsr_object->fsr_hack_images[our_presentInfo.pImageIndices[ii]];
 
             if(!blit_cmds){
-                queue_idx = queue->family_index;
+                queue_idx = vulkan_queue->info.queueFamilyIndex;
                 blit_cmds = malloc(our_presentInfo.swapchainCount * sizeof(VkCommandBuffer));
                 blit_sema = hack->blit_finished;
             }
 
             if(!hack->cmd || hack->cmd_queue_idx != queue_idx){
                 if(hack->cmd)
-                    queue->obj.device->p_vkFreeCommandBuffers(queue->obj.device->host.device,
+                    fsr_object->vulkan_device->p_vkFreeCommandBuffers(vulkan_queue->device->host.device,
                             fsr_object->cmd_pools[hack->cmd_queue_idx],
                             1, &hack->cmd);
 
+
+
                 hack->cmd_queue_idx = queue_idx;
-                hack->cmd = create_hack_cmd(queue, fsr_object, queue_idx);
+                hack->cmd = create_hack_cmd(fsr_object, queue_idx);
 
                 if(!hack->cmd){
                     free(blit_cmds);
@@ -2216,7 +2065,7 @@ VkResult fsr_vkQueuePresentKHR(VkQueue client_queue, const VkPresentInfoKHR *pPr
                 }
 
                 if(fsr_object->queue_props[queue_idx].queueFlags & VK_QUEUE_COMPUTE_BIT)
-                    res = record_fsr_cmd(queue->obj.device, fsr_object, hack);
+                    res = record_fsr_cmd(fsr_object->vulkan_device, fsr_object, hack);
                 else
                 {
                     ERR("Present queue is not a compute queue!\n");
@@ -2224,23 +2073,34 @@ VkResult fsr_vkQueuePresentKHR(VkQueue client_queue, const VkPresentInfoKHR *pPr
                 }
 
                 if(res != VK_SUCCESS){
-                    queue->obj.device->p_vkFreeCommandBuffers(queue->obj.device->host.device,
+                    fsr_object->vulkan_device->p_vkFreeCommandBuffers(vulkan_queue->device->host.device,
                             fsr_object->cmd_pools[hack->cmd_queue_idx],
                             1, &hack->cmd);
                     hack->cmd = NULL;
                     free(blit_cmds);
                     return res;
                 }
+
+
             }
+
+
 
             blit_cmds[n_hacks] = hack->cmd;
 
             ++n_hacks;
+
+            TRACE("current n_hacks %d %d \n", n_hacks, vulkan_queue->info.queueFamilyIndex);
         }
     }
 
+
+
     if(fsr_object && fsr_object->fsr_enabled && n_hacks > 0){
         VkPipelineStageFlags waitStage, *waitStages, *waitStages_arr = NULL;
+
+
+        TRACE("fsr_enabled %d \n", fsr_object->fsr_enabled);
 
         if(pPresentInfo->waitSemaphoreCount > 1){
             waitStages_arr = malloc(sizeof(VkPipelineStageFlags) * pPresentInfo->waitSemaphoreCount);
@@ -2250,6 +2110,16 @@ VkResult fsr_vkQueuePresentKHR(VkQueue client_queue, const VkPresentInfoKHR *pPr
         } else{
             waitStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
             waitStages = &waitStage;
+        }
+
+        TRACE("pPresentInfo->waitSemaphoreCount 0 %d \n", pPresentInfo->waitSemaphoreCount);
+
+
+        for (uint32_t i = 0; i < pPresentInfo->waitSemaphoreCount; i++)
+        {
+            VkSemaphore *semaphores = (VkSemaphore *)pPresentInfo->pWaitSemaphores; /* cast away const, it has been copied in the thunks */
+            struct vulkan_semaphore *semaphore = vulkan_semaphore_from_handle( semaphores[i] );
+            semaphores[i] = semaphore->host.semaphore;
         }
 
         /* blit user image to real image */
@@ -2262,15 +2132,34 @@ VkResult fsr_vkQueuePresentKHR(VkQueue client_queue, const VkPresentInfoKHR *pPr
         submitInfo.signalSemaphoreCount = 1;
         submitInfo.pSignalSemaphores = &blit_sema;
 
-        res = queue->obj.device->p_vkQueueSubmit(queue->obj.host.queue, 1, &submitInfo, VK_NULL_HANDLE);
+         res = fsr_object->vulkan_device->p_vkQueueSubmit(vulkan_queue->host.queue, 1, &submitInfo, VK_NULL_HANDLE);
         if(res != VK_SUCCESS)
             ERR("vkQueueSubmit: %d\n", res);
+
+
 
         free(waitStages_arr);
         free(blit_cmds);
 
         our_presentInfo.waitSemaphoreCount = 1;
-        our_presentInfo.pWaitSemaphores = &blit_sema;
+
+
+
+        for (uint32_t i = 0; i < pPresentInfo->waitSemaphoreCount; i++)
+        {
+            VkSemaphore *semaphores = (VkSemaphore *)pPresentInfo->pWaitSemaphores; /* cast away const, it has been copied in the thunks */
+            struct vulkan_semaphore *semaphore = vulkan_semaphore_from_handle( semaphores[i] );
+            semaphore->host.semaphore = blit_sema;
+//            semaphores[i] = semaphore->host.semaphore;
+        }
+
+
+        our_presentInfo.pWaitSemaphores = pPresentInfo->pWaitSemaphores;
+
+
+
+
+
     }
 
     return vk_funcs->p_vkQueuePresentKHR(client_queue, &our_presentInfo);
@@ -2292,8 +2181,11 @@ NTSTATUS thunk64_vkCreateSwapchainKHR(void *args)
 NTSTATUS thunk64_vkDestroySwapchainKHR(void *args)
 {
     struct vkDestroySwapchainKHR_params *params = args;
+    static int count = 0;
 
     TRACE("%p, 0x%s, %p\n", params->device, wine_dbgstr_longlong(params->swapchain), params->pAllocator);
+    printf("Destroying swapchain %d\n", count);
+    count++;
 
     vk_funcs->p_vkDestroySwapchainKHR(params->device, params->swapchain, params->pAllocator);
     fsr_destroy_object(params->device, params->swapchain);
@@ -2304,23 +2196,36 @@ NTSTATUS thunk64_vkGetSwapchainImagesKHR(void *args)
 {
     struct vkGetSwapchainImagesKHR_params *params = args;
 
-    return fsr_vkGetSwapchainImagesKHR(args);
-
     TRACE("%p, 0x%s, %p, %p\n", params->device, wine_dbgstr_longlong(params->swapchain), params->pSwapchainImageCount, params->pSwapchainImages);
 
+    return fsr_vkGetSwapchainImagesKHR(args);
+
     params->result = vulkan_device_from_handle(params->device)->p_vkGetSwapchainImagesKHR(vulkan_device_from_handle(params->device)->host.device,
-    vulkan_swapchain_from_handle(params->swapchain)->host.swapchain, params->pSwapchainImageCount, params->pSwapchainImages);
+      vulkan_swapchain_from_handle(params->swapchain)->host.swapchain, params->pSwapchainImageCount, params->pSwapchainImages);
     return STATUS_SUCCESS;
 }
+
+void convert_VkPresentInfoKHR_win64_to_unwrapped_host(struct conversion_context *ctx, const VkPresentInfoKHR *in, VkPresentInfoKHR *out);
 
 NTSTATUS thunk64_vkQueuePresentKHR(void *args)
 {
     struct vkQueuePresentKHR_params *params = args;
+    VkPresentInfoKHR pPresentInfo_host;
+    struct conversion_context local_ctx;
+    struct conversion_context *ctx = &local_ctx;
 
     TRACE("%p, %p\n", params->queue, params->pPresentInfo);
 
-    params->result = fsr_vkQueuePresentKHR(params->queue, params->pPresentInfo);
-//    params->result = vk_funcs->p_vkQueuePresentKHR(params->queue, params->pPresentInfo);
+    init_conversion_context(ctx);
+    convert_VkPresentInfoKHR_win64_to_unwrapped_host(ctx, params->pPresentInfo, &pPresentInfo_host);
+    TRACE("thunk64_vkQueuePresentKHR 1 \n");
+    //params->result = vk_funcs->p_vkQueuePresentKHR(params->queue, &pPresentInfo_host);
+    params->result = fsr_vkQueuePresentKHR(params->queue, &pPresentInfo_host);
+        TRACE("thunk64_vkQueuePresentKHR 2 \n");
+
+    free_conversion_context(ctx);
     return STATUS_SUCCESS;
+
+
 }
 #endif /* _WIN64 */

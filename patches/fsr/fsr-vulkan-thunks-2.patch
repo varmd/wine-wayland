@@ -1,0 +1,11 @@
+--- a/dlls/winevulkan/vulkan_thunks.c
++++ b/dlls/winevulkan/vulkan_thunks.c
+@@ -40043,7 +40043,7 @@
+ #endif /* _WIN64 */
+
+ #ifdef _WIN64
+-static void convert_VkPresentInfoKHR_win64_to_unwrapped_host(struct conversion_context *ctx, const VkPresentInfoKHR *in, VkPresentInfoKHR *out)
++void convert_VkPresentInfoKHR_win64_to_unwrapped_host(struct conversion_context *ctx, const VkPresentInfoKHR *in, VkPresentInfoKHR *out)
+ {
+     const VkBaseInStructure *in_header;
+     VkBaseOutStructure *out_header = (void *)out;

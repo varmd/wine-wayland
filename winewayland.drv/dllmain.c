@@ -20,10 +20,23 @@
  */
 
 #include <stdarg.h>
+#include <stdio.h>
 #include "windef.h"
 #include "winbase.h"
 
 #include "unixlib.h"
+
+static DWORD WINAPI wayland_read_events_thread(void *arg)
+{
+    WINE_UNIX_CALL(unix_read_events, NULL);
+    /* This thread terminates only if an unrecoverable error occurred
+     * during event reading (e.g., the connection to the Wayland
+     * compositor is broken). */
+
+    TerminateProcess(GetCurrentProcess(), 1);
+    return 0;
+}
+
 
 /***********************************************************************
  *       dll initialisation routine
@@ -33,12 +46,36 @@ BOOL WINAPI DllMain( HINSTANCE inst, DWORD reason, LPVOID reserved )
     if (reason != DLL_PROCESS_ATTACH)
       return TRUE;
 
+    DWORD tid;
+    LPSTR strptr;                 /*ptr to the filename portion of the path */
+    CHAR tmpstr[MAX_PATH];
+
+
+    CHAR exe_path[MAX_PATH] = {0};
+    GetModuleFileNameA(NULL, exe_path, ARRAY_SIZE(exe_path));
+    GetFullPathNameA(exe_path, MAX_PATH, tmpstr, &strptr);
+
+
+    if(strcmp(strptr, "rundll32.exe") == 0) {
+      printf("Skipping wayland event thread for %s \n", strptr );
+      return TRUE;
+    }
+    if(strcmp(strptr, "wineboot.exe") == 0) {
+      printf("Skipping wayland event thread for %s \n", strptr );
+      return TRUE;
+    }
+
+
+    printf("Starting wayland attach \n");
 
     DisableThreadLibraryCalls( inst );
     if (__wine_init_unix_call()) return FALSE;
 
-    if (WINE_UNIX_CALL( unix_init, NULL ))
+    if (WINE_UNIX_CALL( unix_init, strptr ))
       return FALSE;
+
+
+    CloseHandle(CreateThread(NULL, 0, wayland_read_events_thread, NULL, 0, &tid));
 
     return TRUE;
 }

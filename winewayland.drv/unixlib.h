@@ -28,6 +28,7 @@
 enum wdrv_funcs
 {
     unix_init,
+    unix_read_events,
     unix_funcs_count
 };
 

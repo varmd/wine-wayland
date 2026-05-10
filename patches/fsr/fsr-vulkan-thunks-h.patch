@@ -1,9 +1,9 @@
 --- a/dlls/winevulkan/vulkan_thunks.h
 +++ b/dlls/winevulkan/vulkan_thunks.h
-@@ -17,6 +17,13 @@
- VkResult wine_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDevice *pDevice, void *client_ptr);
- VkResult wine_vkCreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkImage *pImage);
- VkResult wine_vkCreateInstance(const VkInstanceCreateInfo *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkInstance *pInstance, void *client_ptr);
+@@ -28,6 +28,13 @@
+ VkResult wine_vkCreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDebugUtilsMessengerEXT *pMessenger);
+ VkResult wine_vkCreateDeferredOperationKHR(VkDevice device, const VkAllocationCallbacks *pAllocator, VkDeferredOperationKHR *pDeferredOperation);
+ VkResult wine_vkCreateInstance(const VkInstanceCreateInfo *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkInstance *pInstance);
 +NTSTATUS thunk64_vkCreateSwapchainKHR(void *args);
 +NTSTATUS thunk64_vkDestroySwapchainKHR(void *args);
 +NTSTATUS thunk64_vkGetSwapchainImagesKHR(void *args);

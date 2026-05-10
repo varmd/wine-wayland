@@ -45,7 +45,7 @@
 #include "wine/debug.h"
 #include "wine/list.h"
 #include "wine/rbtree.h"
-#include "wine/heap.h"
+
 #include <wine/unixlib.h>
 
 #include "ddk/compstui.h"

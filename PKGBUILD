@@ -11,7 +11,8 @@ else
   pkgname=('wine-wayland' 'wineland' 'lib32-wine-wayland')
 fi
 
-RELEASE=10.5
+
+RELEASE=11.8
 _pkgname=('wine-wayland')
 
 
@@ -29,7 +30,7 @@ license=('LGPL')
 
 export PKGEXT='.pkg.tar.zst'
 
-#export COMPRESSZST=(zstd -10 -c -z -q - )
+export COMPRESSZST=(zstd -10 -c -z -q - )
 
 depends=(
   'adwaita-cursors'
@@ -56,6 +57,7 @@ makedepends=(
   'vulkan-headers'
   'gettext'
   'mingw-w64-gcc'
+  'upx'
 )
 
 
@@ -71,7 +73,6 @@ sha256sums=(
  #'SKIP'
 )
 
-OPTIONS=(!strip !docs !libtool !zipman !purge !debug)
 makedepends=(${makedepends[@]} ${depends[@]})
 
 
@@ -149,10 +150,17 @@ prepare() {
     rm -rf "${srcdir}"/"${_winesrcdir}"/dlls/winspool.drv
     ln -s $PWD/shims/winspool.drv "${srcdir}"/"${_winesrcdir}"/dlls/
 
+    rm -rf "${srcdir}"/"${_winesrcdir}"/dlls/shell32/resources
+    cp $PWD/shims/shell32/* "${srcdir}"/"${_winesrcdir}"/dlls/shell32/
+
 
 
 
     cd "${srcdir}"/"${_winesrcdir}"
+
+
+    msg2 "Patching broken noexec"
+    patch -Np1 -R < '../../patches/7c88a9334f371212d46fc6f62ca5d101ad431c55.patch'
 
     patch -Np1 < '../../patches/enable-wayland.patch'
 
@@ -161,55 +169,22 @@ prepare() {
 
     cd "${srcdir}"/"${_winesrcdir}"
 
-# FSYNC
-
-#    cp ../../patches/fsync/fsync-copy/ntdll/* dlls/ntdll/unix/
-#    cp ../../patches/fsync/fsync-copy/server/* server/
-
-#    cd "${srcdir}"/"${_winesrcdir}"
 
 
-#    cp ../../patches/fsync/fsync-copy/ntdll/* dlls/ntdll/unix/
-#    cp ../../patches/fsync/fsync-copy/server/* server/
-
- #   msg2 "Fsync"
-
- #   for _f in ../../patches/fsync/fsync/*.patch; do
- #     msg2 "Applying ${_f}"
- #     patch -Np1 < ${_f}
- #   done
-
- #   for _f in ../../patches/fsync/fsync/ntdll/*.patch; do
-#      msg2 "Applying ${_f}"
- #     patch -Np1 < ${_f}
- #  done
-
-
-
-#    for _f in ../../patches/fsync/misc/*.patch; do
-#      msg2 "Applying ${_f}"
-#      patch -Np1 < ${_f}
-#    done
-
-   msg2 "NTSYNC"
-
-
-   patch -Np1 < '../../patches/ntsync-7226.patch'
 
 
 
     msg2 "Applying FSR patches"
     for _f in ../../patches/fsr/*.patch; do
       msg2 "Applying ${_f}"
-      patch -Np1 < ${_f}
+     patch -Np1 < ${_f}
     done
     ln -s  $PWD/'../../patches/fsr/vulkan-fsr-include.c' dlls/winevulkan/
 
 
 
-# speed up
+# speed up minimize space
 
-#    sed -i '/programs\/explorer/d' configure.ac
     sed -i '/programs\/iexplore/d' configure.ac
     sed -i '/programs\/dxdiag/d' configure.ac
 
@@ -254,6 +229,9 @@ prepare() {
     sed -i '/programs\/pnputil/d' configure.ac
     sed -i '/programs\/ngen/d' configure.ac
 
+    sed -i '/programs\/rpcss/d' configure.ac
+    sed -i '/programs\/sort/d' configure.ac
+
     sed -i '/systeminfo/d' configure.ac
 
 
@@ -267,12 +245,15 @@ prepare() {
     sed -i '/programs\/dplaysvr/d' configure.ac
     sed -i '/programs\/winefile/d' configure.ac
     sed -i '/programs\/where/d' configure.ac
-    sed -i '/programs\/fsutil/d' configure.ac
+    #sed -i '/programs\/fsutil/d' configure.ac
+
+    #sed -i '/programs\/winevdm/d' configure.ac
 
     sed -i '/dlls\/d3d8/d' configure.ac
     sed -i '/dlls\/dxerr8/d' configure.ac
     sed -i '/dlls\/dx8vb/d' configure.ac
     sed -i '/dlls\/opencl/d' configure.ac
+    sed -i '/dlls\/xpsprint/d' configure.ac
     sed -i '/msstyles/d' configure.ac
 
     #ie stuff
@@ -333,7 +314,11 @@ prepare() {
       sed -i '/dlls\/cards/d' configure.ac
       sed -i '/dlls\/d3dx10/d' configure.ac
 
+      #xact
+      sed -i '/dlls\/xactengine2_7/d' configure.ac
+
       #d3dx9
+
       sed -i '/dlls\/d3dx9_24/d' configure.ac
       sed -i '/dlls\/d3dx9_25/d' configure.ac
       sed -i '/dlls\/d3dx9_26/d' configure.ac
@@ -341,10 +326,34 @@ prepare() {
       sed -i '/dlls\/d3dx9_28/d' configure.ac
       sed -i '/dlls\/d3dx9_29/d' configure.ac
       sed -i '/dlls\/d3dx9_30/d' configure.ac
+      sed -i '/dlls\/d3dx9_31/d' configure.ac
+      sed -i '/dlls\/d3dx9_32/d' configure.ac
+      sed -i '/dlls\/d3dx9_33/d' configure.ac
+      sed -i '/dlls\/d3dx9_34/d' configure.ac
+
       sed -i '/dlls\/d3dxcompiler_33/d' configure.ac
       sed -i '/dlls\/d3dxcompiler_34/d' configure.ac
-      sed -i '/dlls\/d3dxcompiler_35/d' configure.ac
-      sed -i '/dlls\/d3dxcompiler_36/d' configure.ac
+
+      if [ -z "${WINE_BUILD_32:-}" ]; then
+        sed -i '/dlls\/d3dx9_35/d' configure.ac
+        sed -i '/dlls\/d3dx9_36/d' configure.ac
+        sed -i '/dlls\/d3dx9_37/d' configure.ac
+        sed -i '/dlls\/d3dx9_38/d' configure.ac
+        sed -i '/dlls\/d3dx9_39/d' configure.ac
+        sed -i '/dlls\/d3dx9_40/d' configure.ac
+        sed -i '/dlls\/d3dx9_41/d' configure.ac
+        sed -i '/dlls\/d3dx9_42/d' configure.ac
+        sed -i '/dlls\/d3dcompiler_33/d' configure.ac
+        sed -i '/dlls\/d3dcompiler_34/d' configure.ac
+        sed -i '/dlls\/d3dcompiler_35/d' configure.ac
+        sed -i '/dlls\/d3dcompiler_36/d' configure.ac
+        sed -i '/dlls\/d3dcompiler_37/d' configure.ac
+        sed -i '/dlls\/d3dcompiler_38/d' configure.ac
+        #sed -i '/dlls\/d3dcompiler_39/d' configure.ac
+        sed -i '/dlls\/d3dcompiler_40/d' configure.ac
+        sed -i '/dlls\/d3dcompiler_41/d' configure.ac
+        sed -i '/dlls\/d3dcompiler_42/d' configure.ac
+      fi
 
 
       # Webservices
@@ -389,6 +398,7 @@ prepare() {
       sed -i '/irprops/d' configure.ac
       sed -i '/joy\./d' configure.ac
       sed -i '/programs\/chcp\./d' configure.ac
+      sed -i '/programs\/runas\./d' configure.ac
 
 
       ###misc dll
@@ -405,6 +415,26 @@ prepare() {
       #UI Automation Core
       sed -i '/dlls\/uiautomationcore/d' configure.ac
 
+      #Winbio
+      sed -i '/dlls\/winbio/d' configure.ac
+
+      #vccorlib140
+      sed -i '/dlls\/vccorlib140/d' configure.ac
+
+      #gameinput
+      sed -i '/dlls\/gameinput/d' configure.ac
+
+      #winbrand
+      sed -i '/dlls\/winbrand/d' configure.ac
+
+      #cryptxml
+      sed -i '/dlls\/cryptxml/d' configure.ac
+
+      #midimap
+      sed -i '/dlls\/midimap/d' configure.ac
+
+      #wnaspi32 - SCSI
+      sed -i '/dlls\/wnaspi32/d' configure.ac
 
       #.Net
       sed -i '/dlls\/diasymreader/d' configure.ac
@@ -415,13 +445,143 @@ prepare() {
       #acl
       sed -i '/acledit/d' configure.ac
 
+      #bluetooth
+      sed -i '/bluetoothapis/d' configure.ac
+
+      #Title Callable UI
+      sed -i '/gamingtcui/d' configure.ac
+
+      #UI dll ?
+      sed -i '/twinapi\.appcore/d' configure.ac
+
       #misc tools
       sed -i '/tools\/winedump/d' configure.ac
 
+      #DirectMusic
+      sed -i '/dlls\/dmsynth/d' configure.ac
+      sed -i '/libs\/fluidsynth/d' configure.ac
+
+      #16-bit
+      sed -i '/dlls\/vdmdbg/d' configure.ac
+
+      #DirectPlay
+      #sed -i '/dlls\/dplayx/d' configure.ac
+      sed -i '/dlls\/dxdiagn/d' configure.ac
+
+      #icmui
+      sed -i '/dlls\/icmui/d' configure.ac
+
+
+      #Wine 8.xx
+      sed -i '/dlls\/appxdeploymentclient/d' configure.ac
+      sed -i '/dlls\/srvsvc/d' configure.ac
+      sed -i '/dlls\/msttsengine/d' configure.ac
+      sed -i '/dlls\/dxcore/d' configure.ac
+      sed -i '/dlls\/magnification/d' configure.ac
+      sed -i '/dlls\/hvsimanagementapi/d' configure.ac
+      sed -i '/dlls\/hrtfapo/d' configure.ac
+
+
+      #Wine 9.xx
+
+      #FTDI USB D2XX
+      sed -i '/dlls\/wmilib.sys/d' configure.ac
+
+      #dataexchange
+      sed -i '/dlls\/dataexchange/d' configure.ac
+
+      #dataexchange
+      sed -i '/dlls\/xtajit64/d' configure.ac
+
+      #bcp47langs
+      sed -i '/dlls\/profapi/d' configure.ac
+
+      #windows 10/11 UWP
+      sed -i '/dlls\/windows\.security\.authentication\.onlineid/d' configure.ac
+      sed -i '/dlls\/windows\.gaming\.ui\.gamebar/d' configure.ac
+      sed -i '/dlls\/windows\.media\.playback\.backgroundmediaplayer/d' configure.ac
+      sed -i '/dlls\/windows\.media\.playback\.mediaplayer/d' configure.ac
+      sed -i '/dlls\/windows\.system\.profile\.systemid/d' configure.ac
+      sed -i '/dlls\/windows\.ui.core\.textinput/d' configure.ac
+      sed -i '/dlls\/windows\.system\.profile\.systemmanufacturers/d' configure.ac
+      sed -i '/dlls\/windows\.web/d' configure.ac
+      sed -i '/dlls\/windows\.ui/d' configure.ac
+      sed -i '/dlls\/windows\.ui\.xaml/d' configure.ac
+      sed -i '/dlls\/windows\.storage/d' configure.ac
+      sed -i '/dlls\/windows\.security\.credentials\.ui\.userconsentverifier/d' configure.ac
+      sed -i '/dlls\/windows\.devices\.bluetooth/d' configure.ac
+      sed -i '/dlls\/windows\.graphics/d' configure.ac
+      sed -i '/(dlls\/windows\.applicationmodel/d' configure.ac
+      sed -i '/(dlls\/windows\.devices\.enumeration/d' configure.ac
+      sed -i '/(dlls\/windows\.devices\.usb/d' configure.ac
+      sed -i '/(dlls\/windows\.gaming\.input/d' configure.ac
+      sed -i '/(dlls\/windows\.globalization/d' configure.ac
+      sed -i '/(dlls\/windows\.media\.devices/d' configure.ac
+      sed -i '/(dlls\/windows\.media\.mediacontrol/d' configure.ac
+      sed -i '/(dlls\/windows\.media\.speech/d' configure.ac
+      sed -i '/(dlls\/windows\.media/d' configure.ac
+      sed -i '/(dlls\/windows\.networking\.connectivity/d' configure.ac
+      sed -i '/(dlls\/windows\.networking\.hostname/d' configure.ac
+      sed -i '/(dlls\/windows\.networking/d' configure.ac
+      sed -i '/(dlls\/windows\.perception\.stub/d' configure.ac
 
 
 
 
+      #10.13
+      sed -i '/dlls\/vccorlib140/d' configure.ac
+
+
+      #10.20
+      sed -i '/dlls\/vidreszr/d' configure.ac
+      sed -i '/dlls\/msvdsp/d' configure.ac
+      sed -i '/dlls\/icuuc/d' configure.ac
+      sed -i '/dlls\/icuin/d' configure.ac
+
+      sed -i '/dlls\/inetcomm/d' configure.ac
+
+      #11.0
+      sed -i '/dlls\/twain/d' configure.ac
+      sed -i '/dlls\/sane\.ds/d' configure.ac
+      sed -i '/dlls\/gphoto\.ds/d' configure.ac
+
+
+      #11.1
+      sed -i '/dlls\/chakra/d' configure.ac
+
+      #11.2
+#      sed -i '/dlls\/iertutil/d' configure.ac
+      sed -i '/dlls\/d3dx10_33/d' configure.ac
+      sed -i '/dlls\/d3dx10_34/d' configure.ac
+      sed -i '/dlls\/d3dx10_35/d' configure.ac
+      sed -i '/dlls\/d3dx10_36/d' configure.ac
+      sed -i '/dlls\/d3dx10_37/d' configure.ac
+      sed -i '/dlls\/d3dx10_38/d' configure.ac
+      sed -i '/dlls\/d3dx10_39/d' configure.ac
+      sed -i '/dlls\/d3dx10_40/d' configure.ac
+      sed -i '/dlls\/d3dx10_41/d' configure.ac
+      sed -i '/dlls\/d3dx10_42/d' configure.ac
+      sed -i '/dlls\/d3dx10_43/d' configure.ac
+      # Causes log spam
+      sed -i '/dlls\/comctl32_v6/d' configure.ac
+      sed -i '/dlls\/odbcad32/d' configure.ac
+
+      #11.3
+      sed -i '/dlls\/cldapi/d' configure.ac
+
+      #11.4
+      sed -i '/dlls\/wminet_utils/d' configure.ac
+
+      #11.5
+      sed -i '/libs\/icucommon/d' configure.ac
+      sed -i '/libs\/icui18n/d' configure.ac
+      sed -i '/dlls\/icuin/d' configure.ac
+      sed -i '/dlls\/icuuc/d' configure.ac
+      sed -i '/dlls\/icu/d' configure.ac
+
+      #11.6
+      sed -i '/dlls\/windows.devices.radios/d' configure.ac
+      sed -i '/dlls\/iyuv_32/d' configure.ac
 
 
 
@@ -454,16 +614,19 @@ build() {
   export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:${srcdir}/sdl2-install/usr/lib/pkgconfig:/usr/lib/pkgconfig"
   export LD_LIBRARY_PATH="/usr/lib:${srcdir}/sdl2-install/usr/lib"
 
-  export CFLAGS="$CFLAGS"
+  #export CFLAGS="$CFLAGS"
 
-  CFLAGS="${CFLAGS/-Wp,-D_FORTIFY_SOURCE=2/}"
-  CFLAGS="${CFLAGS/-O2/}"
+  CFLAGS="${CFLAGS/-Wp,-D_FORTIFY_SOURCE=3/}"
+  #CFLAGS="${CFLAGS/-O2/}"
 
-  export CFLAGS="${CFLAGS/-fno-plt/} -O2 "
-  export CFLAGS="${CFLAGS/-flto/}"
-  export CFLAGS="${CFLAGS/-ffat-lto-objects/}"
+  #export CFLAGS="${CFLAGS/-fno-plt/}"
 
-  export LDFLAGS="${LDFLAGS/,-z,relro,-z,now/}"
+  #export CFLAGS="${CFLAGS/-flto/}"
+  #export CFLAGS="${CFLAGS/-ffat-lto-objects/}"
+  #export CFLAGS="${CFLAGS/-ffp-exception-behavior=maytrap/}"
+  #export CFLAGS="${CFLAGS} -fzero-init-padding-bits=unions"
+
+  #export LDFLAGS="${LDFLAGS/,-z,relro,-z,now/}"
 
   if [ -z "${WINE_BUILD_32:-}" ]; then
     I386=
@@ -495,9 +658,10 @@ build() {
     --without-xinerama \
     --without-xrandr \
     --without-sane \
-    --without-osmesa \
     --without-gettext \
     --without-fontconfig \
+    --without-krb5 \
+    --without-ffmpeg \
     --without-cups \
     --disable-win16 \
     --without-gphoto \
@@ -538,7 +702,40 @@ package_lib32-wine-wayland() {
 
   #cleanup
   rm -rf "$pkgdir"/usr/lib/wine/i386-windows/*.a
-  #i686-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/i386-windows/*.dll
+
+  #upx
+  upx "$pkgdir"/usr/lib/wine/i386-windows/shell32.dll
+  upx "$pkgdir"/usr/lib/wine/i386-windows/msxml3.dll
+  upx "$pkgdir"/usr/lib/wine/i386-windows/user32.dll
+  upx "$pkgdir"/usr/lib/wine/i386-windows/windowscodecs.dll
+
+  #Does not work
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/kernelbase.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/ntdll.dll
+
+  upx "$pkgdir"/usr/lib/wine/i386-windows/comctl32.dll
+  upx "$pkgdir"/usr/lib/wine/i386-windows/msvcp80.dll
+  upx "$pkgdir"/usr/lib/wine/i386-windows/msvcp90.dll
+  upx "$pkgdir"/usr/lib/wine/i386-windows/msvcp71.dll
+  upx "$pkgdir"/usr/lib/wine/i386-windows/msvcp70.dll
+  upx "$pkgdir"/usr/lib/wine/i386-windows/msvcp60.dll
+  upx "$pkgdir"/usr/lib/wine/i386-windows/msvcp140.dll
+  upx "$pkgdir"/usr/lib/wine/i386-windows/msvcp110.dll
+  upx "$pkgdir"/usr/lib/wine/i386-windows/msvcp100.dll
+  upx "$pkgdir"/usr/lib/wine/i386-windows/msvcp120.dll
+  upx "$pkgdir"/usr/lib/wine/i386-windows/ole32.dll
+  upx "$pkgdir"/usr/lib/wine/i386-windows/oleaut32.dll
+  upx "$pkgdir"/usr/lib/wine/i386-windows/msvcr120.dll
+  upx "$pkgdir"/usr/lib/wine/i386-windows/msvcr110.dll
+  upx "$pkgdir"/usr/lib/wine/i386-windows/msvcr100.dll
+  upx "$pkgdir"/usr/lib/wine/i386-windows/msvcr90.dll
+  upx "$pkgdir"/usr/lib/wine/i386-windows/msvcr80.dll
+
+  upx "$pkgdir"/usr/lib/wine/i386-windows/d2d1.dll
+  upx "$pkgdir"/usr/lib/wine/i386-windows/dbghelp.dll
+  upx "$pkgdir"/usr/lib/wine/i386-windows/winecfg.exe
+  upx "$pkgdir"/usr/lib/wine/i386-windows/explorer.exe
+
 
 }
 
@@ -546,7 +743,7 @@ package_lib32-wine-wayland() {
 package_wineland() {
 
   depends=(
-    'adwaita-icon-theme'
+    'adwaita-cursors'
     'fontconfig'
     'freetype2'
     'gcc-libs'
@@ -591,7 +788,7 @@ package_wine-wayland() {
 
 
   depends=(
-    'adwaita-icon-theme'
+    'adwaita-cursors'
     'fontconfig'
     'freetype2'
     'gcc-libs'
@@ -619,11 +816,51 @@ package_wine-wayland() {
   cd $pkgdir/usr/lib/wine/x86_64-unix/
   strip -s *
 
-  x86_64-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/x86_64-windows/*
+  #x86_64-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/x86_64-windows/*
+  x86_64-w64-mingw32-strip -s * "$pkgdir"/usr/lib/wine/x86_64-windows/*
+
+  #upx
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/shell32.dll
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msxml3.dll
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/user32.dll
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/windowscodecs.dll
+
+  #Does not work
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/kernelbase.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/ntdll.dll
+
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/comctl32.dll
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp80.dll
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp90.dll
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp71.dll
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp70.dll
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp60.dll
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp140.dll
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp110.dll
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp100.dll
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp120.dll
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/ole32.dll
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/oleaut32.dll
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcr120.dll
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcr110.dll
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcr100.dll
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcr90.dll
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcr80.dll
+
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/d2d1.dll
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/dbghelp.dll
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/winecfg.exe
+  upx "$pkgdir"/usr/lib/wine/x86_64-windows/explorer.exe
+
+
+  upx "$pkgdir"/usr/lib/wine/x86_64-unix/win32u.so
+
 
   if [ -z "${WINE_BUILD_32:-}" ]; then
     #msg2 "Not building wine 32"
     cp $pkgdir/usr/bin/wine $pkgdir/usr/bin/wine64
+    #rm -rf $srcdir/i386-windows/
+    #mv "$pkgdir"/usr/lib/wine/i386-windows/ $srcdir/ 2>/dev/null
   else
     cp $pkgdir/usr/bin/wine $pkgdir/usr/bin/wine64
     i686-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/i386-windows/*.dll
@@ -642,10 +879,12 @@ package_wine-wayland() {
   rm -rf $pkgdir/usr/lib/pkgconfig
   rm -rf $pkgdir/usr/share/aclocal
   rm -rf $pkgdir/usr/share/applications
-  cp --preserve=links ${srcdir}/sdl2-install/usr/lib/libSDL2* $pkgdir/usr/lib/wineland/lib/
+  cp -P ${srcdir}/sdl2-install/usr/lib/libSDL2* $pkgdir/usr/lib/wineland/lib/
 
   #cp --preserve=links ${srcdir}/alsa-lib-install/usr/lib/liba* $pkgdir/usr/lib/wineland/lib/
   rm -rf $pkgdir/usr/lib/libSDL2*
+  upx "$pkgdir"/usr/lib/wineland/lib/libSDL2-2.0.so.0.16.0
+
   rm -rf $pkgdir/usr/lib/wineland/*.a
   rm -rf $pkgdir/usr/lib/wine/x86_64-windows/*.a
   rm -rf $pkgdir/usr/lib/wine/x86_64-windows/d3d11.dll
@@ -667,6 +906,17 @@ package_wine-wayland() {
   #misc nls
   rm  $pkgdir/usr/share/wine/nls/c_949.nls
   rm  $pkgdir/usr/share/wine/nls/c_708.nls
+  rm  $pkgdir/usr/share/wine/nls/c_28594.nls
+  rm  $pkgdir/usr/share/wine/nls/c_28595.nls
+  rm  $pkgdir/usr/share/wine/nls/c_28597.nls
+  rm  $pkgdir/usr/share/wine/nls/c_28598.nls
+  rm  $pkgdir/usr/share/wine/nls/c_28599.nls
+  rm  $pkgdir/usr/share/wine/nls/icudtl.dat
+
+
+ #misc UWP
+ #! Removing this folder causes hang in setupapi
+ #rm -rf $pkgdir/usr/share/wine/winmd
 
 
 }

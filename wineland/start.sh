@@ -1,13 +1,13 @@
 #
-# Copyright 2020-2024 varmd
+# Copyright 2020-2026 varmd
 #
 
-WINE_VK_DXVK_VERSION="2.6.1"
-WINE_WAYLAND_VERSION="10.5"
-VKD3D_VERSION="2.14.1"
+WINE_VK_DXVK_VERSION="2.7.1"
+WINE_WAYLAND_VERSION="11.8"
+VKD3D_VERSION="3.0.1"
 
-MANGOHUD_URL="/v0.8.1/MangoHud-0.8.1.r0.gfea4292.tar.gz"
-MANGOHUD_VERSION="MangoHud-0.8.1"
+MANGOHUD_URL="/v0.8.3/MangoHud-0.8.3.r0.g330c42a.tar.gz"
+MANGOHUD_VERSION="MangoHud-0.8.3"
 WINE_WAYLAND_TAG_NUM="3"
 
 #for i in $(ls -d */); do echo ${i%%/}; done
@@ -213,54 +213,7 @@ if [[ "$USE_LOCAL_WINE" ]]; then
   rm -rf $PWD_PATH/winebin/usr/share/fonts/*fon
 fi
 
-#local wine
-if [ -d $PWD_PATH/winebin ]; then
 
-  #check for noexec and copy winebin so games still work with noexec for ~/.local/share/wineland
-  GAME_PART=`df -P $PWD_PATH/winebin/usr/bin/$WINE_CMD | tail -1 | cut -d' ' -f 1`
-  GAME_NOEXEC=`cat /proc/mounts | grep $GAME_PART | grep noexec`
-
-  TMP_NOEXEC=`cat /proc/mounts | grep \/tmp | grep noexec`
-  HOME_NOEXEC=`cat /proc/mounts | grep \/home | grep noexec`
-
-  EXEC_LIB="$PWD_PATH/winebin/usr/lib:"
-
-  rm -rf $HOME/.cache/wineland /tmp/wineland
-  mkdir -p /tmp/wineland/ $HOME/.cache/wineland/
-
-  if [[ "$GAME_NOEXEC" ]]; then
-    echo "noexec detected, copying wine files to /tmp or ~/.cache"
-
-    EXEC_LIB=""
-
-
-    if [[ "$TMP_NOEXEC" ]]; then
-      if [[ "$HOME_NOEXEC" ]]; then
-        echo "noexec on both /tmp and /home detected. Please enable \
-          exec permissions or install wine-wayland as a root user."
-        exit;
-      else #home cache
-        cp -r $PWD_PATH/winebin $HOME/.cache/wineland/
-        NOEXEC_BIN_PATH="$HOME/.cache/wineland/winebin/usr/bin:"
-        NOEXEC_LIB_PATH="$HOME/.cache/wineland/winebin/usr/lib:"
-
-
-      fi
-    else #tmp
-      cp -r $PWD_PATH/winebin /tmp/wineland
-      NOEXEC_BIN_PATH="/tmp/wineland/winebin/usr/bin:"
-      NOEXEC_LIB_PATH="/tmp/wineland/winebin/usr/lib:"
-    fi
-
-  fi
-
-
-  mkdir -p /tmp/wineland/ $HOME/.cache/wineland/
-  export LD_LIBRARY_PATH="${NOEXEC_LIB_PATH}${EXEC_LIB}$LD_LIBRARY_PATH"
-  export PATH="${NOEXEC_BIN_PATH}$PWD_PATH/winebin/usr/bin:$PATH"
-
-
-fi
 
 
 cd "$PWD_PATH"
@@ -341,6 +294,66 @@ else
 
 
 fi
+
+
+
+#local wine
+if [ -d $PWD_PATH/winebin ]; then
+
+  #check for noexec and copy winebin so games still work with noexec for ~/.local/share/wineland
+  GAME_PART=`df -P $PWD_PATH/winebin/usr/bin/$WINE_CMD | tail -1 | cut -d' ' -f 1`
+  GAME_NOEXEC=`cat /proc/mounts | grep $GAME_PART | grep noexec`
+
+  TMP_NOEXEC=`cat /proc/mounts | grep \/tmp | grep noexec`
+  HOME_NOEXEC=`cat /proc/mounts | grep \/home | grep noexec`
+
+  EXEC_LIB="$PWD_PATH/winebin/usr/lib:"
+
+  rm -rf $HOME/.cache/wineland /tmp/wineland
+  mkdir -p /tmp/wineland/ $HOME/.cache/wineland/
+
+  if [[ -z "$IS_64_EXE" ]]; then
+    #"32bit wine"
+    ARCHPATH="syswow64"
+  else
+    ARCHPATH="system32"
+  fi
+
+  if [[ "$GAME_NOEXEC" ]]; then
+    echo "noexec detected, copying wine files to /tmp or ~/.cache"
+
+
+
+    EXEC_LIB=""
+
+    if [[ "$TMP_NOEXEC" ]]; then
+      if [[ "$HOME_NOEXEC" ]]; then
+        echo "noexec on both /tmp and /home detected. Please enable \
+          exec permissions or install wine-wayland as a root user."
+        exit;
+      else #home cache
+        cp -r $PWD_PATH/winebin $HOME/.cache/wineland/
+
+        NOEXEC_BIN_PATH="$HOME/.cache/wineland/winebin/usr/bin:"
+        NOEXEC_LIB_PATH="$HOME/.cache/wineland/winebin/usr/lib:"
+      fi
+    else #tmp
+
+      cp -r $PWD_PATH/winebin /tmp/wineland
+
+      NOEXEC_BIN_PATH="/tmp/wineland/winebin/usr/bin:"
+      NOEXEC_LIB_PATH="/tmp/wineland/winebin/usr/lib:"
+    fi
+
+  fi # no exec
+
+
+  mkdir -p /tmp/wineland/ $HOME/.cache/wineland/
+  export LD_LIBRARY_PATH="${NOEXEC_LIB_PATH}${EXEC_LIB}$LD_LIBRARY_PATH"
+  export PATH="${NOEXEC_BIN_PATH}$PWD_PATH/winebin/usr/bin:$PATH"
+
+fi # -local wine
+
 
 if [[ -z "$REFRESH_DXVK" ]]; then
   echo -n ""

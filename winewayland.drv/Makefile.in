@@ -1,9 +1,12 @@
 MODULE    = winewayland.drv
 UNIXLIB   = winewayland.so
-IMPORTS =
+IMPORTS = user32
 DELAYIMPORTS =
+
 UNIX_CFLAGS = -I/usr/include/libdrm -I/usr/include/
 UNIX_LIBS = -lwin32u -lm -lwayland-client -lwayland-cursor -lpthread
+
+VER_FILEDESCRIPTION_STR = "Wine Wayland driver"
 
 SOURCES = \
 	dllmain.c \
@@ -13,5 +16,3 @@ SOURCES = \
   wayland-protocols/relative-pointer-unstable-v1-protocol.c \
   wayland-protocols/xdg-shell-protocol.c \
 	xinerama.c
-
-RC_SRCS = version.rc

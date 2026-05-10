@@ -136,34 +136,46 @@ EXEC_LIB="$PWD_PATH/winebin/usr/lib:"
 rm -rf $HOME/.cache/wineland /tmp/wineland
 mkdir -p /tmp/wineland/ $HOME/.cache/wineland/
 
-  if [[ "$GAME_NOEXEC" ]]; then
-    echo "noexec detected, copying wine files to /tmp or ~/.cache"
+if [[ -z "$IS_64_EXE" ]]; then
+  #"32bit wine"
+  ARCHPATH="syswow64"
+else
+  ARCHPATH="system32"
+fi
 
-    EXEC_LIB=""
+if [[ "$GAME_NOEXEC" ]]; then
+  echo "noexec detected, copying wine files to /tmp or ~/.cache"
 
-    if [[ "$TMP_NOEXEC" ]]; then
-      if [[ "$HOME_NOEXEC" ]]; then
-        echo "noexec on both /tmp and /home detected. Please enable \
-          exec permissions or install wine-wayland as a root user."
-        exit;
-      else #home cache
-        cp -r $PWD_PATH/winebin $HOME/.cache/wineland/
-        NOEXEC_BIN_PATH="$HOME/.cache/wineland/winebin/usr/bin:"
-        NOEXEC_LIB_PATH="$HOME/.cache/wineland/winebin/usr/lib:"
-      fi
-    else #tmp
-      cp -r $PWD_PATH/winebin /tmp/wineland
-      NOEXEC_BIN_PATH="/tmp/wineland/winebin/usr/bin:"
-      NOEXEC_LIB_PATH="/tmp/wineland/winebin/usr/lib:"
+
+  EXEC_LIB=""
+
+  if [[ "$TMP_NOEXEC" ]]; then
+    if [[ "$HOME_NOEXEC" ]]; then
+      echo "noexec on both /tmp and /home detected. Please enable \
+        exec permissions or install wine-wayland as a root user."
+      exit;
+    else #home cache
+      cp -r $PWD_PATH/winebin $HOME/.cache/wineland/
+
+      NOEXEC_BIN_PATH="$HOME/.cache/wineland/winebin/usr/bin:"
+      NOEXEC_LIB_PATH="$HOME/.cache/wineland/winebin/usr/lib:"
     fi
+  else #tmp
 
+    cp -r $PWD_PATH/winebin /tmp/wineland
+
+    NOEXEC_BIN_PATH="/tmp/wineland/winebin/usr/bin:"
+    NOEXEC_LIB_PATH="/tmp/wineland/winebin/usr/lib:"
   fi
 
+fi
+# no exec
 
-  mkdir -p /tmp/wineland/ $HOME/.cache/wineland/
 
-  export LD_LIBRARY_PATH="${NOEXEC_LIB_PATH}${EXEC_LIB}$LD_LIBRARY_PATH"
-  export PATH="${NOEXEC_BIN_PATH}$PWD_PATH/winebin/usr/bin:$PATH"
+
+
+export LD_LIBRARY_PATH="${NOEXEC_LIB_PATH}${EXEC_LIB}$LD_LIBRARY_PATH"
+export PATH="${NOEXEC_BIN_PATH}$PWD_PATH/winebin/usr/bin:$PATH"
 
 
 
@@ -223,7 +235,7 @@ cd $PWD_PATH/wine/drive_c/"$GAME_PATHNAME"/$FINAL_PATH
 
 
 #export variables before starting exe
-export WINEDEBUG=fixme-all,-all,+waylanddrv
+#export WINEDEBUG=fixme-all,-all,+waylanddrv
 
 echo "Launching $1"
 $WINE_CMD $FINAL_EXE $GAME_OPTIONS  &> $LOG_PATH

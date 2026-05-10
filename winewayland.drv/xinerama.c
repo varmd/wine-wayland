@@ -55,7 +55,6 @@ static struct screen_size {
     {1366,  768},
     {1600,  900},
     {1706, 960},
-//    {2048, 1536}, //TODO broken with FSR
     {2560, 1440},
     {3840, 2160}
 };
@@ -135,19 +134,52 @@ void fsr_set_real_mode(int width, int height)
 
 void fsr_set_current_mode(int width, int height)
 {
-  TRACE("fsr_set_current_mode %d %d \n", width, height);
+  int current = -1;
+  //TRACE("fsr_set_current_mode %d %d \n", width, height);
   for (int i=0; i < ARRAY_SIZE(screen_sizes); i++)
   {
       if(screen_sizes[i].width == width &&
               screen_sizes[i].height == height)
       {
         global_current_mode = i;
+        current = i;
         fsr_set_sizes(i);
-        break;
+        return;
      }
   }
+  //try to match for windowed mode due to games not liking borderless change
+  if(current == -1) {
+    for (int i=0; i < ARRAY_SIZE(screen_sizes); i++)
+    {
+        if( (
+           (width > screen_sizes[i].width - 30) &&
+          (width < screen_sizes[i].width + 30)
+         )
+          && (
+          (height > screen_sizes[i].height - 30) &&
+          (height < screen_sizes[i].height + 30)
+         )
+        )
+        {
+          global_current_mode = i;
+          current = i;
+          fsr_set_sizes(i);
+          break;
+       }
+    }
+  }
+
+}
 
 
+
+int fsr_get_width()
+{
+  return screen_sizes[global_current_mode].width;
+}
+int fsr_get_height()
+{
+  return screen_sizes[global_current_mode].height;
 }
 
 BOOL fsr_matches_real_mode(int w, int h)
@@ -328,7 +360,7 @@ UINT WAYLANDDRV_UpdateDisplayDevices( const struct gdi_device_manager *device_ma
   if (!(modes = malloc(ARRAY_SIZE(screen_sizes) * 2 * sizeof(*modes))))
     return FALSE;
 
-  device_manager->add_gpu("Wine GPU", &pci_id, NULL, param);
+  device_manager->add_gpu(NULL, &pci_id, NULL, param);
 
   device_manager->add_source( "Default Source", state_flags, dpi, param);
   desktop_add_monitors(device_manager, param);
