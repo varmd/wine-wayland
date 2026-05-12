@@ -57,7 +57,7 @@ makedepends=(
   'vulkan-headers'
   'gettext'
   'mingw-w64-gcc'
-  #'upx'
+
 )
 
 
@@ -65,7 +65,7 @@ source=(
   "https://github.com/wine-mirror/wine/archive/wine-$RELEASE.zip"
   "https://github.com/civetweb/civetweb/archive/v1.15.tar.gz"
   "https://github.com/libsdl-org/SDL/archive/refs/tags/release-2.0.16.zip"
-  "https://github.com/upx/upx/releases/download/v5.1.1/upx-5.1.1-src.tar.xz"
+
 
 )
 
@@ -77,20 +77,7 @@ sha256sums=(
 makedepends=(${makedepends[@]} ${depends[@]})
 
 
-build_upx() {
-  cd "${srcdir}"
-  cd $(find . -maxdepth 1 -type d -name "*upx*" | sed 1q)
-  make -C . \
-    CHECK_WHITESPACE=/bin/true \
-    CXXFLAGS_WERROR="" \
-    UPX_CMAKE_CONFIG_FLAGS='-DUPX_CONFIG_DISABLE_SELF_PACK_TEST=1 -DPX_CONFIG_DISABLE_EXHAUSTIVE_TESTS=1 -DUPX_CONFIG_DISABLE_GITREV=1 -D UPX_CONFIG_DISABLE_SANITIZE=1 -D UPX_CONFIG_DISABLE_WERROR=1'
 
-
-  cd "${srcdir}"
-  cd $(find . -maxdepth 1 -type d -name "*upx*" | sed 1q)
-  cp build/release/upx "${srcdir}"/upx
-
-}
 
 
 build_sdl2() {
@@ -624,7 +611,7 @@ build() {
     msg2 "Also building wine32"
   fi
 
-  build_upx
+
 
   #build sdl2 here to avoid x11 dependencies from official archlinux sdl2
   build_sdl2
@@ -718,7 +705,7 @@ package_lib32-wine-wayland() {
 
 
 
-  UPX="${srcdir}"/upx
+
 
   mkdir -p $pkgdir/usr/lib/wine
   mv $srcdir/i386-windows "$pkgdir"/usr/lib/wine/i386-windows/
@@ -728,38 +715,7 @@ package_lib32-wine-wayland() {
 
 
 
-  #upx
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/shell32.dll
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/msxml3.dll
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/user32.dll
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/windowscodecs.dll
 
-  #Does not work
-  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/kernelbase.dll
-  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/ntdll.dll
-
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/comctl32.dll
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/msvcp80.dll
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/msvcp90.dll
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/msvcp71.dll
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/msvcp70.dll
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/msvcp60.dll
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/msvcp140.dll
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/msvcp110.dll
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/msvcp100.dll
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/msvcp120.dll
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/ole32.dll
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/oleaut32.dll
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/msvcr120.dll
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/msvcr110.dll
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/msvcr100.dll
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/msvcr90.dll
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/msvcr80.dll
-
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/d2d1.dll
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/dbghelp.dll
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/winecfg.exe
-  $UPX "$pkgdir"/usr/lib/wine/i386-windows/explorer.exe
 
 
 }
@@ -847,41 +803,11 @@ package_wine-wayland() {
 
   x86_64-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/x86_64-windows/*
 
-  #upx
-  UPX="${srcdir}"/upx
 
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/shell32.dll
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/msxml3.dll
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/user32.dll
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/windowscodecs.dll
 
-  #Does not work
-  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/kernelbase.dll
-  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/ntdll.dll
 
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/comctl32.dll
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp80.dll
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp90.dll
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp71.dll
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp70.dll
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp60.dll
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp140.dll
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp110.dll
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp100.dll
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp120.dll
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/ole32.dll
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/oleaut32.dll
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/msvcr120.dll
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/msvcr110.dll
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/msvcr100.dll
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/msvcr90.dll
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/msvcr80.dll
 
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/d2d1.dll
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/dbghelp.dll
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/winecfg.exe
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-windows/explorer.exe
-  $UPX "$pkgdir"/usr/lib/wine/x86_64-unix/win32u.so
+
 
 
   if [ -z "${WINE_BUILD_32:-}" ]; then
@@ -911,7 +837,7 @@ package_wine-wayland() {
 
   #cp --preserve=links ${srcdir}/alsa-lib-install/usr/lib/liba* $pkgdir/usr/lib/wineland/lib/
   rm -rf $pkgdir/usr/lib/libSDL2*
-  $UPX "$pkgdir"/usr/lib/wineland/lib/libSDL2-2.0.so.0.16.0
+
 
   rm -rf $pkgdir/usr/lib/wineland/*.a
   rm -rf $pkgdir/usr/lib/wine/x86_64-windows/*.a
