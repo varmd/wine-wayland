@@ -175,6 +175,15 @@ Then in the terminal run sh start-your-game.sh
 
 ### Changelog
 
+#### Release 11.8
+
+ * Update to Wine 11.8
+ * Update FSR to Wine 11.8
+ * Update DXVK, VKD3D, Mangohud
+ * Reduce installation size to 89MB for 64-bit and 88MB for 32-bit.
+ * Misc fixes and improvements
+
+
 #### Release 10.5
 
  * Update to Wine 10.5
