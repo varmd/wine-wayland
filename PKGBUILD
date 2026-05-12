@@ -71,7 +71,7 @@ source=(
 
 sha256sums=(
  'SKIP' 'SKIP' 'SKIP'
- 'SKIP'
+
 )
 
 makedepends=(${makedepends[@]} ${depends[@]})
