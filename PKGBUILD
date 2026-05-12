@@ -817,7 +817,10 @@ package_wine-wayland() {
   strip -s *
 
   #x86_64-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/x86_64-windows/*
-  x86_64-w64-mingw32-strip -s * "$pkgdir"/usr/lib/wine/x86_64-windows/*
+  #Breaks wine with mingw 16
+  #x86_64-w64-mingw32-strip -s "$pkgdir"/usr/lib/wine/x86_64-windows/*
+
+  x86_64-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/x86_64-windows/*
 
   #upx
   upx "$pkgdir"/usr/lib/wine/x86_64-windows/shell32.dll
