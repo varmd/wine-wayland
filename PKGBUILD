@@ -25,7 +25,7 @@ pkgdesc='Wine wayland'
 url=''
 arch=('x86_64')
 
-options=('!staticlibs' '!docs' '!debug' '!lto')
+options=('!staticlibs' '!docs' '!debug' '!lto' '!strip')
 license=('LGPL')
 
 export PKGEXT='.pkg.tar.zst'
@@ -823,40 +823,38 @@ package_wine-wayland() {
   x86_64-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/x86_64-windows/*
 
   #upx
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/shell32.dll
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msxml3.dll
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/user32.dll
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/windowscodecs.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/shell32.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/msxml3.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/user32.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/windowscodecs.dll
 
   #Does not work
   #upx "$pkgdir"/usr/lib/wine/x86_64-windows/kernelbase.dll
   #upx "$pkgdir"/usr/lib/wine/x86_64-windows/ntdll.dll
 
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/comctl32.dll
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp80.dll
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp90.dll
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp71.dll
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp70.dll
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp60.dll
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp140.dll
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp110.dll
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp100.dll
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp120.dll
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/ole32.dll
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/oleaut32.dll
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcr120.dll
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcr110.dll
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcr100.dll
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcr90.dll
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcr80.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/comctl32.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp80.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp90.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp71.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp70.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp60.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp140.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp110.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp100.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcp120.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/ole32.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/oleaut32.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcr120.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcr110.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcr100.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcr90.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/msvcr80.dll
 
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/d2d1.dll
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/dbghelp.dll
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/winecfg.exe
-  upx "$pkgdir"/usr/lib/wine/x86_64-windows/explorer.exe
-
-
-  upx "$pkgdir"/usr/lib/wine/x86_64-unix/win32u.so
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/d2d1.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/dbghelp.dll
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/winecfg.exe
+  #upx "$pkgdir"/usr/lib/wine/x86_64-windows/explorer.exe
+  #upx "$pkgdir"/usr/lib/wine/x86_64-unix/win32u.so
 
 
   if [ -z "${WINE_BUILD_32:-}" ]; then

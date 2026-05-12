@@ -8,7 +8,7 @@ VKD3D_VERSION="3.0.1"
 
 MANGOHUD_URL="/v0.8.3/MangoHud-0.8.3.r0.g330c42a.tar.gz"
 MANGOHUD_VERSION="MangoHud-0.8.3"
-WINE_WAYLAND_TAG_NUM="2"
+WINE_WAYLAND_TAG_NUM="3"
 
 #for i in $(ls -d */); do echo ${i%%/}; done
 #for i in $(set -- */; printf "%s\n" "${@%/}");
